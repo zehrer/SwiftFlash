@@ -100,8 +100,7 @@ class DriveDetectionService: ObservableObject {
         // Must be removable and ejectable (typical USB drive characteristics)
         guard let isRemovable = resourceValues.volumeIsRemovable,
               let isEjectable = resourceValues.volumeIsEjectable,
-              let isLocal = resourceValues.volumeIsLocal,
-              let isReadOnly = resourceValues.volumeIsReadOnly else {
+              let isLocal = resourceValues.volumeIsLocal else {
             return (isValid: false, isReadOnly: false)
         }
         
@@ -109,6 +108,10 @@ class DriveDetectionService: ObservableObject {
         guard isRemovable && isEjectable && isLocal else {
             return (isValid: false, isReadOnly: false)
         }
+        
+        // Note: We don't check volumeIsReadOnly here because it refers to filesystem writability
+        // not device writability. A drive with an unknown filesystem (like Linux) will show
+        // as "not writable" but the device itself can still be overwritten for flashing.
         
         // Skip system volumes and known non-USB paths
         if mountPoint.hasPrefix("/System") || 
@@ -152,8 +155,8 @@ class DriveDetectionService: ObservableObject {
         }
         
         // Additional check: verify it's actually a USB device using diskutil
-        let isUSB = isPhysicalUSBDevice(devicePath: devicePath)
-        return (isValid: isUSB, isReadOnly: isReadOnly)
+        let deviceCheck = isPhysicalUSBDevice(devicePath: devicePath)
+        return (isValid: deviceCheck.isValid, isReadOnly: deviceCheck.isReadOnly)
     }
     
     private func getDevicePath(for mountPoint: String) -> String? {
@@ -191,7 +194,7 @@ class DriveDetectionService: ObservableObject {
         return nil
     }
     
-    private func isPhysicalUSBDevice(devicePath: String) -> Bool {
+    private func isPhysicalUSBDevice(devicePath: String) -> (isValid: Bool, isReadOnly: Bool) {
         // Use diskutil to get detailed information about the device
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
@@ -212,6 +215,7 @@ class DriveDetectionService: ObservableObject {
                 var hasUSBInterface = false
                 var isRemovable = false
                 var isEjectable = false
+                var isReadOnly = false
                 
                 for line in lines {
                     let lowercasedLine = line.lowercased()
@@ -231,24 +235,30 @@ class DriveDetectionService: ObservableObject {
                         isEjectable = true
                     }
                     
+                    // Check for read-only device (like CD-ROM, write-protected)
+                    if lowercasedLine.contains("read-only media:") && lowercasedLine.contains("yes") {
+                        isReadOnly = true
+                    }
+                    
                     // Exclude if it's a Time Machine backup or sparse bundle
                     if lowercasedLine.contains("timemachine") ||
                        lowercasedLine.contains("sparsebundle") ||
                        lowercasedLine.contains("virtual") ||
                        lowercasedLine.contains("dmg") {
-                        return false
+                        return (isValid: false, isReadOnly: false)
                     }
                 }
                 
                 // Must have USB interface and be removable/ejectable
-                return hasUSBInterface && isRemovable && isEjectable
+                let isValid = hasUSBInterface && isRemovable && isEjectable
+                return (isValid: isValid, isReadOnly: isReadOnly)
             }
         } catch {
             // If diskutil fails, be conservative and exclude the device
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
-        return false
+        return (isValid: false, isReadOnly: false)
     }
 }
 
