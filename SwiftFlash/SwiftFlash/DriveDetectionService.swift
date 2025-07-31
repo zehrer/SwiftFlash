@@ -7,6 +7,9 @@
 
 import Foundation
 import Combine
+import IOKit
+import IOKit.storage
+import IOKit.usb
 
 @MainActor
 class DriveDetectionService: ObservableObject {
@@ -49,48 +52,40 @@ class DriveDetectionService: ObservableObject {
     private func detectDrives() async -> [Drive] {
         var drives: [Drive] = []
         
-        print("🔍 [DEBUG] Starting drive detection...")
+        print("🔍 [DEBUG] Starting drive detection using IOKit...")
         
-        // Get all disk devices using diskutil list
-        let devices = getDiskDevices()
-        print("🔍 [DEBUG] Found \(devices.count) disk devices")
+        // Get all USB storage devices using IOKit
+        let devices = getUSBStorageDevices()
+        print("🔍 [DEBUG] Found \(devices.count) USB storage devices")
         
-        for (index, devicePath) in devices.enumerated() {
-            print("\n🔍 [DEBUG] Checking device \(index + 1): \(devicePath)")
+        for (index, deviceInfo) in devices.enumerated() {
+            print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
+            print("✅ [DEBUG] Device: \(deviceInfo.name)")
+            print("   📍 Device path: \(deviceInfo.devicePath)")
+            print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
+            print("   🔄 Removable: \(deviceInfo.isRemovable)")
+            print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
+            print("   🔌 Protocol: \(deviceInfo.connectionProtocol)")
+            print("   📝 Read-only: \(deviceInfo.isReadOnly)")
             
-            // Get detailed information about this device
-            let deviceInfo = getDeviceInfo(devicePath: devicePath)
+            // Check if this is a valid USB drive for flashing
+            print("🔍 [DEBUG] Running USB drive validation...")
+            let driveCheck = isUSBDevice(deviceInfo: deviceInfo)
             
-            if let info = deviceInfo {
-                print("✅ [DEBUG] Device: \(devicePath)")
-                print("   📍 Device path: \(devicePath)")
-                print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: info.size, countStyle: .file))")
-                print("   🔄 Removable: \(info.isRemovable)")
-                print("   ⏏️ Ejectable: \(info.isEjectable)")
-                print("   🔌 Protocol: \(info.connectionProtocol)")
-                print("   📝 Read-only: \(info.isReadOnly)")
+            if driveCheck.isValid {
+                print("✅ [DEBUG] Device \(deviceInfo.name) is a valid USB drive (read-only: \(driveCheck.isReadOnly))")
                 
-                // Check if this is a valid USB drive
-                print("🔍 [DEBUG] Running USB drive validation...")
-                let driveCheck = isUSBDevice(deviceInfo: info)
-                
-                if driveCheck.isValid {
-                    print("✅ [DEBUG] Device \(devicePath) is a valid USB drive (read-only: \(driveCheck.isReadOnly))")
-                    
-                    let drive = Drive(
-                        name: info.name,
-                        mountPoint: devicePath, // Use device path instead of mount point
-                        size: info.size,
-                        isRemovable: true,
-                        isSystemDrive: false,
-                        isReadOnly: driveCheck.isReadOnly
-                    )
-                    drives.append(drive)
-                } else {
-                    print("❌ [DEBUG] Device \(devicePath) is NOT a valid USB drive")
-                }
+                let drive = Drive(
+                    name: deviceInfo.name,
+                    mountPoint: deviceInfo.devicePath,
+                    size: deviceInfo.size,
+                    isRemovable: true,
+                    isSystemDrive: false,
+                    isReadOnly: driveCheck.isReadOnly
+                )
+                drives.append(drive)
             } else {
-                print("❌ [DEBUG] Failed to get device info for \(devicePath)")
+                print("❌ [DEBUG] Device \(deviceInfo.name) is NOT a valid USB drive")
             }
         }
         
@@ -313,6 +308,7 @@ class DriveDetectionService: ObservableObject {
 
 struct DeviceInfo {
     let name: String
+    let devicePath: String
     let size: Int64
     let isRemovable: Bool
     let isEjectable: Bool
@@ -320,144 +316,81 @@ struct DeviceInfo {
     let isReadOnly: Bool
 }
 
-// MARK: - Device Detection Functions
+// MARK: - IOKit Device Detection Functions
 
 extension DriveDetectionService {
     
-    /// Gets all disk devices using diskutil list
-    private func getDiskDevices() -> [String] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["list"]
+    /// Gets all USB storage devices using IOKit
+    private func getUSBStorageDevices() -> [DeviceInfo] {
+        var devices: [DeviceInfo] = []
         
-        let pipe = Pipe()
-        process.standardOutput = pipe
+        // Create a matching dictionary for USB storage devices
+        let matchingDict = IOServiceMatching(kIOMediaClass) as NSMutableDictionary
+        matchingDict["Removable"] = true
+        matchingDict["Ejectable"] = true
         
-        var devices: [String] = []
+        // Get an iterator for all matching devices
+        var iterator: io_iterator_t = 0
+        let result = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iterator)
         
-        do {
-            try process.run()
-            process.waitUntilExit()
+        guard result == kIOReturnSuccess else {
+            print("❌ [DEBUG] Failed to get IOKit services: \(result)")
+            return devices
+        }
+        
+        defer {
+            IOObjectRelease(iterator)
+        }
+        
+        var service = IOIteratorNext(iterator)
+        while service != 0 {
+            defer {
+                IOObjectRelease(service)
+                service = IOIteratorNext(iterator)
+            }
             
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                print("🔍 [DEBUG] diskutil list output:")
-                print(output)
-                
-                let lines = output.components(separatedBy: .newlines)
-                
-                for line in lines {
-                    // Look for lines that start with /dev/disk
-                    if line.contains("/dev/disk") {
-                        let components = line.components(separatedBy: " ")
-                        for component in components {
-                            if component.hasPrefix("/dev/disk") {
-                                devices.append(component)
-                                break
-                            }
-                        }
-                    }
+            if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
+                // Only include USB devices
+                if deviceInfo.connectionProtocol.lowercased().contains("usb") {
+                    devices.append(deviceInfo)
                 }
             }
-        } catch {
-            print("❌ [DEBUG] diskutil list failed with error: \(error)")
         }
         
         return devices
     }
     
-    /// Gets detailed information about a specific device
-    private func getDeviceInfo(devicePath: String) -> DeviceInfo? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["info", devicePath]
+    /// Gets detailed information about a specific IOKit device
+    private func getDeviceInfoFromIOKit(service: io_object_t) -> DeviceInfo? {
+        // Get device properties
+        var properties: Unmanaged<CFMutableDictionary>?
+        let result = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
         
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                print("🔍 [DEBUG] diskutil info for \(devicePath):")
-                print(output)
-                
-                return parseDeviceInfo(output: output, devicePath: devicePath)
-            }
-        } catch {
-            print("❌ [DEBUG] diskutil info failed with error: \(error)")
+        guard result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] else {
+            print("❌ [DEBUG] Failed to get device properties")
+            return nil
         }
         
-        return nil
-    }
-    
-    /// Parses diskutil info output into DeviceInfo struct
-    private func parseDeviceInfo(output: String, devicePath: String) -> DeviceInfo? {
-        let lines = output.components(separatedBy: .newlines)
+        // Extract device information
+        let name = getDeviceName(from: props) ?? "Unknown Device"
+        let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
+        let size = getDeviceSize(from: props)
+        let isRemovable = props["Removable"] as? Bool ?? false
+        let isEjectable = props["Ejectable"] as? Bool ?? false
+        let connectionProtocol = getConnectionProtocol(from: props)
+        let isReadOnly = props["Writable"] as? Bool == false
         
-        var name = "Unknown Device"
-        var size: Int64 = 0
-        var isRemovable = false
-        var isEjectable = false
-        var connectionProtocol = "Unknown"
-        var isReadOnly = false
-        
-        for line in lines {
-            let lowercasedLine = line.lowercased()
-            
-            // Device name
-            if line.contains("Device / Media Name:") {
-                let components = line.components(separatedBy: ":")
-                if components.count > 1 {
-                    name = components[1].trimmingCharacters(in: .whitespaces)
-                }
-            }
-            
-            // Size
-            if line.contains("Total Size:") {
-                let components = line.components(separatedBy: ":")
-                if components.count > 1 {
-                    let sizeString = components[1].trimmingCharacters(in: .whitespaces)
-                    // Parse size like "15.6 GB (15,728,640,000 Bytes)"
-                    if let byteRange = sizeString.range(of: "\\(([0-9,]+) Bytes\\)") {
-                        let byteString = String(sizeString[byteRange])
-                            .replacingOccurrences(of: "(", with: "")
-                            .replacingOccurrences(of: ")", with: "")
-                            .replacingOccurrences(of: " Bytes", with: "")
-                            .replacingOccurrences(of: ",", with: "")
-                        size = Int64(byteString) ?? 0
-                    }
-                }
-            }
-            
-            // Removable
-            if lowercasedLine.contains("removable media:") && lowercasedLine.contains("yes") {
-                isRemovable = true
-            }
-            
-            // Ejectable
-            if lowercasedLine.contains("ejectable:") && lowercasedLine.contains("yes") {
-                isEjectable = true
-            }
-            
-            // Protocol
-            if lowercasedLine.contains("protocol:") {
-                let components = line.components(separatedBy: ":")
-                if components.count > 1 {
-                    connectionProtocol = components[1].trimmingCharacters(in: .whitespaces)
-                }
-            }
-            
-            // Read-only
-            if lowercasedLine.contains("read-only media:") && lowercasedLine.contains("yes") {
-                isReadOnly = true
-            }
-        }
+        print("🔍 [DEBUG] IOKit device: \(name)")
+        print("   📍 Device path: \(devicePath)")
+        print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
+        print("   🔄 Removable: \(isRemovable)")
+        print("   ⏏️ Ejectable: \(isEjectable)")
+        print("   🔌 Protocol: \(connectionProtocol)")
+        print("   📝 Read-only: \(isReadOnly)")
         
         return DeviceInfo(
             name: name,
+            devicePath: devicePath,
             size: size,
             isRemovable: isRemovable,
             isEjectable: isEjectable,
@@ -466,7 +399,54 @@ extension DriveDetectionService {
         )
     }
     
-    /// Checks if a device is a valid USB drive
+    /// Extracts device name from IOKit properties
+    private func getDeviceName(from props: [String: Any]) -> String? {
+        // Try different property keys for device name
+        if let name = props["Media Name"] as? String, !name.isEmpty {
+            return name
+        }
+        if let name = props["Product Name"] as? String, !name.isEmpty {
+            return name
+        }
+        if let name = props["USB Product Name"] as? String, !name.isEmpty {
+            return name
+        }
+        return nil
+    }
+    
+    /// Extracts device path from IOKit properties
+    private func getDevicePath(from props: [String: Any]) -> String? {
+        // Get the BSD device name
+        if let bsdName = props["BSD Name"] as? String {
+            return "/dev/\(bsdName)"
+        }
+        return nil
+    }
+    
+    /// Extracts device size from IOKit properties
+    private func getDeviceSize(from props: [String: Any]) -> Int64 {
+        if let size = props["Media Size"] as? Int64 {
+            return size
+        }
+        return 0
+    }
+    
+    /// Extracts connection protocol from IOKit properties
+    private func getConnectionProtocol(from props: [String: Any]) -> String {
+        // Check for USB-specific properties
+        if props["USB Vendor Name"] != nil || props["USB Product Name"] != nil {
+            return "USB"
+        }
+        
+        // Check for other connection types
+        if let protocolType = props["Protocol Characteristics"] as? String {
+            return protocolType
+        }
+        
+        return "Unknown"
+    }
+    
+    /// Checks if a device is a valid USB drive for flashing
     private func isUSBDevice(deviceInfo: DeviceInfo) -> (isValid: Bool, isReadOnly: Bool) {
         print("🔍 [DEBUG] isUSBDevice() - Checking: \(deviceInfo.name)")
         
