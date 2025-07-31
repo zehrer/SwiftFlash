@@ -51,84 +51,128 @@ class DriveDetectionService: ObservableObject {
         
         // Get mounted volumes
         let fileManager = FileManager.default
-        let mountedVolumes = fileManager.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey, .volumeTotalCapacityKey], options: [])
+        let mountedVolumes = fileManager.mountedVolumeURLs(includingResourceValuesForKeys: [
+            .volumeNameKey, 
+            .volumeTotalCapacityKey,
+            .volumeIsRemovableKey,
+            .volumeIsEjectableKey,
+            .volumeIsLocalKey,
+            .volumeIsReadOnlyKey
+        ], options: [])
         
         for volumeURL in mountedVolumes ?? [] {
-            guard let volumeName = try? volumeURL.resourceValues(forKeys: [.volumeNameKey]).volumeName,
-                  let totalCapacity = try? volumeURL.resourceValues(forKeys: [.volumeTotalCapacityKey]).volumeTotalCapacity else {
+            guard let resourceValues = try? volumeURL.resourceValues(forKeys: [
+                .volumeNameKey, 
+                .volumeTotalCapacityKey,
+                .volumeIsRemovableKey,
+                .volumeIsEjectableKey,
+                .volumeIsLocalKey,
+                .volumeIsReadOnlyKey
+            ]),
+            let volumeName = resourceValues.volumeName,
+            let totalCapacity = resourceValues.volumeTotalCapacity else {
                 continue
             }
             
             let mountPoint = volumeURL.path
-            let isRemovable = isRemovableDrive(at: mountPoint)
-            let isSystemDrive = isSystemDrive(at: mountPoint)
             
-            // Only include removable drives that are not system drives
-            if isRemovable && !isSystemDrive {
-                let drive = Drive(
-                    name: volumeName,
-                    mountPoint: mountPoint,
-                    size: Int64(totalCapacity),
-                    isRemovable: isRemovable,
-                    isSystemDrive: isSystemDrive
-                )
-                drives.append(drive)
+            // Check if this is a valid USB drive
+            guard isUSBDrive(resourceValues: resourceValues, mountPoint: mountPoint) else {
+                continue
             }
+            
+            let drive = Drive(
+                name: volumeName,
+                mountPoint: mountPoint,
+                size: Int64(totalCapacity),
+                isRemovable: true,
+                isSystemDrive: false
+            )
+            drives.append(drive)
         }
         
         return drives
     }
     
-    private func isRemovableDrive(at mountPoint: String) -> Bool {
-        // More robust check for removable drives
-        
-        // Skip system volumes and network drives
-        if mountPoint.hasPrefix("/System") || 
-           mountPoint.hasPrefix("/Volumes/Data") ||
-           mountPoint.hasPrefix("/private/var") ||
-           mountPoint.hasPrefix("/tmp") {
+    private func isUSBDrive(resourceValues: URLResourceValues, mountPoint: String) -> Bool {
+        // Must be removable and ejectable (typical USB drive characteristics)
+        guard let isRemovable = resourceValues.volumeIsRemovable,
+              let isEjectable = resourceValues.volumeIsEjectable,
+              let isLocal = resourceValues.volumeIsLocal,
+              let isReadOnly = resourceValues.volumeIsReadOnly else {
             return false
         }
         
-        // Check if it's a mounted volume that's not the root filesystem
-        if mountPoint.hasPrefix("/Volumes/") && mountPoint != "/" {
-            // Additional check: try to get volume properties
-            let volumeURL = URL(fileURLWithPath: mountPoint)
-            if let resourceValues = try? volumeURL.resourceValues(forKeys: [.volumeIsRemovableKey]),
-               let isRemovable = resourceValues.volumeIsRemovable {
-                return isRemovable
-            }
-            
-            // Fallback: if we can't determine, assume it's removable if it's in /Volumes/
-            return true
+        // Must be removable, ejectable, and local (not network)
+        guard isRemovable && isEjectable && isLocal else {
+            return false
         }
         
-        return false
-    }
-    
-    private func isSystemDrive(at mountPoint: String) -> Bool {
-        // Check if this is the system drive
-        let systemDrive = "/System/Volumes/Data"
-        let rootDrive = "/"
+        // Must be writable (not read-only)
+        guard !isReadOnly else {
+            return false
+        }
         
-        // Check for system-related paths
-        if mountPoint == systemDrive || 
-           mountPoint == rootDrive || 
-           mountPoint.hasPrefix("/System") ||
+        // Skip system volumes and known non-USB paths
+        if mountPoint.hasPrefix("/System") || 
+           mountPoint.hasPrefix("/Volumes/Data") ||
            mountPoint.hasPrefix("/private/var") ||
            mountPoint.hasPrefix("/tmp") ||
            mountPoint.hasPrefix("/usr") ||
            mountPoint.hasPrefix("/bin") ||
-           mountPoint.hasPrefix("/sbin") {
-            return true
+           mountPoint.hasPrefix("/sbin") ||
+           mountPoint == "/" {
+            return false
         }
         
-        // Check if it's the boot volume
-        if let bootVolume = ProcessInfo.processInfo.environment["BOOT_VOLUME"] {
-            return mountPoint.hasPrefix(bootVolume)
+        // Must be in /Volumes/ (standard mount point for external drives)
+        guard mountPoint.hasPrefix("/Volumes/") else {
+            return false
         }
         
-        return false
+        // Additional check: try to get the device path to verify it's a physical USB device
+        if let devicePath = getDevicePath(for: mountPoint) {
+            // Check if it's a USB device (typically starts with /dev/disk)
+            return devicePath.hasPrefix("/dev/disk") && !devicePath.contains("virtual")
+        }
+        
+        // If we can't determine the device path, rely on the volume properties
+        return true
+    }
+    
+    private func getDevicePath(for mountPoint: String) -> String? {
+        // Use diskutil to get the device path for a mount point
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["info", mountPoint]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                // Look for the device identifier
+                let lines = output.components(separatedBy: .newlines)
+                for line in lines {
+                    if line.contains("Device Identifier:") {
+                        let parts = line.components(separatedBy: ":")
+                        if parts.count > 1 {
+                            let deviceId = parts[1].trimmingCharacters(in: .whitespaces)
+                            return "/dev/\(deviceId)"
+                        }
+                    }
+                }
+            }
+        } catch {
+            // If diskutil fails, we'll fall back to the volume properties
+            return nil
+        }
+        
+        return nil
     }
 }
 
