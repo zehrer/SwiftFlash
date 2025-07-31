@@ -137,7 +137,10 @@ struct ContentView: View {
                                         isSelected: selectedDrive?.id == drive.id
                                     )
                                     .onTapGesture {
-                                        selectedDrive = drive
+                                        // Don't allow selection of read-only drives
+                                        if !drive.isReadOnly {
+                                            selectedDrive = drive
+                                        }
                                     }
                                 }
                             }
@@ -206,14 +209,34 @@ struct DriveRowView: View {
             
             // Drive info
             VStack(alignment: .leading, spacing: 4) {
-                Text(drive.displayName)
-                    .font(.headline)
-                    .lineLimit(1)
-                    .foregroundColor(isSelected ? .white : .primary)
+                HStack {
+                    Text(drive.displayName)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .foregroundColor(isSelected ? .white : .primary)
+                    
+                    if drive.isReadOnly {
+                        Image(systemName: "lock.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
                 
-                Text(drive.formattedSize)
-                    .font(.subheadline)
-                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                HStack {
+                    Text(drive.formattedSize)
+                        .font(.subheadline)
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                    
+                    if drive.isReadOnly {
+                        Text("Read-only")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                }
             }
             
             Spacer()

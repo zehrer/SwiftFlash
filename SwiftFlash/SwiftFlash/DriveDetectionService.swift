@@ -77,7 +77,8 @@ class DriveDetectionService: ObservableObject {
             let mountPoint = volumeURL.path
             
             // Check if this is a valid USB drive
-            guard isUSBDrive(resourceValues: resourceValues, mountPoint: mountPoint) else {
+            let driveCheck = isUSBDrive(resourceValues: resourceValues, mountPoint: mountPoint)
+            guard driveCheck.isValid else {
                 continue
             }
             
@@ -86,7 +87,8 @@ class DriveDetectionService: ObservableObject {
                 mountPoint: mountPoint,
                 size: Int64(totalCapacity),
                 isRemovable: true,
-                isSystemDrive: false
+                isSystemDrive: false,
+                isReadOnly: driveCheck.isReadOnly
             )
             drives.append(drive)
         }
@@ -94,23 +96,18 @@ class DriveDetectionService: ObservableObject {
         return drives
     }
     
-    private func isUSBDrive(resourceValues: URLResourceValues, mountPoint: String) -> Bool {
+    private func isUSBDrive(resourceValues: URLResourceValues, mountPoint: String) -> (isValid: Bool, isReadOnly: Bool) {
         // Must be removable and ejectable (typical USB drive characteristics)
         guard let isRemovable = resourceValues.volumeIsRemovable,
               let isEjectable = resourceValues.volumeIsEjectable,
               let isLocal = resourceValues.volumeIsLocal,
               let isReadOnly = resourceValues.volumeIsReadOnly else {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Must be removable, ejectable, and local (not network)
         guard isRemovable && isEjectable && isLocal else {
-            return false
-        }
-        
-        // Must be writable (not read-only)
-        guard !isReadOnly else {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Skip system volumes and known non-USB paths
@@ -122,12 +119,12 @@ class DriveDetectionService: ObservableObject {
            mountPoint.hasPrefix("/bin") ||
            mountPoint.hasPrefix("/sbin") ||
            mountPoint == "/" {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Must be in /Volumes/ (standard mount point for external drives)
         guard mountPoint.hasPrefix("/Volumes/") else {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Skip Time Machine backup volumes and other known non-USB volumes
@@ -138,12 +135,12 @@ class DriveDetectionService: ObservableObject {
            volumeName.lowercased().contains("dmg") ||
            volumeName.lowercased().contains("iso") ||
            volumeName.lowercased().contains("virtual") {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // REQUIRED: Must have a valid device path to be considered a USB drive
         guard let devicePath = getDevicePath(for: mountPoint) else {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Must be a physical disk device (not virtual, not Time Machine, etc.)
@@ -151,11 +148,12 @@ class DriveDetectionService: ObservableObject {
               !devicePath.contains("virtual") &&
               !devicePath.contains("timemachine") &&
               !devicePath.contains("sparsebundle") else {
-            return false
+            return (isValid: false, isReadOnly: false)
         }
         
         // Additional check: verify it's actually a USB device using diskutil
-        return isPhysicalUSBDevice(devicePath: devicePath)
+        let isUSB = isPhysicalUSBDevice(devicePath: devicePath)
+        return (isValid: isUSB, isReadOnly: isReadOnly)
     }
     
     private func getDevicePath(for mountPoint: String) -> String? {

@@ -14,6 +14,7 @@ struct Drive: Identifiable, Hashable {
     let size: Int64
     let isRemovable: Bool
     let isSystemDrive: Bool
+    let isReadOnly: Bool
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()

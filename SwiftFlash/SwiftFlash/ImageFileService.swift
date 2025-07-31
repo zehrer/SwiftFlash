@@ -68,6 +68,12 @@ class ImageFileService: ObservableObject {
     }
     
     func validateImageForDrive(_ image: ImageFile, drive: Drive) -> Bool {
+        // Check if drive is read-only
+        if drive.isReadOnly {
+            errorMessage = "Cannot flash to read-only drive. Please use a writable USB drive."
+            return false
+        }
+        
         // Check if image size is larger than drive capacity
         if image.size > drive.size {
             errorMessage = "Image file (\(image.formattedSize)) is larger than drive capacity (\(drive.formattedSize))"
@@ -75,7 +81,6 @@ class ImageFileService: ObservableObject {
         }
         
         // Additional validation could be added here
-        // - Check if drive is writable
         // - Check if image is corrupted
         // - Check available space
         
