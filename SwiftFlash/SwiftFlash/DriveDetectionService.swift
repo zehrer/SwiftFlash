@@ -130,14 +130,32 @@ class DriveDetectionService: ObservableObject {
             return false
         }
         
-        // Additional check: try to get the device path to verify it's a physical USB device
-        if let devicePath = getDevicePath(for: mountPoint) {
-            // Check if it's a USB device (typically starts with /dev/disk)
-            return devicePath.hasPrefix("/dev/disk") && !devicePath.contains("virtual")
+        // Skip Time Machine backup volumes and other known non-USB volumes
+        let volumeName = mountPoint.components(separatedBy: "/").last ?? ""
+        if volumeName.lowercased().contains("timemachine") ||
+           volumeName.lowercased().contains("backup") ||
+           volumeName.lowercased().contains("sparsebundle") ||
+           volumeName.lowercased().contains("dmg") ||
+           volumeName.lowercased().contains("iso") ||
+           volumeName.lowercased().contains("virtual") {
+            return false
         }
         
-        // If we can't determine the device path, rely on the volume properties
-        return true
+        // REQUIRED: Must have a valid device path to be considered a USB drive
+        guard let devicePath = getDevicePath(for: mountPoint) else {
+            return false
+        }
+        
+        // Must be a physical disk device (not virtual, not Time Machine, etc.)
+        guard devicePath.hasPrefix("/dev/disk") && 
+              !devicePath.contains("virtual") &&
+              !devicePath.contains("timemachine") &&
+              !devicePath.contains("sparsebundle") else {
+            return false
+        }
+        
+        // Additional check: verify it's actually a USB device using diskutil
+        return isPhysicalUSBDevice(devicePath: devicePath)
     }
     
     private func getDevicePath(for mountPoint: String) -> String? {
@@ -173,6 +191,66 @@ class DriveDetectionService: ObservableObject {
         }
         
         return nil
+    }
+    
+    private func isPhysicalUSBDevice(devicePath: String) -> Bool {
+        // Use diskutil to get detailed information about the device
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["info", devicePath]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let lines = output.components(separatedBy: .newlines)
+                
+                // Check for USB-specific characteristics
+                var hasUSBInterface = false
+                var isRemovable = false
+                var isEjectable = false
+                
+                for line in lines {
+                    let lowercasedLine = line.lowercased()
+                    
+                    // Check for USB interface
+                    if lowercasedLine.contains("protocol:") && lowercasedLine.contains("usb") {
+                        hasUSBInterface = true
+                    }
+                    
+                    // Check for removable media
+                    if lowercasedLine.contains("removable media:") && lowercasedLine.contains("yes") {
+                        isRemovable = true
+                    }
+                    
+                    // Check for ejectable
+                    if lowercasedLine.contains("ejectable:") && lowercasedLine.contains("yes") {
+                        isEjectable = true
+                    }
+                    
+                    // Exclude if it's a Time Machine backup or sparse bundle
+                    if lowercasedLine.contains("timemachine") ||
+                       lowercasedLine.contains("sparsebundle") ||
+                       lowercasedLine.contains("virtual") ||
+                       lowercasedLine.contains("dmg") {
+                        return false
+                    }
+                }
+                
+                // Must have USB interface and be removable/ejectable
+                return hasUSBInterface && isRemovable && isEjectable
+            }
+        } catch {
+            // If diskutil fails, be conservative and exclude the device
+            return false
+        }
+        
+        return false
     }
 }
 
