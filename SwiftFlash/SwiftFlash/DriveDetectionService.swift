@@ -51,64 +51,46 @@ class DriveDetectionService: ObservableObject {
         
         print("🔍 [DEBUG] Starting drive detection...")
         
-        // Get mounted volumes
-        let fileManager = FileManager.default
-        let mountedVolumes = fileManager.mountedVolumeURLs(includingResourceValuesForKeys: [
-            .volumeNameKey, 
-            .volumeTotalCapacityKey,
-            .volumeIsRemovableKey,
-            .volumeIsEjectableKey,
-            .volumeIsLocalKey,
-            .volumeIsReadOnlyKey
-        ], options: [])
+        // Get all disk devices using diskutil list
+        let devices = getDiskDevices()
+        print("🔍 [DEBUG] Found \(devices.count) disk devices")
         
-        print("🔍 [DEBUG] Found \(mountedVolumes?.count ?? 0) mounted volumes")
-        
-        for (index, volumeURL) in (mountedVolumes ?? []).enumerated() {
-            print("\n🔍 [DEBUG] Checking volume \(index + 1): \(volumeURL.path)")
+        for (index, devicePath) in devices.enumerated() {
+            print("\n🔍 [DEBUG] Checking device \(index + 1): \(devicePath)")
             
-            guard let resourceValues = try? volumeURL.resourceValues(forKeys: [
-                .volumeNameKey, 
-                .volumeTotalCapacityKey,
-                .volumeIsRemovableKey,
-                .volumeIsEjectableKey,
-                .volumeIsLocalKey,
-                .volumeIsReadOnlyKey
-            ]),
-            let volumeName = resourceValues.volumeName,
-            let totalCapacity = resourceValues.volumeTotalCapacity else {
-                print("❌ [DEBUG] Failed to get resource values for \(volumeURL.path)")
-                continue
-            }
+            // Get detailed information about this device
+            let deviceInfo = getDeviceInfo(devicePath: devicePath)
             
-            print("✅ [DEBUG] Volume: \(volumeName)")
-            print("   📍 Mount point: \(volumeURL.path)")
-            print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: Int64(totalCapacity), countStyle: .file))")
-            print("   🔄 Removable: \(resourceValues.volumeIsRemovable ?? false)")
-            print("   ⏏️ Ejectable: \(resourceValues.volumeIsEjectable ?? false)")
-            print("   🏠 Local: \(resourceValues.volumeIsLocal ?? false)")
-            print("   📝 Read-only: \(resourceValues.volumeIsReadOnly ?? false)")
-            
-            let mountPoint = volumeURL.path
-            
-            // Check if this is a valid USB drive
-            print("🔍 [DEBUG] Running USB drive validation...")
-            let driveCheck = isUSBDrive(resourceValues: resourceValues, mountPoint: mountPoint)
-            
-            if driveCheck.isValid {
-                print("✅ [DEBUG] Volume \(volumeName) is a valid USB drive (read-only: \(driveCheck.isReadOnly))")
+            if let info = deviceInfo {
+                print("✅ [DEBUG] Device: \(devicePath)")
+                print("   📍 Device path: \(devicePath)")
+                print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: info.size, countStyle: .file))")
+                print("   🔄 Removable: \(info.isRemovable)")
+                print("   ⏏️ Ejectable: \(info.isEjectable)")
+                print("   🔌 Protocol: \(info.connectionProtocol)")
+                print("   📝 Read-only: \(info.isReadOnly)")
                 
-                let drive = Drive(
-                    name: volumeName,
-                    mountPoint: mountPoint,
-                    size: Int64(totalCapacity),
-                    isRemovable: true,
-                    isSystemDrive: false,
-                    isReadOnly: driveCheck.isReadOnly
-                )
-                drives.append(drive)
+                // Check if this is a valid USB drive
+                print("🔍 [DEBUG] Running USB drive validation...")
+                let driveCheck = isUSBDevice(deviceInfo: info)
+                
+                if driveCheck.isValid {
+                    print("✅ [DEBUG] Device \(devicePath) is a valid USB drive (read-only: \(driveCheck.isReadOnly))")
+                    
+                    let drive = Drive(
+                        name: info.name,
+                        mountPoint: devicePath, // Use device path instead of mount point
+                        size: info.size,
+                        isRemovable: true,
+                        isSystemDrive: false,
+                        isReadOnly: driveCheck.isReadOnly
+                    )
+                    drives.append(drive)
+                } else {
+                    print("❌ [DEBUG] Device \(devicePath) is NOT a valid USB drive")
+                }
             } else {
-                print("❌ [DEBUG] Volume \(volumeName) is NOT a valid USB drive")
+                print("❌ [DEBUG] Failed to get device info for \(devicePath)")
             }
         }
         
@@ -324,6 +306,190 @@ class DriveDetectionService: ObservableObject {
         
         print("❌ [DEBUG] No diskutil output or parsing failed")
         return (isValid: false, isReadOnly: false)
+    }
+}
+
+// MARK: - Device Info Structure
+
+struct DeviceInfo {
+    let name: String
+    let size: Int64
+    let isRemovable: Bool
+    let isEjectable: Bool
+    let connectionProtocol: String
+    let isReadOnly: Bool
+}
+
+// MARK: - Device Detection Functions
+
+extension DriveDetectionService {
+    
+    /// Gets all disk devices using diskutil list
+    private func getDiskDevices() -> [String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["list"]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        var devices: [String] = []
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                print("🔍 [DEBUG] diskutil list output:")
+                print(output)
+                
+                let lines = output.components(separatedBy: .newlines)
+                
+                for line in lines {
+                    // Look for lines that start with /dev/disk
+                    if line.contains("/dev/disk") {
+                        let components = line.components(separatedBy: " ")
+                        for component in components {
+                            if component.hasPrefix("/dev/disk") {
+                                devices.append(component)
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("❌ [DEBUG] diskutil list failed with error: \(error)")
+        }
+        
+        return devices
+    }
+    
+    /// Gets detailed information about a specific device
+    private func getDeviceInfo(devicePath: String) -> DeviceInfo? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["info", devicePath]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                print("🔍 [DEBUG] diskutil info for \(devicePath):")
+                print(output)
+                
+                return parseDeviceInfo(output: output, devicePath: devicePath)
+            }
+        } catch {
+            print("❌ [DEBUG] diskutil info failed with error: \(error)")
+        }
+        
+        return nil
+    }
+    
+    /// Parses diskutil info output into DeviceInfo struct
+    private func parseDeviceInfo(output: String, devicePath: String) -> DeviceInfo? {
+        let lines = output.components(separatedBy: .newlines)
+        
+        var name = "Unknown Device"
+        var size: Int64 = 0
+        var isRemovable = false
+        var isEjectable = false
+        var connectionProtocol = "Unknown"
+        var isReadOnly = false
+        
+        for line in lines {
+            let lowercasedLine = line.lowercased()
+            
+            // Device name
+            if line.contains("Device / Media Name:") {
+                let components = line.components(separatedBy: ":")
+                if components.count > 1 {
+                    name = components[1].trimmingCharacters(in: .whitespaces)
+                }
+            }
+            
+            // Size
+            if line.contains("Total Size:") {
+                let components = line.components(separatedBy: ":")
+                if components.count > 1 {
+                    let sizeString = components[1].trimmingCharacters(in: .whitespaces)
+                    // Parse size like "15.6 GB (15,728,640,000 Bytes)"
+                    if let byteRange = sizeString.range(of: "\\(([0-9,]+) Bytes\\)") {
+                        let byteString = String(sizeString[byteRange])
+                            .replacingOccurrences(of: "(", with: "")
+                            .replacingOccurrences(of: ")", with: "")
+                            .replacingOccurrences(of: " Bytes", with: "")
+                            .replacingOccurrences(of: ",", with: "")
+                        size = Int64(byteString) ?? 0
+                    }
+                }
+            }
+            
+            // Removable
+            if lowercasedLine.contains("removable media:") && lowercasedLine.contains("yes") {
+                isRemovable = true
+            }
+            
+            // Ejectable
+            if lowercasedLine.contains("ejectable:") && lowercasedLine.contains("yes") {
+                isEjectable = true
+            }
+            
+            // Protocol
+            if lowercasedLine.contains("protocol:") {
+                let components = line.components(separatedBy: ":")
+                if components.count > 1 {
+                    connectionProtocol = components[1].trimmingCharacters(in: .whitespaces)
+                }
+            }
+            
+            // Read-only
+            if lowercasedLine.contains("read-only media:") && lowercasedLine.contains("yes") {
+                isReadOnly = true
+            }
+        }
+        
+        return DeviceInfo(
+            name: name,
+            size: size,
+            isRemovable: isRemovable,
+            isEjectable: isEjectable,
+            connectionProtocol: connectionProtocol,
+            isReadOnly: isReadOnly
+        )
+    }
+    
+    /// Checks if a device is a valid USB drive
+    private func isUSBDevice(deviceInfo: DeviceInfo) -> (isValid: Bool, isReadOnly: Bool) {
+        print("🔍 [DEBUG] isUSBDevice() - Checking: \(deviceInfo.name)")
+        
+        // Must be removable and ejectable
+        guard deviceInfo.isRemovable && deviceInfo.isEjectable else {
+            print("❌ [DEBUG] Device is not removable or ejectable")
+            return (isValid: false, isReadOnly: false)
+        }
+        
+        // Must be USB protocol
+        guard deviceInfo.connectionProtocol.lowercased().contains("usb") else {
+            print("❌ [DEBUG] Device protocol is not USB: \(deviceInfo.connectionProtocol)")
+            return (isValid: false, isReadOnly: false)
+        }
+        
+        // Skip if it's read-only media (like CD-ROM)
+        if deviceInfo.isReadOnly {
+            print("⚠️ [DEBUG] Device is read-only media")
+            return (isValid: true, isReadOnly: true)
+        }
+        
+        print("✅ [DEBUG] Device is a valid USB device")
+        return (isValid: true, isReadOnly: false)
     }
 }
 
