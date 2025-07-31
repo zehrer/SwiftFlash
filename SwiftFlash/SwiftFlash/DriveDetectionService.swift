@@ -324,7 +324,7 @@ extension DriveDetectionService {
     private func getUSBStorageDevices() -> [DeviceInfo] {
         var devices: [DeviceInfo] = []
         
-        // Create a matching dictionary for USB storage devices
+        // Create a matching dictionary for removable storage devices
         let matchingDict = IOServiceMatching(kIOMediaClass) as NSMutableDictionary
         matchingDict["Removable"] = true
         matchingDict["Ejectable"] = true
@@ -350,8 +350,8 @@ extension DriveDetectionService {
             }
             
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
-                // Only include USB devices
-                if deviceInfo.connectionProtocol.lowercased().contains("usb") {
+                // Check if this is a USB device by traversing up the device tree
+                if isUSBDevice(service: service) {
                     devices.append(deviceInfo)
                 }
             }
@@ -388,6 +388,12 @@ extension DriveDetectionService {
         print("   🔌 Protocol: \(connectionProtocol)")
         print("   📝 Read-only: \(isReadOnly)")
         
+        // Debug: Print all available properties for troubleshooting
+        print("   🔍 [DEBUG] Available properties:")
+        for (key, value) in props {
+            print("      \(key): \(value)")
+        }
+        
         return DeviceInfo(
             name: name,
             devicePath: devicePath,
@@ -411,6 +417,12 @@ extension DriveDetectionService {
         if let name = props["USB Product Name"] as? String, !name.isEmpty {
             return name
         }
+        if let name = props["Device Name"] as? String, !name.isEmpty {
+            return name
+        }
+        if let name = props["IOUserClass"] as? String, !name.isEmpty {
+            return name
+        }
         return nil
     }
     
@@ -425,10 +437,81 @@ extension DriveDetectionService {
     
     /// Extracts device size from IOKit properties
     private func getDeviceSize(from props: [String: Any]) -> Int64 {
+        // Try different property keys for device size
         if let size = props["Media Size"] as? Int64 {
             return size
         }
+        if let size = props["Size"] as? Int64 {
+            return size
+        }
+        if let size = props["Total Size"] as? Int64 {
+            return size
+        }
+        if let size = props["Capacity"] as? Int64 {
+            return size
+        }
         return 0
+    }
+    
+    /// Checks if a device is connected via USB by traversing up the device tree
+    private func isUSBDevice(service: io_object_t) -> Bool {
+        var currentService = service
+        
+        // Traverse up the device tree to find USB controllers
+        while currentService != 0 {
+            defer {
+                if currentService != service {
+                    IOObjectRelease(currentService)
+                }
+            }
+            
+            // Get the parent device
+            var parentService: io_object_t = 0
+            let result = IORegistryEntryGetParentEntry(currentService, kIOServicePlane, &parentService)
+            
+            if result == kIOReturnSuccess {
+                // Check if this parent is a USB device
+                if isUSBController(service: parentService) {
+                    return true
+                }
+                
+                // Move up to the parent
+                IOObjectRelease(currentService)
+                currentService = parentService
+            } else {
+                // No more parents, this is not a USB device
+                break
+            }
+        }
+        
+        return false
+    }
+    
+    /// Checks if a service is a USB controller or USB device
+    private func isUSBController(service: io_object_t) -> Bool {
+        var properties: Unmanaged<CFMutableDictionary>?
+        let result = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
+        
+        guard result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] else {
+            return false
+        }
+        
+        // Check for USB-specific properties
+        if props["USB Vendor Name"] != nil || 
+           props["USB Product Name"] != nil ||
+           props["USB Vendor Id"] != nil ||
+           props["USB Product Id"] != nil {
+            return true
+        }
+        
+        // Check for USB controller class
+        if let userClass = props["IOUserClass"] as? String {
+            if userClass.lowercased().contains("usb") {
+                return true
+            }
+        }
+        
+        return false
     }
     
     /// Extracts connection protocol from IOKit properties
