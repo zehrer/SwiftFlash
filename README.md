@@ -12,4 +12,8 @@ Built with SwiftUI and Swift 6, SwiftFlash aims to be a minimal, safe, and open-
 - Built-in safety checks to prevent flashing to the wrong disk
 - Open Source (MIT License)
 
+
+### Coding Rules
+- The code shall have comments on function level and for key steps in the function. 
+
 ⚡️ Simple. Safe. Swift.
