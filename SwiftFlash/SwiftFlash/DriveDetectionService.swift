@@ -522,24 +522,25 @@ extension DriveDetectionService {
         
         print("🔍 [DEBUG] Checking if device is main device: \(devicePath)")
         
-        // Skip if it's a partition (contains 's' followed by numbers)
+        // Check if it's a partition (ends with 's' followed by numbers)
         if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
             print("❌ [DEBUG] Device \(devicePath) is a partition - excluding")
             return false
         }
         
-        // Skip if it's a slice (contains 's' followed by numbers)
-        if devicePath.contains("s") && devicePath.components(separatedBy: "s").count > 1 {
-            let lastComponent = devicePath.components(separatedBy: "s").last ?? ""
-            if Int(lastComponent) != nil {
-                print("❌ [DEBUG] Device \(devicePath) is a slice - excluding")
+        // Check if it's a slice (contains 's' followed by numbers in the middle)
+        let components = devicePath.components(separatedBy: "s")
+        if components.count > 1 {
+            // Check if the last component is a number (indicating a partition)
+            if let lastComponent = components.last, Int(lastComponent) != nil {
+                print("❌ [DEBUG] Device \(devicePath) is a slice/partition - excluding")
                 return false
             }
         }
         
-        // Additional check: skip if it contains any partition indicators
-        if devicePath.contains("s") {
-            print("❌ [DEBUG] Device \(devicePath) contains partition indicator 's' - excluding")
+        // Check if it's a nested partition (contains multiple 's' like disk3s1s1)
+        if devicePath.components(separatedBy: "s").count > 2 {
+            print("❌ [DEBUG] Device \(devicePath) is a nested partition - excluding")
             return false
         }
         
