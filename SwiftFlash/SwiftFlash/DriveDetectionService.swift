@@ -187,7 +187,7 @@ extension DriveDetectionService {
     
     /// Extracts device name from IOKit properties
     private func getDeviceName(from props: [String: Any]) -> String? {
-        // Try different property keys for device name
+        // Try different property keys for device name in order of preference
         if let name = props["Media Name"] as? String, !name.isEmpty {
             return name
         }
@@ -197,9 +197,24 @@ extension DriveDetectionService {
         if let name = props["Device Name"] as? String, !name.isEmpty {
             return name
         }
+        if let name = props["USB Product Name"] as? String, !name.isEmpty {
+            return name
+        }
+        if let name = props["USB Vendor Name"] as? String, !name.isEmpty {
+            return name
+        }
         if let name = props["IOUserClass"] as? String, !name.isEmpty {
             return name
         }
+        
+        // Debug: Print all available properties to help identify the correct key
+        print("🔍 [DEBUG] Available name-related properties:")
+        for (key, value) in props {
+            if key.lowercased().contains("name") || key.lowercased().contains("product") || key.lowercased().contains("vendor") {
+                print("   \(key): \(value)")
+            }
+        }
+        
         return nil
     }
     
