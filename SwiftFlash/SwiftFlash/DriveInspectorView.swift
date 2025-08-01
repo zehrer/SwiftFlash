@@ -14,7 +14,7 @@ struct DriveInspectorView: View {
                 Divider()
             }
             
-            // Drive name
+            // Display name
             VStack(alignment: .leading, spacing: 4) {
                 Text("Display Name")
                     .font(.caption)
@@ -24,16 +24,14 @@ struct DriveInspectorView: View {
                     .fontWeight(.medium)
             }
             
-            // Original name (if different from display name)
-            if drive.name != drive.displayName {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Original Name")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(drive.name)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                }
+            // Media Name (from Disk Arbitration)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Media Name")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(drive.name.isEmpty ? "No name" : drive.name)
+                    .font(.body)
+                    .foregroundColor(drive.name.isEmpty ? .red : .secondary)
             }
             
             // Size
