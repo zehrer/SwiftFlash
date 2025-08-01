@@ -9,15 +9,12 @@ import Foundation
 import Combine
 import IOKit
 import IOKit.storage
-import IOKit.usb
 
 @MainActor
 class DriveDetectionService: ObservableObject {
     @Published var drives: [Drive] = []
     @Published var isScanning = false
-    
-    private var mountedVolumes: Set<String> = []
-    
+
     init() {
         refreshDrives()
     }
@@ -26,19 +23,7 @@ class DriveDetectionService: ObservableObject {
         // Cleanup will be added when DiskArbitration is re-enabled
     }
     
-    private func setupDiskArbitration() {
-        // Temporarily disabled for compilation
-        // session = DASessionCreate(kCFAllocatorDefault)
-        // guard let session = session else { return }
-        // 
-        // DASessionSetDispatchQueue(session, DispatchQueue.main)
-        // DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue as CFString)
-        // 
-        // // Register callbacks for disk appearance and disappearance
-        // DARegisterDiskAppearedCallback(session, nil, diskAppearedCallback, Unmanaged.passUnretained(self).toOpaque())
-        // DARegisterDiskDisappearedCallback(session, nil, diskDisappearedCallback, Unmanaged.passUnretained(self).toOpaque())
-    }
-    
+    /// Refreshes the list of available drives
     func refreshDrives() {
         isScanning = true
         
@@ -49,258 +34,55 @@ class DriveDetectionService: ObservableObject {
         }
     }
     
+    /// Detects all external storage devices that can be used for flashing
     private func detectDrives() async -> [Drive] {
         var drives: [Drive] = []
         
-        print("🔍 [DEBUG] Starting drive detection using IOKit...")
+        print("🔍 [DEBUG] Starting external drive detection...")
         
-        // Get all USB storage devices using IOKit
-        let devices = getUSBStorageDevices()
-        print("🔍 [DEBUG] Found \(devices.count) USB storage devices")
+        // Get all external storage devices using IOKit
+        let devices = getExternalStorageDevices()
+        print("🔍 [DEBUG] Found \(devices.count) external storage devices")
+        
+        // Get the system boot device to exclude it
+        let systemBootDevice = getSystemBootDevice()
+        print("🔍 [DEBUG] System boot device: \(systemBootDevice)")
         
         for (index, deviceInfo) in devices.enumerated() {
             print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
-            print("✅ [DEBUG] Device: \(deviceInfo.name)")
             print("   📍 Device path: \(deviceInfo.devicePath)")
             print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
             print("   🔄 Removable: \(deviceInfo.isRemovable)")
             print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
-            print("   🔌 Protocol: \(deviceInfo.connectionProtocol)")
             print("   📝 Read-only: \(deviceInfo.isReadOnly)")
             
-            // Check if this is a valid USB drive for flashing
-            print("🔍 [DEBUG] Running USB drive validation...")
-            let driveCheck = isUSBDevice(deviceInfo: deviceInfo)
+            // Check if this is the system boot device
+            let isSystemDrive = deviceInfo.devicePath == systemBootDevice
             
-            if driveCheck.isValid {
-                print("✅ [DEBUG] Device \(deviceInfo.name) is a valid USB drive (read-only: \(driveCheck.isReadOnly))")
-                
-                let drive = Drive(
-                    name: deviceInfo.name,
-                    mountPoint: deviceInfo.devicePath,
-                    size: deviceInfo.size,
-                    isRemovable: true,
-                    isSystemDrive: false,
-                    isReadOnly: driveCheck.isReadOnly
-                )
-                drives.append(drive)
-            } else {
-                print("❌ [DEBUG] Device \(deviceInfo.name) is NOT a valid USB drive")
+            if isSystemDrive {
+                print("⚠️ [DEBUG] Device \(deviceInfo.name) is the system boot device - excluding")
+                continue
             }
+            
+            print("✅ [DEBUG] Device \(deviceInfo.name) is a valid external drive (read-only: \(deviceInfo.isReadOnly))")
+            
+            let drive = Drive(
+                name: deviceInfo.name,
+                mountPoint: deviceInfo.devicePath,
+                size: deviceInfo.size,
+                isRemovable: true,
+                isSystemDrive: false,
+                isReadOnly: deviceInfo.isReadOnly
+            )
+            drives.append(drive)
         }
         
-        print("\n🔍 [DEBUG] Drive detection complete. Found \(drives.count) valid USB drives:")
+        print("\n🔍 [DEBUG] Drive detection complete. Found \(drives.count) valid external drives:")
         for drive in drives {
             print("   📱 \(drive.displayName) (\(drive.formattedSize)) - Read-only: \(drive.isReadOnly)")
         }
         
         return drives
-    }
-    
-    private func isUSBDrive(resourceValues: URLResourceValues, mountPoint: String) -> (isValid: Bool, isReadOnly: Bool) {
-        print("🔍 [DEBUG] isUSBDrive() - Checking: \(mountPoint)")
-        
-        // Must be removable and ejectable (typical USB drive characteristics)
-        guard let isRemovable = resourceValues.volumeIsRemovable,
-              let isEjectable = resourceValues.volumeIsEjectable,
-              let isLocal = resourceValues.volumeIsLocal else {
-            print("❌ [DEBUG] Missing required volume properties")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        print("🔍 [DEBUG] Volume properties: removable=\(isRemovable), ejectable=\(isEjectable), local=\(isLocal)")
-        
-        // Must be removable, ejectable, and local (not network)
-        guard isRemovable && isEjectable && isLocal else {
-            print("❌ [DEBUG] Volume does not meet basic requirements (removable && ejectable && local)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Note: We don't check volumeIsReadOnly here because it refers to filesystem writability
-        // not device writability. A drive with an unknown filesystem (like Linux) will show
-        // as "not writable" but the device itself can still be overwritten for flashing.
-        
-        // Skip system volumes and known non-USB paths
-        if mountPoint.hasPrefix("/System") || 
-           mountPoint.hasPrefix("/Volumes/Data") ||
-           mountPoint.hasPrefix("/private/var") ||
-           mountPoint.hasPrefix("/tmp") ||
-           mountPoint.hasPrefix("/usr") ||
-           mountPoint.hasPrefix("/bin") ||
-           mountPoint.hasPrefix("/sbin") ||
-           mountPoint == "/" {
-            print("❌ [DEBUG] Volume is a system path: \(mountPoint)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Must be in /Volumes/ (standard mount point for external drives)
-        guard mountPoint.hasPrefix("/Volumes/") else {
-            print("❌ [DEBUG] Volume is not in /Volumes/: \(mountPoint)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Skip Time Machine backup volumes and other known non-USB volumes
-        let volumeName = mountPoint.components(separatedBy: "/").last ?? ""
-        print("🔍 [DEBUG] Volume name: '\(volumeName)'")
-        
-        if volumeName.lowercased().contains("timemachine") ||
-           volumeName.lowercased().contains("backup") ||
-           volumeName.lowercased().contains("sparsebundle") ||
-           volumeName.lowercased().contains("dmg") ||
-           volumeName.lowercased().contains("iso") ||
-           volumeName.lowercased().contains("virtual") {
-            print("❌ [DEBUG] Volume name contains excluded keywords: \(volumeName)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // REQUIRED: Must have a valid device path to be considered a USB drive
-        guard let devicePath = getDevicePath(for: mountPoint) else {
-            print("❌ [DEBUG] Could not get device path for: \(mountPoint)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        print("🔍 [DEBUG] Device path: \(devicePath)")
-        
-        // Must be a physical disk device (not virtual, not Time Machine, etc.)
-        guard devicePath.hasPrefix("/dev/disk") && 
-              !devicePath.contains("virtual") &&
-              !devicePath.contains("timemachine") &&
-              !devicePath.contains("sparsebundle") else {
-            print("❌ [DEBUG] Device path validation failed: \(devicePath)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Additional check: verify it's actually a USB device using diskutil
-        print("🔍 [DEBUG] Running final USB device validation...")
-        let deviceCheck = isPhysicalUSBDevice(devicePath: devicePath)
-        
-        if deviceCheck.isValid {
-            print("✅ [DEBUG] Device is confirmed as USB device (read-only: \(deviceCheck.isReadOnly))")
-        } else {
-            print("❌ [DEBUG] Device failed USB validation")
-        }
-        
-        return (isValid: deviceCheck.isValid, isReadOnly: deviceCheck.isReadOnly)
-    }
-    
-    private func getDevicePath(for mountPoint: String) -> String? {
-        // Use diskutil to get the device path for a mount point
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["info", mountPoint]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                // Look for the device identifier
-                let lines = output.components(separatedBy: .newlines)
-                for line in lines {
-                    if line.contains("Device Identifier:") {
-                        let parts = line.components(separatedBy: ":")
-                        if parts.count > 1 {
-                            let deviceId = parts[1].trimmingCharacters(in: .whitespaces)
-                            return "/dev/\(deviceId)"
-                        }
-                    }
-                }
-            }
-        } catch {
-            // If diskutil fails, we'll fall back to the volume properties
-            return nil
-        }
-        
-        return nil
-    }
-    
-    private func isPhysicalUSBDevice(devicePath: String) -> (isValid: Bool, isReadOnly: Bool) {
-        print("🔍 [DEBUG] isPhysicalUSBDevice() - Checking: \(devicePath)")
-        
-        // Use diskutil to get detailed information about the device
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["info", devicePath]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                print("🔍 [DEBUG] diskutil output for \(devicePath):")
-                print(output)
-                
-                let lines = output.components(separatedBy: .newlines)
-                
-                // Check for USB-specific characteristics
-                var hasUSBInterface = false
-                var isRemovable = false
-                var isEjectable = false
-                var isReadOnly = false
-                
-                for line in lines {
-                    let lowercasedLine = line.lowercased()
-                    
-                    // Check for USB interface
-                    if lowercasedLine.contains("protocol:") && lowercasedLine.contains("usb") {
-                        hasUSBInterface = true
-                        print("✅ [DEBUG] Found USB interface")
-                    }
-                    
-                    // Check for removable media
-                    if lowercasedLine.contains("removable media:") && lowercasedLine.contains("yes") {
-                        isRemovable = true
-                        print("✅ [DEBUG] Found removable media")
-                    }
-                    
-                    // Check for ejectable
-                    if lowercasedLine.contains("ejectable:") && lowercasedLine.contains("yes") {
-                        isEjectable = true
-                        print("✅ [DEBUG] Found ejectable device")
-                    }
-                    
-                    // Check for read-only device (like CD-ROM, write-protected)
-                    if lowercasedLine.contains("read-only media:") && lowercasedLine.contains("yes") {
-                        isReadOnly = true
-                        print("⚠️ [DEBUG] Found read-only media")
-                    }
-                    
-                    // Exclude if it's a Time Machine backup or sparse bundle
-                    if lowercasedLine.contains("timemachine") ||
-                       lowercasedLine.contains("sparsebundle") ||
-                       lowercasedLine.contains("virtual") ||
-                       lowercasedLine.contains("dmg") {
-                        print("❌ [DEBUG] Device contains excluded keywords: \(line)")
-                        return (isValid: false, isReadOnly: false)
-                    }
-                }
-                
-                // Must have USB interface and be removable/ejectable
-                let isValid = hasUSBInterface && isRemovable && isEjectable
-                print("🔍 [DEBUG] Device validation results:")
-                print("   USB Interface: \(hasUSBInterface)")
-                print("   Removable: \(isRemovable)")
-                print("   Ejectable: \(isEjectable)")
-                print("   Read-only: \(isReadOnly)")
-                print("   Final result: \(isValid ? "VALID" : "INVALID")")
-                return (isValid: isValid, isReadOnly: isReadOnly)
-            }
-        } catch {
-            // If diskutil fails, be conservative and exclude the device
-            print("❌ [DEBUG] diskutil failed with error: \(error)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        print("❌ [DEBUG] No diskutil output or parsing failed")
-        return (isValid: false, isReadOnly: false)
     }
 }
 
@@ -312,7 +94,6 @@ struct DeviceInfo {
     let size: Int64
     let isRemovable: Bool
     let isEjectable: Bool
-    let connectionProtocol: String
     let isReadOnly: Bool
 }
 
@@ -320,8 +101,8 @@ struct DeviceInfo {
 
 extension DriveDetectionService {
     
-    /// Gets all USB storage devices using IOKit
-    private func getUSBStorageDevices() -> [DeviceInfo] {
+    /// Gets all external storage devices using IOKit
+    private func getExternalStorageDevices() -> [DeviceInfo] {
         var devices: [DeviceInfo] = []
         
         // Create a matching dictionary for removable storage devices
@@ -350,10 +131,7 @@ extension DriveDetectionService {
             }
             
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
-                // Check if this is a USB device by traversing up the device tree
-                if isUSBDevice(service: service) {
-                    devices.append(deviceInfo)
-                }
+                devices.append(deviceInfo)
             }
         }
         
@@ -377,7 +155,6 @@ extension DriveDetectionService {
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
         let isEjectable = props["Ejectable"] as? Bool ?? false
-        let connectionProtocol = getConnectionProtocol(from: props)
         let isReadOnly = props["Writable"] as? Bool == false
         
         print("🔍 [DEBUG] IOKit device: \(name)")
@@ -385,7 +162,6 @@ extension DriveDetectionService {
         print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
         print("   🔄 Removable: \(isRemovable)")
         print("   ⏏️ Ejectable: \(isEjectable)")
-        print("   🔌 Protocol: \(connectionProtocol)")
         print("   📝 Read-only: \(isReadOnly)")
         
         // Debug: Print all available properties for troubleshooting
@@ -400,7 +176,6 @@ extension DriveDetectionService {
             size: size,
             isRemovable: isRemovable,
             isEjectable: isEjectable,
-            connectionProtocol: connectionProtocol,
             isReadOnly: isReadOnly
         )
     }
@@ -412,9 +187,6 @@ extension DriveDetectionService {
             return name
         }
         if let name = props["Product Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["USB Product Name"] as? String, !name.isEmpty {
             return name
         }
         if let name = props["Device Name"] as? String, !name.isEmpty {
@@ -453,123 +225,39 @@ extension DriveDetectionService {
         return 0
     }
     
-    /// Checks if a device is connected via USB by traversing up the device tree
-    private func isUSBDevice(service: io_object_t) -> Bool {
-        var currentService = service
+    /// Gets the system boot device path to exclude it from the list
+    private func getSystemBootDevice() -> String {
+        // Use diskutil to get the system boot device
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["info", "/"]
         
-        // Traverse up the device tree to find USB controllers
-        while currentService != 0 {
-            defer {
-                if currentService != service {
-                    IOObjectRelease(currentService)
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                // Look for the device identifier
+                let lines = output.components(separatedBy: .newlines)
+                for line in lines {
+                    if line.contains("Device Identifier:") {
+                        let parts = line.components(separatedBy: ":")
+                        if parts.count > 1 {
+                            let deviceId = parts[1].trimmingCharacters(in: .whitespaces)
+                            return "/dev/\(deviceId)"
+                        }
+                    }
                 }
             }
-            
-            // Get the parent device
-            var parentService: io_object_t = 0
-            let result = IORegistryEntryGetParentEntry(currentService, kIOServicePlane, &parentService)
-            
-            if result == kIOReturnSuccess {
-                // Check if this parent is a USB device
-                if isUSBController(service: parentService) {
-                    return true
-                }
-                
-                // Move up to the parent
-                IOObjectRelease(currentService)
-                currentService = parentService
-            } else {
-                // No more parents, this is not a USB device
-                break
-            }
+        } catch {
+            print("❌ [DEBUG] Failed to get system boot device: \(error)")
         }
         
-        return false
+        // Fallback: return empty string if we can't determine
+        return ""
     }
-    
-    /// Checks if a service is a USB controller or USB device
-    private func isUSBController(service: io_object_t) -> Bool {
-        var properties: Unmanaged<CFMutableDictionary>?
-        let result = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
-        
-        guard result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] else {
-            return false
-        }
-        
-        // Check for USB-specific properties
-        if props["USB Vendor Name"] != nil || 
-           props["USB Product Name"] != nil ||
-           props["USB Vendor Id"] != nil ||
-           props["USB Product Id"] != nil {
-            return true
-        }
-        
-        // Check for USB controller class
-        if let userClass = props["IOUserClass"] as? String {
-            if userClass.lowercased().contains("usb") {
-                return true
-            }
-        }
-        
-        return false
-    }
-    
-    /// Extracts connection protocol from IOKit properties
-    private func getConnectionProtocol(from props: [String: Any]) -> String {
-        // Check for USB-specific properties
-        if props["USB Vendor Name"] != nil || props["USB Product Name"] != nil {
-            return "USB"
-        }
-        
-        // Check for other connection types
-        if let protocolType = props["Protocol Characteristics"] as? String {
-            return protocolType
-        }
-        
-        return "Unknown"
-    }
-    
-    /// Checks if a device is a valid USB drive for flashing
-    private func isUSBDevice(deviceInfo: DeviceInfo) -> (isValid: Bool, isReadOnly: Bool) {
-        print("🔍 [DEBUG] isUSBDevice() - Checking: \(deviceInfo.name)")
-        
-        // Must be removable and ejectable
-        guard deviceInfo.isRemovable && deviceInfo.isEjectable else {
-            print("❌ [DEBUG] Device is not removable or ejectable")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Must be USB protocol
-        guard deviceInfo.connectionProtocol.lowercased().contains("usb") else {
-            print("❌ [DEBUG] Device protocol is not USB: \(deviceInfo.connectionProtocol)")
-            return (isValid: false, isReadOnly: false)
-        }
-        
-        // Skip if it's read-only media (like CD-ROM)
-        if deviceInfo.isReadOnly {
-            print("⚠️ [DEBUG] Device is read-only media")
-            return (isValid: true, isReadOnly: true)
-        }
-        
-        print("✅ [DEBUG] Device is a valid USB device")
-        return (isValid: true, isReadOnly: false)
-    }
-}
-
-// MARK: - Disk Arbitration Callbacks (temporarily disabled)
-
-// private func diskAppearedCallback(disk: DADisk, context: UnsafeMutableRawPointer?) {
-//     guard let context = context else { return }
-//     let service = Unmanaged<DriveDetectionService>.fromOpaque(context).takeUnretainedValue()
-//     Task { @MainActor in
-//         service.refreshDrives()
-//     }
-// }
-// 
-// private func diskDisappearedCallback(disk: DADisk, context: UnsafeMutableRawPointer?) {
-//     guard let context = context else { return }
-//     let service = Unmanaged<DriveDetectionService>.fromOpaque(context).takeUnretainedValue()
-//     Task { @MainActor in
-//         service.refreshDrives()
-//     }
-// } 
+} 
