@@ -220,10 +220,16 @@ struct ContentView: View {
             }
             Button("Save") {
                 if let drive = deviceToRename, !customNameText.isEmpty {
+                    print("🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.displayName)'")
                     // Find the media UUID for this drive and set the custom name
                     if let mediaUUID = getMediaUUIDForDrive(drive) {
+                        print("🔧 [DEBUG] Found media UUID: \(mediaUUID)")
                         driveService.setCustomName(for: mediaUUID, customName: customNameText)
+                    } else {
+                        print("❌ [DEBUG] Could not find media UUID for drive: \(drive.displayName)")
                     }
+                } else {
+                    print("❌ [DEBUG] Invalid custom name attempt - drive: \(deviceToRename?.displayName ?? "nil"), text: '\(customNameText)'")
                 }
                 customNameText = ""
                 deviceToRename = nil

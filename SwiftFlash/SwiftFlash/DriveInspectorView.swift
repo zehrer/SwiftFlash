@@ -16,12 +16,24 @@ struct DriveInspectorView: View {
             
             // Drive name
             VStack(alignment: .leading, spacing: 4) {
-                Text("Name")
+                Text("Display Name")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text(drive.displayName)
                     .font(.body)
                     .fontWeight(.medium)
+            }
+            
+            // Original name (if different from display name)
+            if drive.name != drive.displayName {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original Name")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(drive.name)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
             }
             
             // Size
@@ -77,6 +89,19 @@ struct DriveInspectorView: View {
                     Text(mediaUUID)
                         .font(.system(.caption, design: .monospaced))
                         .lineLimit(2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.controlBackgroundColor))
+                        .cornerRadius(4)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Media UUID")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Not available")
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
             }
             

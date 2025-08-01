@@ -75,10 +75,18 @@ class DeviceInventory: ObservableObject {
     
     /// Sets a custom name for a device
     func setCustomName(for mediaUUID: String, customName: String) {
+        print("🔧 [DEBUG] DeviceInventory.setCustomName called with UUID: \(mediaUUID), name: \(customName)")
         if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            print("🔧 [DEBUG] Found device at index \(index), updating custom name")
             devices[index].customName = customName
             saveInventory()
             print("✏️ [INVENTORY] Custom name set: \(customName)")
+        } else {
+            print("❌ [DEBUG] Device with UUID \(mediaUUID) not found in inventory")
+            print("🔧 [DEBUG] Available devices in inventory:")
+            for device in devices {
+                print("   - \(device.originalName) (UUID: \(device.mediaUUID))")
+            }
         }
     }
     

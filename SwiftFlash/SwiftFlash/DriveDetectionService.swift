@@ -48,6 +48,7 @@ class DriveDetectionService: ObservableObject {
     
     /// Sets a custom name for a device
     func setCustomName(for mediaUUID: String, customName: String) {
+        print("🔧 [DEBUG] DriveDetectionService.setCustomName called with UUID: \(mediaUUID), name: \(customName)")
         inventory.setCustomName(for: mediaUUID, customName: customName)
         // Refresh drives to update the display
         refreshDrives()
@@ -203,6 +204,7 @@ extension DriveDetectionService {
         
         let name: String
         if let uuid = mediaUUID {
+            print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
             inventory.addOrUpdateDevice(
                 mediaUUID: uuid,
                 devicePath: devicePath,
@@ -213,7 +215,9 @@ extension DriveDetectionService {
             
             // Use custom name from inventory if available, otherwise use original name
             name = inventory.getDisplayName(for: uuid) ?? originalName
+            print("🔧 [DEBUG] Final display name: \(name)")
         } else {
+            print("❌ [DEBUG] No media UUID found for device: \(originalName)")
             name = originalName
         }
         
