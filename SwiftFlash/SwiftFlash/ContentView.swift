@@ -15,26 +15,11 @@ struct ContentView: View {
     @State private var showCustomNameDialog = false
     @State private var deviceToRename: Drive?
     @State private var customNameText = ""
+    @State private var showInspector = true
+    @State private var showAboutDialog = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 8) {
-                Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 48))
-                    .foregroundColor(.blue)
-                
-                Text("SwiftFlash")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Flash images to USB drives")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, 20)
-            .padding(.bottom, 30)
-                
             // Main Content Area
             HStack(spacing: 0) {
                 ScrollView {
@@ -203,7 +188,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
                 
                 // Inspector Panel
-                if let selectedDrive = selectedDrive {
+                if let selectedDrive = selectedDrive, showInspector {
                     DriveInspectorView(drive: selectedDrive)
                         .frame(width: 280)
                         .background(Color(.controlBackgroundColor))
@@ -212,6 +197,36 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 700)
+        .toolbar {
+            ToolbarItemGroup(placement: .automatic) {
+                // Inspector toggle
+                Button(action: {
+                    showInspector.toggle()
+                }) {
+                    Image(systemName: showInspector ? "sidebar.right" : "sidebar.right.slash")
+                }
+                .help("Toggle Inspector")
+                
+                // Refresh drives
+                Button(action: {
+                    driveService.refreshDrives()
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .help("Refresh Drives")
+                .disabled(driveService.isScanning)
+                
+                Divider()
+                
+                // About
+                Button(action: {
+                    showAboutDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                }
+                .help("About SwiftFlash")
+            }
+        }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
             TextField("Enter custom name", text: $customNameText)
             Button("Cancel", role: .cancel) {
@@ -243,6 +258,9 @@ struct ContentView: View {
             if showDialog, let drive = deviceToRename {
                 customNameText = drive.displayName
             }
+        }
+        .sheet(isPresented: $showAboutDialog) {
+            AboutView()
         }
     }
     
