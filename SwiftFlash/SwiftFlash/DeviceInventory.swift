@@ -34,6 +34,21 @@ class DeviceInventory: ObservableObject {
     private let inventoryKey = "DeviceInventory"
     
     init() {
+        // Debug: Show UserDefaults path
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            let userDefaultsPath = "~/Library/Preferences/\(bundleIdentifier).plist"
+            print("🔍 [DEBUG] UserDefaults path: \(userDefaultsPath)")
+            
+            // Also show the actual file path if it exists
+            let expandedPath = (userDefaultsPath as NSString).expandingTildeInPath
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: expandedPath) {
+                print("✅ [DEBUG] UserDefaults file exists at: \(expandedPath)")
+            } else {
+                print("⚠️ [DEBUG] UserDefaults file does not exist yet at: \(expandedPath)")
+            }
+        }
+        
         loadInventory()
     }
     
@@ -118,17 +133,31 @@ class DeviceInventory: ObservableObject {
         do {
             let data = try JSONEncoder().encode(devices)
             userDefaults.set(data, forKey: inventoryKey)
+            print("💾 [DEBUG] Saved inventory with \(devices.count) devices to UserDefaults")
+            
+            // Debug: Show the actual data size
+            print("📊 [DEBUG] Inventory data size: \(data.count) bytes")
         } catch {
             print("❌ [INVENTORY] Failed to save inventory: \(error)")
         }
     }
     
     private func loadInventory() {
-        guard let data = userDefaults.data(forKey: inventoryKey) else { return }
+        guard let data = userDefaults.data(forKey: inventoryKey) else { 
+            print("📚 [DEBUG] No inventory data found in UserDefaults")
+            return 
+        }
+        
+        print("📚 [DEBUG] Found inventory data in UserDefaults: \(data.count) bytes")
         
         do {
             devices = try JSONDecoder().decode([DeviceInventoryItem].self, from: data)
             print("📚 [INVENTORY] Loaded \(devices.count) devices")
+            
+            // Debug: Show loaded devices
+            for (index, device) in devices.enumerated() {
+                print("   📱 [DEBUG] Device \(index + 1): \(device.originalName) (ID: \(device.mediaUUID))")
+            }
         } catch {
             print("❌ [INVENTORY] Failed to load inventory: \(error)")
             devices = []
