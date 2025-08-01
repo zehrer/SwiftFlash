@@ -50,6 +50,7 @@ class DeviceInventory: ObservableObject {
         }
         
         loadInventory()
+        cleanupInvalidDevices()
     }
     
     /// Adds or updates a device in the inventory
@@ -126,6 +127,48 @@ class DeviceInventory: ObservableObject {
         if removedCount > 0 {
             saveInventory()
             print("🧹 [INVENTORY] Cleaned up \(removedCount) old devices")
+        }
+    }
+    
+    /// Cleans up invalid devices (partitions, old UUID format, etc.)
+    private func cleanupInvalidDevices() {
+        let initialCount = devices.count
+        var devicesToRemove: [Int] = []
+        
+        for (index, device) in devices.enumerated() {
+            // Remove devices with old UUID format (contains underscores and long numbers)
+            if device.mediaUUID.contains("_") && device.mediaUUID.count > 20 {
+                print("🗑️ [DEBUG] Removing device with old UUID format: \(device.originalName) (ID: \(device.mediaUUID))")
+                devicesToRemove.append(index)
+                continue
+            }
+            
+            // Remove partition-like devices (ESP, Gap1, ISO9660, etc.)
+            let partitionNames = ["ESP", "Gap1", "ISO9660", "Untitled"]
+            if partitionNames.contains(where: { device.originalName.contains($0) }) {
+                print("🗑️ [DEBUG] Removing partition-like device: \(device.originalName) (ID: \(device.mediaUUID))")
+                devicesToRemove.append(index)
+                continue
+            }
+            
+            // Remove devices with very small sizes (likely partitions)
+            if device.size < 100 * 1024 * 1024 { // Less than 100MB
+                print("🗑️ [DEBUG] Removing small device (likely partition): \(device.originalName) (ID: \(device.mediaUUID), Size: \(device.formattedSize))")
+                devicesToRemove.append(index)
+                continue
+            }
+        }
+        
+        // Remove devices in reverse order to maintain indices
+        for index in devicesToRemove.reversed() {
+            devices.remove(at: index)
+        }
+        
+        let removedCount = initialCount - devices.count
+        if removedCount > 0 {
+            saveInventory()
+            print("🧹 [INVENTORY] Cleaned up \(removedCount) invalid devices")
+            print("📊 [DEBUG] Remaining devices: \(devices.count)")
         }
     }
     
