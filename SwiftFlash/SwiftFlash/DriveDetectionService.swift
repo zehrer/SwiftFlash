@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import IOKit
 import IOKit.storage
-import DiskArbitration
+@preconcurrency import DiskArbitration
 
 @MainActor
 class DriveDetectionService: ObservableObject {
@@ -25,7 +25,9 @@ class DriveDetectionService: ObservableObject {
     }
     
     deinit {
-        if let session = diskArbitrationSession {
+        // Capture the session before deinit to avoid Sendable issues
+        let session = diskArbitrationSession
+        if let session = session {
             DASessionUnscheduleFromRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         }
     }
@@ -170,8 +172,6 @@ extension DriveDetectionService {
                 // Only include main devices (not partitions)
                 if isMainDevice(deviceInfo: deviceInfo) {
                     devices.append(deviceInfo)
-                } else {
-                    print("🔍 [DEBUG] Skipping partition: \(deviceInfo.devicePath)")
                 }
             }
         }
@@ -200,6 +200,7 @@ extension DriveDetectionService {
         
         // Get media UUID and update inventory
         let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
+        print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
         let deviceType = getDeviceType(from: props)
         
         let name: String
@@ -289,19 +290,43 @@ extension DriveDetectionService {
     
     /// Gets the media UUID from Disk Arbitration
     private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
+        print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration called for device: \(devicePath)")
+        
         guard let session = diskArbitrationSession else {
+            print("❌ [DEBUG] Disk Arbitration session is nil")
             return nil
         }
         
         guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            print("❌ [DEBUG] Failed to create disk object for: \(devicePath)")
             return nil
         }
         
         guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            print("❌ [DEBUG] Failed to get disk description for: \(devicePath)")
             return nil
         }
         
-        return diskDescription["DADiskDescriptionMediaUUIDKey"] as? String
+        print("🔧 [DEBUG] Disk description keys available: \(Array(diskDescription.keys))")
+        
+        // Try different UUID keys that might be available
+        let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String ??
+                       diskDescription["DAVolumeUUID"] as? String ??
+                       diskDescription["DAMediaUUID"] as? String
+        
+        print("🔧 [DEBUG] Media UUID extracted: \(mediaUUID ?? "nil")")
+        
+        // If no UUID found, create a fallback identifier using device properties
+        if mediaUUID == nil {
+            let deviceModel = diskDescription["DADeviceModel"] as? String ?? "Unknown"
+            let deviceVendor = diskDescription["DADeviceVendor"] as? String ?? "Unknown"
+            let mediaSize = diskDescription["DAMediaSize"] as? Int64 ?? 0
+            let fallbackUUID = "\(deviceVendor)_\(deviceModel)_\(mediaSize)".replacingOccurrences(of: " ", with: "_")
+            print("🔧 [DEBUG] Using fallback UUID: \(fallbackUUID)")
+            return fallbackUUID
+        }
+        
+        return mediaUUID
     }
     
     /// Gets the device type from IOKit properties
