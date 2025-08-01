@@ -9,18 +9,24 @@ import Foundation
 import Combine
 import IOKit
 import IOKit.storage
+import DiskArbitration
 
 @MainActor
 class DriveDetectionService: ObservableObject {
     @Published var drives: [Drive] = []
     @Published var isScanning = false
-
+    
+    private var diskArbitrationSession: DASession?
+    
     init() {
+        setupDiskArbitration()
         refreshDrives()
     }
     
     deinit {
-        // Cleanup will be added when DiskArbitration is re-enabled
+        if let session = diskArbitrationSession {
+            DASessionUnscheduleFromRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        }
     }
     
     /// Refreshes the list of available drives
@@ -32,6 +38,18 @@ class DriveDetectionService: ObservableObject {
             self.drives = detectedDrives
             self.isScanning = false
         }
+    }
+    
+    /// Sets up Disk Arbitration session for device monitoring
+    private func setupDiskArbitration() {
+        diskArbitrationSession = DASessionCreate(kCFAllocatorDefault)
+        guard let session = diskArbitrationSession else {
+            print("❌ [DEBUG] Failed to create Disk Arbitration session")
+            return
+        }
+        
+        DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        print("✅ [DEBUG] Disk Arbitration session created and scheduled")
     }
     
     /// Detects all external storage devices that can be used for flashing
@@ -155,8 +173,8 @@ extension DriveDetectionService {
         }
         
         // Extract device information
-        let name = getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
+        let name = getDeviceNameFromDiskArbitration(devicePath: devicePath) ?? getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
         let isEjectable = props["Ejectable"] as? Bool ?? false
@@ -183,6 +201,66 @@ extension DriveDetectionService {
             isEjectable: isEjectable,
             isReadOnly: isReadOnly
         )
+    }
+    
+    /// Gets device name using Disk Arbitration framework
+    private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
+        guard let session = diskArbitrationSession else {
+            print("❌ [DEBUG] Disk Arbitration session not available")
+            return nil
+        }
+        
+        // Create a URL from the device path (not used but kept for future reference)
+        _ = URL(fileURLWithPath: devicePath)
+        
+        // Get the disk object for this device
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            print("❌ [DEBUG] Failed to create disk object for \(devicePath)")
+            return nil
+        }
+        
+        // Get disk description
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            print("❌ [DEBUG] Failed to get disk description for \(devicePath)")
+            return nil
+        }
+        
+        print("🔍 [DEBUG] Disk Arbitration properties for \(devicePath):")
+        for (key, value) in diskDescription {
+            print("   \(key): \(value)")
+        }
+        
+        // Try to get the device name from various Disk Arbitration keys
+        if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty {
+            print("✅ [DEBUG] Found device name from Disk Arbitration (VolumeName): \(name)")
+            return name
+        }
+        
+        if let name = diskDescription["DAMediaName"] as? String, !name.isEmpty {
+            print("✅ [DEBUG] Found device name from Disk Arbitration (MediaName): \(name)")
+            return name
+        }
+        
+        if let name = diskDescription["DADeviceModel"] as? String, !name.isEmpty {
+            print("✅ [DEBUG] Found device name from Disk Arbitration (DeviceModel): \(name)")
+            return name
+        }
+        
+        if let name = diskDescription["DADeviceProtocol"] as? String, !name.isEmpty {
+            print("✅ [DEBUG] Found device name from Disk Arbitration (DeviceProtocol): \(name)")
+            return name
+        }
+        
+        // Try vendor and product names
+        if let vendorName = diskDescription["DADeviceVendor"] as? String,
+           let productName = diskDescription["DADeviceProduct"] as? String {
+            let name = "\(vendorName) \(productName)"
+            print("✅ [DEBUG] Found device name from Disk Arbitration (Vendor+Product): \(name)")
+            return name
+        }
+        
+        print("❌ [DEBUG] No device name found in Disk Arbitration properties")
+        return nil
     }
     
     /// Gets device name by traversing up the device tree to find USB device properties
