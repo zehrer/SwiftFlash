@@ -112,6 +112,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for a lightweight, native macOS flashing tool
 - Thanks to the macOS Disk Arbitration framework for reliable disk management
 - Special thanks to [Claude Sonnet 4](https://claude.ai) for AI-assisted development and code improvements
+- Developed using [Cursor](https://cursor.sh) - the AI-first code editor
 
 ---
 
