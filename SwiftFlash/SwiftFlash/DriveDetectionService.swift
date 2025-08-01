@@ -17,6 +17,7 @@ class DriveDetectionService: ObservableObject {
     @Published var isScanning = false
     
     private var diskArbitrationSession: DASession?
+    private let inventory = DeviceInventory()
     
     init() {
         setupDiskArbitration()
@@ -38,6 +39,23 @@ class DriveDetectionService: ObservableObject {
             self.drives = detectedDrives
             self.isScanning = false
         }
+    }
+    
+    /// Gets the current inventory of devices
+    var deviceInventory: [DeviceInventoryItem] {
+        return inventory.devices
+    }
+    
+    /// Sets a custom name for a device
+    func setCustomName(for mediaUUID: String, customName: String) {
+        inventory.setCustomName(for: mediaUUID, customName: customName)
+        // Refresh drives to update the display
+        refreshDrives()
+    }
+    
+    /// Removes a device from inventory
+    func removeFromInventory(mediaUUID: String) {
+        inventory.removeDevice(mediaUUID: mediaUUID)
     }
     
     /// Sets up Disk Arbitration session for device monitoring
@@ -174,11 +192,31 @@ extension DriveDetectionService {
         
         // Extract device information
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
-        let name = getDeviceNameFromDiskArbitration(devicePath: devicePath) ?? getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
+        let originalName = getDeviceNameFromDiskArbitration(devicePath: devicePath) ?? getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
         let isEjectable = props["Ejectable"] as? Bool ?? false
         let isReadOnly = props["Writable"] as? Bool == false
+        
+        // Get media UUID and update inventory
+        let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
+        let deviceType = getDeviceType(from: props)
+        
+        let name: String
+        if let uuid = mediaUUID {
+            inventory.addOrUpdateDevice(
+                mediaUUID: uuid,
+                devicePath: devicePath,
+                size: size,
+                deviceType: deviceType,
+                originalName: originalName
+            )
+            
+            // Use custom name from inventory if available, otherwise use original name
+            name = inventory.getDisplayName(for: uuid) ?? originalName
+        } else {
+            name = originalName
+        }
         
         print("🔍 [DEBUG] IOKit device: \(name)")
         print("   📍 Device path: \(devicePath)")
@@ -230,6 +268,11 @@ extension DriveDetectionService {
             print("   \(key): \(value)")
         }
         
+        // Specifically log the media UUID for inventory purposes
+        if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String {
+            print("🔑 [DEBUG] Media UUID: \(mediaUUID)")
+        }
+        
         // Try to get the device name from various Disk Arbitration keys
         if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty {
             print("✅ [DEBUG] Found device name from Disk Arbitration (VolumeName): \(name)")
@@ -261,6 +304,34 @@ extension DriveDetectionService {
         
         print("❌ [DEBUG] No device name found in Disk Arbitration properties")
         return nil
+    }
+    
+    /// Gets the media UUID from Disk Arbitration
+    private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
+        guard let session = diskArbitrationSession else {
+            return nil
+        }
+        
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            return nil
+        }
+        
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            return nil
+        }
+        
+        return diskDescription["DADiskDescriptionMediaUUIDKey"] as? String
+    }
+    
+    /// Gets the device type from IOKit properties
+    private func getDeviceType(from props: [String: Any]) -> String {
+        if let content = props["Content"] as? String {
+            return content
+        }
+        if let contentHint = props["Content Hint"] as? String, !contentHint.isEmpty {
+            return contentHint
+        }
+        return "Unknown"
     }
     
     /// Gets device name by traversing up the device tree to find USB device properties
