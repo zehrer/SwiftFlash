@@ -12,6 +12,9 @@ struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var isDropTargeted = false
     @State private var selectedDrive: Drive?
+    @State private var showCustomNameDialog = false
+    @State private var deviceToRename: Drive?
+    @State private var customNameText = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -136,12 +139,18 @@ struct ContentView: View {
                                         drive: drive,
                                         isSelected: selectedDrive?.id == drive.id
                                     )
-                                    .onTapGesture {
-                                        // Don't allow selection of read-only drives
-                                        if !drive.isReadOnly {
-                                            selectedDrive = drive
-                                        }
-                                    }
+                                                    .onTapGesture {
+                    // Don't allow selection of read-only drives
+                    if !drive.isReadOnly {
+                        selectedDrive = drive
+                    }
+                }
+                .contextMenu {
+                    Button("Set Custom Name") {
+                        showCustomNameDialog = true
+                        deviceToRename = drive
+                    }
+                }
                                 }
                             }
                             .background(Color.secondary.opacity(0.05))
@@ -192,6 +201,38 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 600, minHeight: 700)
+        .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
+            TextField("Enter custom name", text: $customNameText)
+            Button("Cancel", role: .cancel) {
+                customNameText = ""
+                deviceToRename = nil
+            }
+            Button("Save") {
+                if let drive = deviceToRename, !customNameText.isEmpty {
+                    // Find the media UUID for this drive and set the custom name
+                    if let mediaUUID = getMediaUUIDForDrive(drive) {
+                        driveService.setCustomName(for: mediaUUID, customName: customNameText)
+                    }
+                }
+                customNameText = ""
+                deviceToRename = nil
+            }
+        } message: {
+            if let drive = deviceToRename {
+                Text("Set a custom name for '\(drive.displayName)'")
+            }
+        }
+        .onChange(of: showCustomNameDialog) { _, showDialog in
+            if showDialog, let drive = deviceToRename {
+                customNameText = drive.displayName
+            }
+        }
+    }
+    
+    /// Helper function to get the media UUID for a drive
+    private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
+        // Now we have the mediaUUID directly in the Drive model
+        return drive.mediaUUID
     }
 }
 

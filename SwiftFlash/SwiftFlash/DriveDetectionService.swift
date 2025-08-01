@@ -108,7 +108,8 @@ class DriveDetectionService: ObservableObject {
                 size: deviceInfo.size,
                 isRemovable: true,
                 isSystemDrive: false,
-                isReadOnly: deviceInfo.isReadOnly
+                isReadOnly: deviceInfo.isReadOnly,
+                mediaUUID: deviceInfo.mediaUUID
             )
             drives.append(drive)
         }
@@ -131,6 +132,7 @@ struct DeviceInfo {
     let isRemovable: Bool
     let isEjectable: Bool
     let isReadOnly: Bool
+    let mediaUUID: String?
 }
 
 // MARK: - IOKit Device Detection Functions
@@ -237,7 +239,8 @@ extension DriveDetectionService {
             size: size,
             isRemovable: isRemovable,
             isEjectable: isEjectable,
-            isReadOnly: isReadOnly
+            isReadOnly: isReadOnly,
+            mediaUUID: mediaUUID
         )
     }
     
