@@ -29,9 +29,9 @@ struct DriveInspectorView: View {
                 Text("Media Name")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text(drive.name.isEmpty ? "No name" : drive.name)
+                Text(drive.mediaName ?? "No media name")
                     .font(.body)
-                    .foregroundColor(drive.name.isEmpty ? .red : .secondary)
+                    .foregroundColor(drive.mediaName == nil ? .red : .secondary)
             }
             
             // Size
@@ -118,6 +118,7 @@ struct DriveInspectorView: View {
         isRemovable: true,
         isSystemDrive: false,
         isReadOnly: false,
-        mediaUUID: "12345678-1234-1234-1234-123456789ABC"
+        mediaUUID: "12345678-1234-1234-1234-123456789ABC",
+        mediaName: "Test Media Name"
     ))
 } 

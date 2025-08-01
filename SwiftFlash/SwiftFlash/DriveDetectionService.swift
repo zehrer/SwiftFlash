@@ -112,7 +112,8 @@ class DriveDetectionService: ObservableObject {
                 isRemovable: true,
                 isSystemDrive: false,
                 isReadOnly: deviceInfo.isReadOnly,
-                mediaUUID: deviceInfo.mediaUUID
+                mediaUUID: deviceInfo.mediaUUID,
+                mediaName: deviceInfo.mediaName
             )
             drives.append(drive)
         }
@@ -133,6 +134,7 @@ struct DeviceInfo {
     let isEjectable: Bool
     let isReadOnly: Bool
     let mediaUUID: String?
+    let mediaName: String?
 }
 
 // MARK: - IOKit Device Detection Functions
@@ -226,6 +228,8 @@ extension DriveDetectionService {
         print("   📍 Path: \(devicePath)")
         print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
         
+        let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
+        
         return DeviceInfo(
             name: name,
             devicePath: devicePath,
@@ -233,8 +237,38 @@ extension DriveDetectionService {
             isRemovable: isRemovable,
             isEjectable: isEjectable,
             isReadOnly: isReadOnly,
-            mediaUUID: mediaUUID
+            mediaUUID: mediaUUID,
+            mediaName: mediaName
         )
+    }
+    
+    /// Gets the specific DAMediaName from Disk Arbitration framework
+    private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {
+        guard let session = diskArbitrationSession else {
+            return nil
+        }
+        
+        // Create a URL from the device path (not used but kept for future reference)
+        _ = URL(fileURLWithPath: devicePath)
+        
+        // Get the disk object for this device
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            return nil
+        }
+
+        // Get disk description
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            return nil
+        }
+        
+        // Specifically get the DAMediaName
+        if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty {
+            print("🔍 [DEBUG] Found DAMediaName: \(mediaName)")
+            return mediaName
+        }
+        
+        print("⚠️ [DEBUG] No DAMediaName found for device: \(devicePath)")
+        return nil
     }
     
     /// Gets device name using Disk Arbitration framework
