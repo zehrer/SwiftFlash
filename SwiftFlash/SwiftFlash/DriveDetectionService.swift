@@ -202,9 +202,13 @@ extension DriveDetectionService {
             }
             
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
+                print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
                 // Only include main devices (not partitions)
                 if isMainDevice(deviceInfo: deviceInfo) {
+                    print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
                     devices.append(deviceInfo)
+                } else {
+                    print("❌ [DEBUG] Excluding device from list: \(deviceInfo.devicePath)")
                 }
             }
         }
@@ -516,8 +520,11 @@ extension DriveDetectionService {
         // Check if the device path contains partition indicators
         let devicePath = deviceInfo.devicePath
         
+        print("🔍 [DEBUG] Checking if device is main device: \(devicePath)")
+        
         // Skip if it's a partition (contains 's' followed by numbers)
         if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
+            print("❌ [DEBUG] Device \(devicePath) is a partition - excluding")
             return false
         }
         
@@ -525,10 +532,18 @@ extension DriveDetectionService {
         if devicePath.contains("s") && devicePath.components(separatedBy: "s").count > 1 {
             let lastComponent = devicePath.components(separatedBy: "s").last ?? ""
             if Int(lastComponent) != nil {
+                print("❌ [DEBUG] Device \(devicePath) is a slice - excluding")
                 return false
             }
         }
         
+        // Additional check: skip if it contains any partition indicators
+        if devicePath.contains("s") {
+            print("❌ [DEBUG] Device \(devicePath) contains partition indicator 's' - excluding")
+            return false
+        }
+        
+        print("✅ [DEBUG] Device \(devicePath) is a main device - including")
         return true
     }
     
