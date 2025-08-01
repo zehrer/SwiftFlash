@@ -188,6 +188,9 @@ extension DriveDetectionService {
     /// Gets device name by traversing up the device tree to find USB device properties
     private func getDeviceNameFromParent(service: io_object_t) -> String? {
         var currentService = service
+        var level = 0
+        
+        print("🔍 [DEBUG] Starting device tree traversal for device name...")
         
         // Traverse up the device tree to find USB devices with name information
         while currentService != 0 {
@@ -202,9 +205,19 @@ extension DriveDetectionService {
             let result = IORegistryEntryCreateCFProperties(currentService, &properties, kCFAllocatorDefault, 0)
             
             if result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] {
+                print("🔍 [DEBUG] Level \(level) - Checking properties for device name...")
+                
+                // Debug: Print all properties at this level
+                print("🔍 [DEBUG] Level \(level) - All properties:")
+                for (key, value) in props {
+                    if key.lowercased().contains("name") || key.lowercased().contains("product") || key.lowercased().contains("vendor") || key.lowercased().contains("model") {
+                        print("   \(key): \(value)")
+                    }
+                }
+                
                 // Try to get name from this level
                 if let name = getDeviceName(from: props) {
-                    print("✅ [DEBUG] Found device name in parent: \(name)")
+                    print("✅ [DEBUG] Found device name in parent level \(level): \(name)")
                     return name
                 }
             }
@@ -219,43 +232,50 @@ extension DriveDetectionService {
                     IOObjectRelease(currentService)
                 }
                 currentService = parentService
+                level += 1
             } else {
                 // No more parents
+                print("🔍 [DEBUG] No more parent devices found at level \(level)")
                 break
             }
         }
         
+        print("❌ [DEBUG] No device name found in device tree traversal")
         return nil
     }
     
     /// Extracts device name from IOKit properties
     private func getDeviceName(from props: [String: Any]) -> String? {
         // Try different property keys for device name in order of preference
-        if let name = props["Media Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["Product Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["Device Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["USB Product Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["USB Vendor Name"] as? String, !name.isEmpty {
-            return name
-        }
-        if let name = props["IOUserClass"] as? String, !name.isEmpty {
-            return name
+        let nameKeys = [
+            "Media Name",
+            "Product Name", 
+            "Device Name",
+            "USB Product Name",
+            "USB Vendor Name",
+            "IOUserClass",
+            "Model",
+            "Model Name",
+            "Product ID",
+            "Vendor ID",
+            "IOUserClass",
+            "IOClassName",
+            "IOClass"
+        ]
+        
+        for key in nameKeys {
+            if let name = props[key] as? String, !name.isEmpty {
+                print("✅ [DEBUG] Found device name using key '\(key)': \(name)")
+                return name
+            }
         }
         
-        // Debug: Print all available properties to help identify the correct key
-        print("🔍 [DEBUG] Available name-related properties:")
-        for (key, value) in props {
-            if key.lowercased().contains("name") || key.lowercased().contains("product") || key.lowercased().contains("vendor") {
-                print("   \(key): \(value)")
-            }
+        // Also check for numeric IDs that might be useful
+        if let vendorId = props["idVendor"] as? Int,
+           let productId = props["idProduct"] as? Int {
+            let name = "USB Device (Vendor: \(String(format: "0x%04X", vendorId)), Product: \(String(format: "0x%04X", productId)))"
+            print("✅ [DEBUG] Generated device name from IDs: \(name)")
+            return name
         }
         
         return nil
