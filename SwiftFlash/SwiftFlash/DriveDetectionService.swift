@@ -378,24 +378,31 @@ extension DriveDetectionService {
         
         print("🔧 [DEBUG] Disk description keys available: \(Array(diskDescription.keys))")
         
-        // Try different UUID keys that might be available
-        let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String ??
-                       diskDescription["DAVolumeUUID"] as? String ??
-                       diskDescription["DAMediaUUID"] as? String
+        // Generate device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
+        let deviceID = generateDeviceID(from: diskDescription)
+        print("🔧 [DEBUG] Generated device ID: \(deviceID)")
         
-        print("🔧 [DEBUG] Media UUID extracted: \(mediaUUID ?? "nil")")
+        return deviceID
+    }
+    
+    /// Generates a consistent device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
+    private func generateDeviceID(from diskDescription: [String: Any]) -> String {
+        let deviceVendor = diskDescription["DADeviceVendor"] as? String ?? "Unknown"
+        let deviceRevision = diskDescription["DADeviceRevision"] as? String ?? "Unknown"
+        let mediaSize = diskDescription["DAMediaSize"] as? Int64 ?? 0
         
-        // If no UUID found, create a fallback identifier using device properties
-        if mediaUUID == nil {
-            let deviceModel = diskDescription["DADeviceModel"] as? String ?? "Unknown"
-            let deviceVendor = diskDescription["DADeviceVendor"] as? String ?? "Unknown"
-            let mediaSize = diskDescription["DAMediaSize"] as? Int64 ?? 0
-            let fallbackUUID = "\(deviceVendor)_\(deviceModel)_\(mediaSize)".replacingOccurrences(of: " ", with: "_")
-            print("🔧 [DEBUG] Using fallback UUID: \(fallbackUUID)")
-            return fallbackUUID
-        }
+        // Get first 4 digits of media size (convert to string and take first 4 chars)
+        let mediaSizeString = String(mediaSize)
+        let sizePrefix = mediaSizeString.count >= 4 ? String(mediaSizeString.prefix(4)) : mediaSizeString
         
-        return mediaUUID
+        // Clean up vendor and revision names (replace spaces with underscores)
+        let cleanVendor = deviceVendor.replacingOccurrences(of: " ", with: "_")
+        let cleanRevision = deviceRevision.replacingOccurrences(of: " ", with: "_")
+        
+        let deviceID = "\(cleanVendor)_\(cleanRevision)_\(sizePrefix)"
+        print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize) -> Prefix: \(sizePrefix)")
+        
+        return deviceID
     }
     
     /// Gets the device type from IOKit properties
