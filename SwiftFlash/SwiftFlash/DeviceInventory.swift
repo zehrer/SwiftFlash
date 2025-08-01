@@ -2,12 +2,10 @@ import Foundation
 import Combine
 
 /// Represents a device in the inventory with key identifying information
-struct DeviceInventoryItem: Codable, Identifiable {
+struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var id = UUID()
     let mediaUUID: String
-    var devicePath: String
     let size: Int64
-    let deviceType: String
     let originalName: String
     var customName: String?
     let firstSeen: Date
@@ -50,15 +48,12 @@ class DeviceInventory: ObservableObject {
         }
         
         loadInventory()
-        cleanupInvalidDevices()
     }
     
     /// Adds or updates a device in the inventory
     func addOrUpdateDevice(
         mediaUUID: String,
-        devicePath: String,
         size: Int64,
-        deviceType: String,
         originalName: String
     ) {
         let now = Date()
@@ -67,16 +62,13 @@ class DeviceInventory: ObservableObject {
             // Update existing device
             var updatedDevice = devices[existingIndex]
             updatedDevice.lastSeen = now
-            updatedDevice.devicePath = devicePath // Update path in case it changed
             devices[existingIndex] = updatedDevice
             print("📝 [INVENTORY] Updated: \(originalName)")
         } else {
             // Add new device
             let newDevice = DeviceInventoryItem(
                 mediaUUID: mediaUUID,
-                devicePath: devicePath,
                 size: size,
-                deviceType: deviceType,
                 originalName: originalName,
                 customName: nil,
                 firstSeen: now,
@@ -90,13 +82,13 @@ class DeviceInventory: ObservableObject {
     }
     
     /// Sets a custom name for a device
-    func setCustomName(for mediaUUID: String, customName: String) {
-        print("🔧 [DEBUG] DeviceInventory.setCustomName called with UUID: \(mediaUUID), name: \(customName)")
+    func setCustomName(for mediaUUID: String, customName: String?) {
+        print("🔧 [DEBUG] DeviceInventory.setCustomName called with UUID: \(mediaUUID), name: \(customName ?? "nil")")
         if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
             print("🔧 [DEBUG] Found device at index \(index), updating custom name")
             devices[index].customName = customName
             saveInventory()
-            print("✏️ [INVENTORY] Custom name set: \(customName)")
+            print("✏️ [INVENTORY] Custom name set: \(customName ?? "nil")")
         } else {
             print("❌ [DEBUG] Device with UUID \(mediaUUID) not found in inventory")
             print("🔧 [DEBUG] Available devices in inventory:")
@@ -112,10 +104,15 @@ class DeviceInventory: ObservableObject {
     }
     
     /// Removes a device from inventory
-    func removeDevice(mediaUUID: String) {
-        devices.removeAll { $0.mediaUUID == mediaUUID }
-        saveInventory()
-                    print("🗑️ [INVENTORY] Device removed")
+    func removeDevice(with mediaUUID: String) {
+        if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            let deviceName = devices[index].displayName
+            devices.remove(at: index)
+            saveInventory()
+            print("🗑️ [INVENTORY] Removed device: \(deviceName)")
+        } else {
+            print("❌ [DEBUG] Device with UUID \(mediaUUID) not found in inventory")
+        }
     }
     
     /// Cleans up old devices that haven't been seen recently
@@ -130,47 +127,7 @@ class DeviceInventory: ObservableObject {
         }
     }
     
-    /// Cleans up invalid devices (partitions, old UUID format, etc.)
-    private func cleanupInvalidDevices() {
-        let initialCount = devices.count
-        var devicesToRemove: [Int] = []
-        
-        for (index, device) in devices.enumerated() {
-            // Remove devices with old UUID format (contains underscores and long numbers)
-            if device.mediaUUID.contains("_") && device.mediaUUID.count > 20 {
-                print("🗑️ [DEBUG] Removing device with old UUID format: \(device.originalName) (ID: \(device.mediaUUID))")
-                devicesToRemove.append(index)
-                continue
-            }
-            
-            // Remove partition-like devices (ESP, Gap1, ISO9660, etc.)
-            let partitionNames = ["ESP", "Gap1", "ISO9660", "Untitled"]
-            if partitionNames.contains(where: { device.originalName.contains($0) }) {
-                print("🗑️ [DEBUG] Removing partition-like device: \(device.originalName) (ID: \(device.mediaUUID))")
-                devicesToRemove.append(index)
-                continue
-            }
-            
-            // Remove devices with very small sizes (likely partitions)
-            if device.size < 100 * 1024 * 1024 { // Less than 100MB
-                print("🗑️ [DEBUG] Removing small device (likely partition): \(device.originalName) (ID: \(device.mediaUUID), Size: \(device.formattedSize))")
-                devicesToRemove.append(index)
-                continue
-            }
-        }
-        
-        // Remove devices in reverse order to maintain indices
-        for index in devicesToRemove.reversed() {
-            devices.remove(at: index)
-        }
-        
-        let removedCount = initialCount - devices.count
-        if removedCount > 0 {
-            saveInventory()
-            print("🧹 [INVENTORY] Cleaned up \(removedCount) invalid devices")
-            print("📊 [DEBUG] Remaining devices: \(devices.count)")
-        }
-    }
+
     
     private func saveInventory() {
         do {

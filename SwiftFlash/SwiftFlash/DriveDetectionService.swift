@@ -17,7 +17,7 @@ class DriveDetectionService: ObservableObject {
     @Published var isScanning = false
     
     private var diskArbitrationSession: DASession?
-    private let inventory = DeviceInventory()
+    let inventory = DeviceInventory()
     
     init() {
         setupDiskArbitration()
@@ -89,7 +89,7 @@ class DriveDetectionService: ObservableObject {
     
     /// Removes a device from inventory
     func removeFromInventory(mediaUUID: String) {
-        inventory.removeDevice(mediaUUID: mediaUUID)
+        inventory.removeDevice(with: mediaUUID)
     }
     
     /// Sets up Disk Arbitration session for device monitoring
@@ -238,16 +238,13 @@ extension DriveDetectionService {
         // Get media UUID and update inventory
         let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
         print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
-        let deviceType = getDeviceType(from: props)
         
         let name: String
         if let uuid = mediaUUID {
             print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
             inventory.addOrUpdateDevice(
                 mediaUUID: uuid,
-                devicePath: devicePath,
                 size: size,
-                deviceType: deviceType,
                 originalName: originalName
             )
             
