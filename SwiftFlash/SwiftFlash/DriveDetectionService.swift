@@ -220,7 +220,6 @@ extension DriveDetectionService {
         print("🔍 [DEBUG] Device: \(name)")
         print("   📍 Path: \(devicePath)")
         print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
-        print("   📝 Read-only: \(isReadOnly)")
         
         return DeviceInfo(
             name: name,

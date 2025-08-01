@@ -36,8 +36,9 @@ struct ContentView: View {
             .padding(.bottom, 30)
                 
             // Main Content Area
-            ScrollView {
-                VStack(spacing: 30) {
+            HStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 30) {
                     // Image File Section
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
@@ -198,9 +199,19 @@ struct ContentView: View {
                 .padding(.horizontal, 40)
                 .padding(.bottom, 30)
                 
+                }
+                .frame(maxWidth: .infinity)
+                
+                // Inspector Panel
+                if let selectedDrive = selectedDrive {
+                    DriveInspectorView(drive: selectedDrive)
+                        .frame(width: 280)
+                        .background(Color(.controlBackgroundColor))
+                        .border(Color(.separatorColor), width: 1)
+                }
             }
         }
-        .frame(minWidth: 600, minHeight: 700)
+        .frame(minWidth: 900, minHeight: 700)
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
             TextField("Enter custom name", text: $customNameText)
             Button("Cancel", role: .cancel) {
