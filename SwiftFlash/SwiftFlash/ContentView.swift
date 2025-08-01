@@ -203,7 +203,8 @@ struct ContentView: View {
                 Button(action: {
                     showInspector.toggle()
                 }) {
-                    Image(systemName: showInspector ? "sidebar.right" : "sidebar.right.slash")
+                    Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                        .opacity(showInspector ? 1.0 : 0.5)
                 }
                 .help("Toggle Inspector")
                 
