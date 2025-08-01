@@ -131,7 +131,12 @@ extension DriveDetectionService {
             }
             
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
-                devices.append(deviceInfo)
+                // Only include main devices (not partitions)
+                if isMainDevice(deviceInfo: deviceInfo) {
+                    devices.append(deviceInfo)
+                } else {
+                    print("🔍 [DEBUG] Skipping partition: \(deviceInfo.devicePath)")
+                }
             }
         }
         
@@ -223,6 +228,27 @@ extension DriveDetectionService {
             return size
         }
         return 0
+    }
+    
+    /// Checks if a device is a main device (not a partition)
+    private func isMainDevice(deviceInfo: DeviceInfo) -> Bool {
+        // Check if the device path contains partition indicators
+        let devicePath = deviceInfo.devicePath
+        
+        // Skip if it's a partition (contains 's' followed by numbers)
+        if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
+            return false
+        }
+        
+        // Skip if it's a slice (contains 's' followed by numbers)
+        if devicePath.contains("s") && devicePath.components(separatedBy: "s").count > 1 {
+            let lastComponent = devicePath.components(separatedBy: "s").last ?? ""
+            if Int(lastComponent) != nil {
+                return false
+            }
+        }
+        
+        return true
     }
     
     /// Gets the system boot device path to exclude it from the list
