@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var customNameText = ""
     @State private var showInspector = true
     @State private var showAboutDialog = false
+    @State private var showDebugInfo = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -219,6 +220,16 @@ struct ContentView: View {
                 
                 Divider()
                 
+                // Debug info (only show when a drive is selected)
+                if let selectedDrive = selectedDrive {
+                    Button(action: {
+                        printDiskArbitrationInfo(for: selectedDrive)
+                    }) {
+                        Image(systemName: "ladybug")
+                    }
+                    .help("Print Disk Arbitration Debug Info")
+                }
+                
                 // About
                 Button(action: {
                     showAboutDialog = true
@@ -269,6 +280,11 @@ struct ContentView: View {
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
         // Now we have the mediaUUID directly in the Drive model
         return drive.mediaUUID
+    }
+    
+    /// Debug function to print all Disk Arbitration information for a drive
+    private func printDiskArbitrationInfo(for drive: Drive) {
+        driveService.printDiskArbitrationInfo(for: drive)
     }
 }
 

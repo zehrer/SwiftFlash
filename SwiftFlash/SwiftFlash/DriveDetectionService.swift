@@ -48,6 +48,37 @@ class DriveDetectionService: ObservableObject {
         return inventory.devices
     }
     
+    /// Debug function to print all Disk Arbitration information for a drive
+    func printDiskArbitrationInfo(for drive: Drive) {
+        print("🔍 [DEBUG] === Disk Arbitration Info for Drive: \(drive.displayName) ===")
+        print("📍 Device Path: \(drive.mountPoint)")
+        
+        guard let session = diskArbitrationSession else {
+            print("❌ [DEBUG] Disk Arbitration session is nil")
+            return
+        }
+        
+        // Extract the BSD name from the mount point (remove /dev/ prefix)
+        let bsdName = drive.mountPoint.replacingOccurrences(of: "/dev/", with: "")
+        
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
+            print("❌ [DEBUG] Failed to create disk object for: \(bsdName)")
+            return
+        }
+        
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            print("❌ [DEBUG] Failed to get disk description for: \(bsdName)")
+            return
+        }
+        
+        print("🔧 [DEBUG] All available Disk Arbitration keys:")
+        for (key, value) in diskDescription.sorted(by: { $0.key < $1.key }) {
+            print("   \(key): \(value)")
+        }
+        
+        print("🔍 [DEBUG] === End Disk Arbitration Info ===")
+    }
+    
     /// Sets a custom name for a device
     func setCustomName(for mediaUUID: String, customName: String) {
         print("🔧 [DEBUG] DriveDetectionService.setCustomName called with UUID: \(mediaUUID), name: \(customName)")
