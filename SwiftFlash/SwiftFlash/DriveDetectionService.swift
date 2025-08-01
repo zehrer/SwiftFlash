@@ -100,7 +100,7 @@ class DriveDetectionService: ObservableObject {
                 continue
             }
             
-            print("✅ [DEBUG] Device \(deviceInfo.name) is a valid external drive (read-only: \(deviceInfo.isReadOnly))")
+            print("✅ [DEBUG] Found external drive: \(deviceInfo.name)")
             
             let drive = Drive(
                 name: deviceInfo.name,
@@ -114,10 +114,7 @@ class DriveDetectionService: ObservableObject {
             drives.append(drive)
         }
         
-        print("\n🔍 [DEBUG] Drive detection complete. Found \(drives.count) valid external drives:")
-        for drive in drives {
-            print("   📱 \(drive.displayName) (\(drive.formattedSize)) - Read-only: \(drive.isReadOnly)")
-        }
+        print("🔍 [DEBUG] Drive detection complete. Found \(drives.count) external drives")
         
         return drives
     }
@@ -220,18 +217,10 @@ extension DriveDetectionService {
             name = originalName
         }
         
-        print("🔍 [DEBUG] IOKit device: \(name)")
-        print("   📍 Device path: \(devicePath)")
+        print("🔍 [DEBUG] Device: \(name)")
+        print("   📍 Path: \(devicePath)")
         print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
-        print("   🔄 Removable: \(isRemovable)")
-        print("   ⏏️ Ejectable: \(isEjectable)")
         print("   📝 Read-only: \(isReadOnly)")
-        
-        // Debug: Print all available properties for troubleshooting
-        print("   🔍 [DEBUG] Available properties:")
-        for (key, value) in props {
-            print("      \(key): \(value)")
-        }
         
         return DeviceInfo(
             name: name,
@@ -247,53 +236,41 @@ extension DriveDetectionService {
     /// Gets device name using Disk Arbitration framework
     private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
         guard let session = diskArbitrationSession else {
-            print("❌ [DEBUG] Disk Arbitration session not available")
             return nil
         }
         
         // Create a URL from the device path (not used but kept for future reference)
         _ = URL(fileURLWithPath: devicePath)
         
-        // Get the disk object for this device
+                // Get the disk object for this device
         guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            print("❌ [DEBUG] Failed to create disk object for \(devicePath)")
             return nil
         }
-        
+
         // Get disk description
         guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            print("❌ [DEBUG] Failed to get disk description for \(devicePath)")
             return nil
         }
         
-        print("🔍 [DEBUG] Disk Arbitration properties for \(devicePath):")
-        for (key, value) in diskDescription {
-            print("   \(key): \(value)")
-        }
-        
-        // Specifically log the media UUID for inventory purposes
+        // Log the media UUID for inventory purposes
         if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String {
             print("🔑 [DEBUG] Media UUID: \(mediaUUID)")
         }
         
         // Try to get the device name from various Disk Arbitration keys
         if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty {
-            print("✅ [DEBUG] Found device name from Disk Arbitration (VolumeName): \(name)")
             return name
         }
         
         if let name = diskDescription["DAMediaName"] as? String, !name.isEmpty {
-            print("✅ [DEBUG] Found device name from Disk Arbitration (MediaName): \(name)")
             return name
         }
         
         if let name = diskDescription["DADeviceModel"] as? String, !name.isEmpty {
-            print("✅ [DEBUG] Found device name from Disk Arbitration (DeviceModel): \(name)")
             return name
         }
         
         if let name = diskDescription["DADeviceProtocol"] as? String, !name.isEmpty {
-            print("✅ [DEBUG] Found device name from Disk Arbitration (DeviceProtocol): \(name)")
             return name
         }
         
@@ -301,11 +278,9 @@ extension DriveDetectionService {
         if let vendorName = diskDescription["DADeviceVendor"] as? String,
            let productName = diskDescription["DADeviceProduct"] as? String {
             let name = "\(vendorName) \(productName)"
-            print("✅ [DEBUG] Found device name from Disk Arbitration (Vendor+Product): \(name)")
             return name
         }
         
-        print("❌ [DEBUG] No device name found in Disk Arbitration properties")
         return nil
     }
     
@@ -342,34 +317,21 @@ extension DriveDetectionService {
         var currentService = service
         var level = 0
         
-        print("🔍 [DEBUG] Starting device tree traversal for device name...")
-        
-        // Traverse up the device tree to find USB devices with name information
+                // Traverse up the device tree to find USB devices with name information
         while currentService != 0 {
             defer {
                 if currentService != service {
                     IOObjectRelease(currentService)
                 }
             }
-            
+
             // Get properties of current service
             var properties: Unmanaged<CFMutableDictionary>?
             let result = IORegistryEntryCreateCFProperties(currentService, &properties, kCFAllocatorDefault, 0)
-            
+
             if result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] {
-                print("🔍 [DEBUG] Level \(level) - Checking properties for device name...")
-                
-                // Debug: Print all properties at this level
-                print("🔍 [DEBUG] Level \(level) - All properties:")
-                for (key, value) in props {
-                    if key.lowercased().contains("name") || key.lowercased().contains("product") || key.lowercased().contains("vendor") || key.lowercased().contains("model") {
-                        print("   \(key): \(value)")
-                    }
-                }
-                
                 // Try to get name from this level
                 if let name = getDeviceName(from: props) {
-                    print("✅ [DEBUG] Found device name in parent level \(level): \(name)")
                     return name
                 }
             }
@@ -385,15 +347,13 @@ extension DriveDetectionService {
                 }
                 currentService = parentService
                 level += 1
-            } else {
-                // No more parents
-                print("🔍 [DEBUG] No more parent devices found at level \(level)")
-                break
-            }
-        }
-        
-        print("❌ [DEBUG] No device name found in device tree traversal")
-        return nil
+                                    } else {
+                            // No more parents
+                            break
+                        }
+                    }
+
+                    return nil
     }
     
     /// Extracts device name from IOKit properties
@@ -415,20 +375,18 @@ extension DriveDetectionService {
             "IOClass"
         ]
         
-        for key in nameKeys {
-            if let name = props[key] as? String, !name.isEmpty {
-                print("✅ [DEBUG] Found device name using key '\(key)': \(name)")
-                return name
-            }
-        }
-        
-        // Also check for numeric IDs that might be useful
-        if let vendorId = props["idVendor"] as? Int,
-           let productId = props["idProduct"] as? Int {
-            let name = "USB Device (Vendor: \(String(format: "0x%04X", vendorId)), Product: \(String(format: "0x%04X", productId)))"
-            print("✅ [DEBUG] Generated device name from IDs: \(name)")
-            return name
-        }
+                            for key in nameKeys {
+                        if let name = props[key] as? String, !name.isEmpty {
+                            return name
+                        }
+                    }
+
+                    // Also check for numeric IDs that might be useful
+                    if let vendorId = props["idVendor"] as? Int,
+                       let productId = props["idProduct"] as? Int {
+                        let name = "USB Device (Vendor: \(String(format: "0x%04X", vendorId)), Product: \(String(format: "0x%04X", productId)))"
+                        return name
+                    }
         
         return nil
     }

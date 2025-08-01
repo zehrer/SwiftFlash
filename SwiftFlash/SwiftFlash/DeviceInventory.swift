@@ -53,7 +53,7 @@ class DeviceInventory: ObservableObject {
             updatedDevice.lastSeen = now
             updatedDevice.devicePath = devicePath // Update path in case it changed
             devices[existingIndex] = updatedDevice
-            print("📝 [INVENTORY] Updated existing device: \(originalName) (UUID: \(mediaUUID))")
+            print("📝 [INVENTORY] Updated: \(originalName)")
         } else {
             // Add new device
             let newDevice = DeviceInventoryItem(
@@ -67,7 +67,7 @@ class DeviceInventory: ObservableObject {
                 lastSeen: now
             )
             devices.append(newDevice)
-            print("➕ [INVENTORY] Added new device: \(originalName) (UUID: \(mediaUUID))")
+            print("➕ [INVENTORY] Added: \(originalName)")
         }
         
         saveInventory()
@@ -78,7 +78,7 @@ class DeviceInventory: ObservableObject {
         if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
             devices[index].customName = customName
             saveInventory()
-            print("✏️ [INVENTORY] Set custom name for \(mediaUUID): \(customName)")
+            print("✏️ [INVENTORY] Custom name set: \(customName)")
         }
     }
     
@@ -91,7 +91,7 @@ class DeviceInventory: ObservableObject {
     func removeDevice(mediaUUID: String) {
         devices.removeAll { $0.mediaUUID == mediaUUID }
         saveInventory()
-        print("🗑️ [INVENTORY] Removed device: \(mediaUUID)")
+                    print("🗑️ [INVENTORY] Device removed")
     }
     
     /// Cleans up old devices that haven't been seen recently
@@ -120,7 +120,7 @@ class DeviceInventory: ObservableObject {
         
         do {
             devices = try JSONDecoder().decode([DeviceInventoryItem].self, from: data)
-            print("📚 [INVENTORY] Loaded \(devices.count) devices from inventory")
+            print("📚 [INVENTORY] Loaded \(devices.count) devices")
         } catch {
             print("❌ [INVENTORY] Failed to load inventory: \(error)")
             devices = []
