@@ -155,7 +155,7 @@ extension DriveDetectionService {
         }
         
         // Extract device information
-        let name = getDeviceName(from: props) ?? "Unknown Device"
+        let name = getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
@@ -183,6 +183,49 @@ extension DriveDetectionService {
             isEjectable: isEjectable,
             isReadOnly: isReadOnly
         )
+    }
+    
+    /// Gets device name by traversing up the device tree to find USB device properties
+    private func getDeviceNameFromParent(service: io_object_t) -> String? {
+        var currentService = service
+        
+        // Traverse up the device tree to find USB devices with name information
+        while currentService != 0 {
+            defer {
+                if currentService != service {
+                    IOObjectRelease(currentService)
+                }
+            }
+            
+            // Get properties of current service
+            var properties: Unmanaged<CFMutableDictionary>?
+            let result = IORegistryEntryCreateCFProperties(currentService, &properties, kCFAllocatorDefault, 0)
+            
+            if result == kIOReturnSuccess, let props = properties?.takeRetainedValue() as? [String: Any] {
+                // Try to get name from this level
+                if let name = getDeviceName(from: props) {
+                    print("✅ [DEBUG] Found device name in parent: \(name)")
+                    return name
+                }
+            }
+            
+            // Get the parent device
+            var parentService: io_object_t = 0
+            let parentResult = IORegistryEntryGetParentEntry(currentService, kIOServicePlane, &parentService)
+            
+            if parentResult == kIOReturnSuccess {
+                // Move up to the parent
+                if currentService != service {
+                    IOObjectRelease(currentService)
+                }
+                currentService = parentService
+            } else {
+                // No more parents
+                break
+            }
+        }
+        
+        return nil
     }
     
     /// Extracts device name from IOKit properties
