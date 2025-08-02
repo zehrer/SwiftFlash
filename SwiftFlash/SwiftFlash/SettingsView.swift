@@ -2,83 +2,38 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var inventory: DeviceInventory
-    @State private var selectedTopic: SettingsTopic = .general
+    @State private var selectedTab: Tab = .general
     @State private var selectedDevice: DeviceInventoryItem?
     @State private var showingDeleteAlert = false
     @State private var deviceToDelete: DeviceInventoryItem?
     
-    enum SettingsTopic: String, CaseIterable {
-        case general = "General"
-        case devices = "Devices"
-        
-        var icon: String {
-            switch self {
-            case .general:
-                return "gear"
-            case .devices:
-                return "externaldrive"
-            }
-        }
+    enum Tab {
+        case general
+        case devices
     }
     
     var body: some View {
-        NavigationView {
-            // Left Sidebar - Topics
-            List(SettingsTopic.allCases, id: \.self, selection: $selectedTopic) { topic in
-                HStack(spacing: 8) {
-                    Image(systemName: topic.icon)
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                        .frame(width: 20)
-                    
-                    Text(topic.rawValue)
-                        .font(.body)
-                }
-                .padding(.vertical, 4)
+        NavigationSplitView {
+            List(selection: $selectedTab) {
+                Label("General", systemImage: "gearshape")
+                    .tag(Tab.general)
+                Label("Devices", systemImage: "externaldrive")
+                    .tag(Tab.devices)
             }
-            .listStyle(SidebarListStyle())
-            .frame(width: 200)
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            // Right Content Area
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Text(selectedTopic.rawValue)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(Color(NSColor.controlBackgroundColor))
-                
-                Divider()
-                
-                // Content based on selected topic
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        switch selectedTopic {
-                        case .general:
-                            GeneralSettingsView()
-                        case .devices:
-                            DevicesSettingsView(
-                                inventory: inventory,
-                                selectedDevice: $selectedDevice,
-                                showingDeleteAlert: $showingDeleteAlert,
-                                deviceToDelete: $deviceToDelete
-                            )
-                        }
-                    }
-                    .padding(20)
-                }
-                .background(Color(NSColor.controlBackgroundColor))
+            .listStyle(.sidebar)
+        } detail: {
+            switch selectedTab {
+            case .general:
+                GeneralSettingsView()
+            case .devices:
+                DevicesSettingsView(
+                    inventory: inventory,
+                    selectedDevice: $selectedDevice,
+                    showingDeleteAlert: $showingDeleteAlert,
+                    deviceToDelete: $deviceToDelete
+                )
             }
         }
-        .frame(minWidth: 800, minHeight: 600)
-        .background(Color(NSColor.controlBackgroundColor))
-
         .sheet(item: $selectedDevice) { device in
             EditDeviceNameView(device: device, inventory: inventory)
         }
@@ -86,7 +41,7 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
                 if let device = deviceToDelete {
-                    deleteDevice(device)
+                    inventory.removeDevice(with: device.mediaUUID)
                     selectedDevice = nil
                 }
             }
@@ -99,9 +54,7 @@ struct SettingsView: View {
     
 
     
-    private func deleteDevice(_ device: DeviceInventoryItem) {
-        inventory.removeDevice(with: device.mediaUUID)
-    }
+
 }
 
 struct GeneralSettingsView: View {
