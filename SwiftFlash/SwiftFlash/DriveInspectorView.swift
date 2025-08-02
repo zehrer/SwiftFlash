@@ -16,8 +16,8 @@ struct DriveInspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Basic Information Section
-                DisclosureGroup("Basic Information") {
+                // Identity and Type Section
+                DisclosureGroup("Identity and Type") {
                     VStack(alignment: .leading, spacing: 12) {
                         // Name
                         HStack {
@@ -40,6 +40,86 @@ struct DriveInspectorView: View {
                                 }
                         }
                         
+                        // Device Type
+                        HStack {
+                            Text("Type")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .leading)
+                            
+                            HStack(spacing: 8) {
+                                Image(systemName: selectedDeviceType.icon)
+                                    .foregroundColor(.blue)
+                                    .font(.system(size: 12))
+                                
+                                Picker("", selection: $selectedDeviceType) {
+                                    ForEach(DeviceType.allCases, id: \.self) { type in
+                                        Text(type.rawValue).tag(type)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .font(.system(size: 12))
+                                .onChange(of: selectedDeviceType) { newValue in
+                                    if let mediaUUID = drive.mediaUUID {
+                                        deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Capacity
+                        HStack {
+                            Text("Capacity")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .leading)
+                            
+                            Text(drive.formattedSize)
+                                .font(.system(size: 12))
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.system(size: 13, weight: .bold))
+                
+                // Status Section
+                DisclosureGroup("Status") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Device Path
+                        HStack {
+                            Text("Device Path")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .leading)
+                            
+                            Text(drive.mountPoint)
+                                .font(.system(size: 12))
+                        }
+                        
+                        // Status
+                        HStack {
+                            Text("Status")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .leading)
+                            
+                            HStack(spacing: 6) {
+                                Image(systemName: drive.isReadOnly ? "lock.fill" : "lock.open.fill")
+                                    .foregroundColor(drive.isReadOnly ? .red : .green)
+                                    .font(.system(size: 12))
+                                
+                                Text(drive.isReadOnly ? "Read-only" : "Writable")
+                                    .font(.system(size: 12))
+                            }
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.system(size: 13, weight: .bold))
+                
+                // Media Details Section
+                DisclosureGroup("Media Details") {
+                    VStack(alignment: .leading, spacing: 12) {
                         // Media Name
                         HStack {
                             Text("Media Name")
@@ -73,87 +153,8 @@ struct DriveInspectorView: View {
                                 .font(.system(size: 12))
                         }
                         
-                        // Capacity
-                        HStack {
-                            Text("Capacity")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            
-                            Text(drive.formattedSize)
-                                .font(.system(size: 12))
-                        }
-                    }
-                    .padding(.top, 8)
-                }
-                .font(.system(size: 13, weight: .bold))
-                
-                // Device Details Section
-                DisclosureGroup("Device Details") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        // Device Path
-                        HStack {
-                            Text("Device Path")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            
-                            Text(drive.mountPoint)
-                                .font(.system(size: 12))
-                        }
-                        
-                        // Status
-                        HStack {
-                            Text("Status")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            
-                            HStack(spacing: 6) {
-                                Image(systemName: drive.isReadOnly ? "lock.fill" : "lock.open.fill")
-                                    .foregroundColor(drive.isReadOnly ? .red : .green)
-                                    .font(.system(size: 12))
-                                
-                                Text(drive.isReadOnly ? "Read-only" : "Writable")
-                                    .font(.system(size: 12))
-                            }
-                        }
-                        
-                        // Device Type
-                        HStack {
-                            Text("Device Type")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            
-                            HStack(spacing: 8) {
-                                Image(systemName: selectedDeviceType.icon)
-                                    .foregroundColor(.blue)
-                                    .font(.system(size: 12))
-                                
-                                Picker("", selection: $selectedDeviceType) {
-                                    ForEach(DeviceType.allCases, id: \.self) { type in
-                                        Text(type.rawValue).tag(type)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .font(.system(size: 12))
-                                .onChange(of: selectedDeviceType) { newValue in
-                                    if let mediaUUID = drive.mediaUUID {
-                                        deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.top, 8)
-                }
-                .font(.system(size: 13, weight: .bold))
-                
-                // Media UUID Section
-                if let mediaUUID = drive.mediaUUID {
-                    DisclosureGroup("Media UUID") {
-                        VStack(alignment: .leading, spacing: 12) {
+                        // Media UUID
+                        if let mediaUUID = drive.mediaUUID {
                             HStack {
                                 Text("UUID")
                                     .font(.system(size: 12))
@@ -165,14 +166,14 @@ struct DriveInspectorView: View {
                                     .lineLimit(2)
                             }
                         }
-                        .padding(.top, 8)
                     }
-                    .font(.system(size: 13, weight: .bold))
+                    .padding(.top, 8)
                 }
+                .font(.system(size: 13, weight: .bold))
             }
             .padding()
         }
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
