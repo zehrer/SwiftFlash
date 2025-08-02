@@ -16,7 +16,7 @@ enum DeviceType: String, CaseIterable, Codable {
         case .sdCard:
             return "sdcard"
         case .microSDCard:
-            return "sdcard"
+            return "sdcard.fill"
         case .externalHDD:
             return "externaldrive.fill"
         case .externalSSD:
