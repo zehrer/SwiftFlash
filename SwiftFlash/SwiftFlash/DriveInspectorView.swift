@@ -99,7 +99,7 @@ struct DriveInspectorView: View {
             
             // Device Type
             VStack(alignment: .leading, spacing: 4) {
-                Text("Type")
+                Text("Device Type")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
@@ -108,7 +108,7 @@ struct DriveInspectorView: View {
                         .foregroundColor(.blue)
                         .font(.title3)
                     
-                    Picker("Device Type", selection: $selectedDeviceType) {
+                    Picker("", selection: $selectedDeviceType) {
                         ForEach(DeviceType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
                         }
