@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @ObservedObject var inventory: DeviceInventory
     @State private var selectedTopic: SettingsTopic = .general
     @State private var selectedDevice: DeviceInventoryItem?
@@ -43,25 +42,8 @@ struct SettingsView: View {
             
             // Right Content Area
             VStack(spacing: 0) {
-                // Header with navigation arrows
+                // Header
                 HStack {
-                    HStack(spacing: 8) {
-                        Button(action: previousTopic) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedTopic == SettingsTopic.allCases.first)
-                        
-                        Button(action: nextTopic) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedTopic == SettingsTopic.allCases.last)
-                    }
-                    .foregroundColor(.secondary)
-                    
                     Text(selectedTopic.rawValue)
                         .font(.title2)
                         .fontWeight(.semibold)
@@ -96,49 +78,7 @@ struct SettingsView: View {
         }
         .frame(minWidth: 800, minHeight: 600)
         .background(Color(NSColor.controlBackgroundColor))
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                HStack(spacing: 8) {
-                    // Simulate traffic light buttons
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 12, height: 12)
-                            .onTapGesture {
-                                dismiss()
-                            }
-                            .help("Close")
-                        
-                        Circle()
-                            .fill(Color.yellow)
-                            .frame(width: 12, height: 12)
-                            .onTapGesture {
-                                // Minimize functionality would go here
-                            }
-                            .help("Minimize")
-                        
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 12, height: 12)
-                            .onTapGesture {
-                                // Maximize functionality would go here
-                            }
-                            .help("Zoom")
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
-                    
-                    Spacer()
-                    
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-        }
+
         .sheet(item: $selectedDevice) { device in
             EditDeviceNameView(device: device, inventory: inventory)
         }
@@ -157,19 +97,7 @@ struct SettingsView: View {
         }
     }
     
-    private func previousTopic() {
-        if let currentIndex = SettingsTopic.allCases.firstIndex(of: selectedTopic),
-           currentIndex > 0 {
-            selectedTopic = SettingsTopic.allCases[currentIndex - 1]
-        }
-    }
-    
-    private func nextTopic() {
-        if let currentIndex = SettingsTopic.allCases.firstIndex(of: selectedTopic),
-           currentIndex < SettingsTopic.allCases.count - 1 {
-            selectedTopic = SettingsTopic.allCases[currentIndex + 1]
-        }
-    }
+
     
     private func deleteDevice(_ device: DeviceInventoryItem) {
         inventory.removeDevice(with: device.mediaUUID)

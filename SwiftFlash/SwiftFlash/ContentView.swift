@@ -2,12 +2,21 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
-    @StateObject private var driveService = DriveDetectionService()
+    @EnvironmentObject var deviceInventory: DeviceInventory
+    @StateObject private var driveService: DriveDetectionService
     @State private var selectedDrive: Drive?
+    
+    init() {
+        let driveService = DriveDetectionService()
+        self._driveService = StateObject(wrappedValue: driveService)
+    }
+    
+    private func setupDriveService() {
+        driveService.inventory = deviceInventory
+    }
     @State private var isDropTargeted = false
     @State private var showInspector = true
     @State private var showAboutDialog = false
-    @State private var showSettingsDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
@@ -44,9 +53,7 @@ struct ContentView: View {
                 aboutButton
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenSettings"))) { _ in
-            showSettingsDialog = true
-        }
+
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
             TextField("Enter custom name", text: $customNameText)
             Button("Cancel", role: .cancel) {
@@ -81,14 +88,10 @@ struct ContentView: View {
         .sheet(isPresented: $showAboutDialog) {
             AboutView()
         }
-        .sheet(isPresented: $showSettingsDialog) {
-            SettingsView(inventory: driveService.inventory)
-                .frame(minWidth: 800, minHeight: 600)
-                .background(Color(NSColor.controlBackgroundColor))
+        .onAppear {
+            setupDriveService()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenSettings"))) { _ in
-            showSettingsDialog = true
-        }
+
     }
     
     // MARK: - View Sections

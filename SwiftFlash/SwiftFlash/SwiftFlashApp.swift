@@ -9,17 +9,19 @@ import SwiftUI
 
 @main
 struct SwiftFlashApp: App {
+    @StateObject private var deviceInventory = DeviceInventory()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(deviceInventory)
         }
-        .commands {
-            CommandGroup(after: .appInfo) {
-                Button("Settings...") {
-                    NotificationCenter.default.post(name: NSNotification.Name("OpenSettings"), object: nil)
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
+        
+        #if os(macOS)
+        // Adds a native macOS Settings window accessible via the menu bar.
+        Settings {
+            SettingsView(inventory: deviceInventory)
         }
+        #endif // os(macOS)
     }
 }
