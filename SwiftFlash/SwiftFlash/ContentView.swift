@@ -36,7 +36,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 700)
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 inspectorToggleButton
                 refreshButton
                 Divider()
@@ -81,6 +81,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showSettingsDialog) {
             SettingsView(inventory: driveService.inventory)
+                .onAppear {
+                    print("🔧 [DEBUG] Settings sheet appeared")
+                }
         }
     }
     
@@ -243,7 +246,9 @@ struct ContentView: View {
             showSettingsDialog = true
         }) {
             Image(systemName: "gear")
+                .font(.title2)
         }
+        .buttonStyle(.bordered)
         .help("Settings")
     }
     
