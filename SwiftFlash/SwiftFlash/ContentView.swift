@@ -278,8 +278,8 @@ struct DriveRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Drive icon
-            Image(systemName: "externaldrive.fill")
+            // Drive icon - use device type icon
+            Image(systemName: drive.deviceType.icon)
                 .font(.title2)
                 .foregroundColor(isSelected ? .white : .blue)
                 .frame(width: 32)
