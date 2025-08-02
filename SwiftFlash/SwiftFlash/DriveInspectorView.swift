@@ -2,6 +2,14 @@ import SwiftUI
 
 struct DriveInspectorView: View {
     let drive: Drive
+    @ObservedObject var deviceInventory: DeviceInventory
+    @State private var selectedDeviceType: DeviceType
+    
+    init(drive: Drive, deviceInventory: DeviceInventory) {
+        self.drive = drive
+        self.deviceInventory = deviceInventory
+        self._selectedDeviceType = State(initialValue: drive.deviceType)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -89,7 +97,30 @@ struct DriveInspectorView: View {
                 }
             }
             
-
+            // Device Type
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Type")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 8) {
+                    Image(systemName: selectedDeviceType.icon)
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                    
+                    Picker("Device Type", selection: $selectedDeviceType) {
+                        ForEach(DeviceType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: selectedDeviceType) { newValue in
+                        if let mediaUUID = drive.mediaUUID {
+                            deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
+                        }
+                    }
+                }
+            }
             
             // Media UUID (if available)
             if let mediaUUID = drive.mediaUUID {
@@ -124,16 +155,20 @@ struct DriveInspectorView: View {
 }
 
 #Preview {
-    DriveInspectorView(drive: Drive(
-        name: "Test Drive",
-        mountPoint: "/dev/disk4",
-        size: 32000000000,
-        isRemovable: true,
-        isSystemDrive: false,
-        isReadOnly: false,
-        mediaUUID: "12345678-1234-1234-1234-123456789ABC",
-        mediaName: "Test Media Name",
-        vendor: "Test Vendor",
-        revision: "1.0"
-    ))
+    DriveInspectorView(
+        drive: Drive(
+            name: "Test Drive",
+            mountPoint: "/dev/disk4",
+            size: 32000000000,
+            isRemovable: true,
+            isSystemDrive: false,
+            isReadOnly: false,
+            mediaUUID: "12345678-1234-1234-1234-123456789ABC",
+            mediaName: "Test Media Name",
+            vendor: "Test Vendor",
+            revision: "1.0",
+            deviceType: .usbStick
+        ),
+        deviceInventory: DeviceInventory()
+    )
 } 

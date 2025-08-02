@@ -19,6 +19,7 @@ struct Drive: Identifiable, Hashable {
     let mediaName: String? // Specific DAMediaName from Disk Arbitration
     let vendor: String? // DADeviceVendor from Disk Arbitration
     let revision: String? // DADeviceRevision from Disk Arbitration
+    var deviceType: DeviceType = .unknown // Device type for display and settings
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()

@@ -136,6 +136,15 @@ class DriveDetectionService: ObservableObject {
             
             print("✅ [DEBUG] Found external drive: \(deviceInfo.name)")
             
+            // Get device type from inventory if available, otherwise determine automatically
+            let deviceType: DeviceType
+            if let mediaUUID = deviceInfo.mediaUUID,
+               let inventoryDevice = inventory?.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+                deviceType = inventoryDevice.deviceType
+            } else {
+                deviceType = determineDeviceType(originalName: deviceInfo.name, devicePath: deviceInfo.devicePath)
+            }
+            
             let drive = Drive(
                 name: deviceInfo.name,
                 mountPoint: deviceInfo.devicePath,
@@ -146,7 +155,8 @@ class DriveDetectionService: ObservableObject {
                 mediaUUID: deviceInfo.mediaUUID,
                 mediaName: deviceInfo.mediaName,
                 vendor: deviceInfo.vendor,
-                revision: deviceInfo.revision
+                revision: deviceInfo.revision,
+                deviceType: deviceType
             )
             drives.append(drive)
         }
