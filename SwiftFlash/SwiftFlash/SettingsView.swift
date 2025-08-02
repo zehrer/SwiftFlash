@@ -3,166 +3,99 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var inventory: DeviceInventory
+    @State private var selectedTopic: SettingsTopic = .general
     @State private var selectedDevice: DeviceInventoryItem?
     @State private var showingDeleteAlert = false
     @State private var deviceToDelete: DeviceInventoryItem?
     
+    enum SettingsTopic: String, CaseIterable {
+        case general = "General"
+        case devices = "Devices"
+        
+        var icon: String {
+            switch self {
+            case .general:
+                return "gear"
+            case .devices:
+                return "externaldrive"
+            }
+        }
+    }
+    
     var body: some View {
         NavigationView {
-            // Left side - Device Library
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Device Library")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding()
-                
-                Spacer()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Manage your device inventory")
-                        .font(.caption)
+            // Left Sidebar - Topics
+            List(SettingsTopic.allCases, id: \.self, selection: $selectedTopic) { topic in
+                HStack(spacing: 8) {
+                    Image(systemName: topic.icon)
+                        .font(.system(size: 16))
                         .foregroundColor(.secondary)
+                        .frame(width: 20)
                     
-                    Text("Devices are automatically added when detected")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Text(topic.rawValue)
+                        .font(.body)
                 }
-                .padding()
-                
-                Spacer()
+                .padding(.vertical, 4)
             }
+            .listStyle(SidebarListStyle())
             .frame(width: 200)
             .background(Color(NSColor.controlBackgroundColor))
             
-            // Right side - Device Table
+            // Right Content Area
             VStack(spacing: 0) {
-                // Header
+                // Header with navigation arrows
                 HStack {
-                    Text("Devices")
+                    HStack(spacing: 8) {
+                        Button(action: previousTopic) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTopic == SettingsTopic.allCases.first)
+                        
+                        Button(action: nextTopic) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTopic == SettingsTopic.allCases.last)
+                    }
+                    .foregroundColor(.secondary)
+                    
+                    Text(selectedTopic.rawValue)
                         .font(.title2)
-                        .fontWeight(.bold)
+                        .fontWeight(.semibold)
                     
                     Spacer()
-                    
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
                 .background(Color(NSColor.controlBackgroundColor))
                 
-                // Device Table
-                if inventory.devices.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "externaldrive")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        
-                        Text("No devices in inventory")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                        
-                        Text("Devices will appear here once they are detected")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                Divider()
+                
+                // Content based on selected topic
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        switch selectedTopic {
+                        case .general:
+                            GeneralSettingsView()
+                        case .devices:
+                            DevicesSettingsView(
+                                inventory: inventory,
+                                selectedDevice: $selectedDevice,
+                                showingDeleteAlert: $showingDeleteAlert,
+                                deviceToDelete: $deviceToDelete
+                            )
+                        }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    VStack(spacing: 0) {
-                        // Table Header
-                        HStack(spacing: 0) {
-                            Text("Anzeigename")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                            
-                            Divider()
-                            
-                            Text("Größe")
-                                .font(.headline)
-                                .frame(width: 100, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                            
-                            Divider()
-                            
-                            Text("Type")
-                                .font(.headline)
-                                .frame(width: 80, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                            
-                            Divider()
-                            
-                            Text("Device Name")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                        }
-                        .border(Color(NSColor.separatorColor), width: 1)
-                        
-                        // Table Content
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(inventory.devices) { device in
-                                    DeviceTableRowView(device: device)
-                                        .onTapGesture {
-                                            selectedDevice = device
-                                        }
-                                        .contextMenu {
-                                            Button("Edit Name") {
-                                                selectedDevice = device
-                                            }
-                                            
-                                            Button("Delete", role: .destructive) {
-                                                deviceToDelete = device
-                                                showingDeleteAlert = true
-                                            }
-                                        }
-                                    
-                                    Divider()
-                                }
-                            }
-                        }
-                        
-                        // Delete Button
-                        HStack {
-                            Button(action: {
-                                if let selected = selectedDevice {
-                                    deviceToDelete = selected
-                                    showingDeleteAlert = true
-                                }
-                            }) {
-                                Image(systemName: "minus.circle")
-                                    .font(.title2)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(selectedDevice == nil)
-                            .foregroundColor(selectedDevice == nil ? .secondary : .red)
-                            
-                            if selectedDevice != nil {
-                                Text("Delete selected device")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(NSColor.controlBackgroundColor))
-                    }
+                    .padding(20)
                 }
+                .background(Color(NSColor.controlBackgroundColor))
             }
         }
         .frame(width: 800, height: 600)
+        .background(Color(NSColor.controlBackgroundColor))
         .sheet(item: $selectedDevice) { device in
             EditDeviceNameView(device: device, inventory: inventory)
         }
@@ -181,8 +114,245 @@ struct SettingsView: View {
         }
     }
     
+    private func previousTopic() {
+        if let currentIndex = SettingsTopic.allCases.firstIndex(of: selectedTopic),
+           currentIndex > 0 {
+            selectedTopic = SettingsTopic.allCases[currentIndex - 1]
+        }
+    }
+    
+    private func nextTopic() {
+        if let currentIndex = SettingsTopic.allCases.firstIndex(of: selectedTopic),
+           currentIndex < SettingsTopic.allCases.count - 1 {
+            selectedTopic = SettingsTopic.allCases[currentIndex + 1]
+        }
+    }
+    
     private func deleteDevice(_ device: DeviceInventoryItem) {
         inventory.removeDevice(with: device.mediaUUID)
+    }
+}
+
+struct GeneralSettingsView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            // Appearance Section
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Appearance")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                HStack(spacing: 16) {
+                    AppearanceOption(
+                        title: "System",
+                        description: "Follow system appearance",
+                        isSelected: true,
+                        preview: "system"
+                    )
+                    
+                    AppearanceOption(
+                        title: "Light",
+                        description: "Always use light mode",
+                        isSelected: false,
+                        preview: "light"
+                    )
+                    
+                    AppearanceOption(
+                        title: "Dark",
+                        description: "Always use dark mode",
+                        isSelected: false,
+                        preview: "dark"
+                    )
+                }
+            }
+            
+            Divider()
+            
+            // Behavior Section
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Behavior")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Show inspector by default", isOn: .constant(true))
+                    
+                    Toggle("Auto-refresh drives on app launch", isOn: .constant(false))
+                    
+                    Toggle("Remember last selected drive", isOn: .constant(true))
+                }
+            }
+        }
+    }
+}
+
+struct AppearanceOption: View {
+    let title: String
+    let description: String
+    let isSelected: Bool
+    let preview: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Preview thumbnail
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.blue : Color(NSColor.separatorColor), lineWidth: isSelected ? 2 : 1)
+                )
+                .frame(width: 120, height: 80)
+                .overlay(
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            Circle().fill(Color.red).frame(width: 8, height: 8)
+                            Circle().fill(Color.yellow).frame(width: 8, height: 8)
+                            Circle().fill(Color.green).frame(width: 8, height: 8)
+                        }
+                        Text("Preview")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                )
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(width: 120)
+    }
+}
+
+struct DevicesSettingsView: View {
+    @ObservedObject var inventory: DeviceInventory
+    @Binding var selectedDevice: DeviceInventoryItem?
+    @Binding var showingDeleteAlert: Bool
+    @Binding var deviceToDelete: DeviceInventoryItem?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Device Inventory")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            if inventory.devices.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "externaldrive")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text("No devices in inventory")
+                        .font(.title3)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Devices will appear here once they are detected")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 0) {
+                    // Table Header
+                    HStack(spacing: 0) {
+                        Text("Display Name")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
+                        
+                        Divider()
+                        
+                        Text("Size")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .frame(width: 100, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
+                        
+                        Divider()
+                        
+                        Text("Type")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .frame(width: 80, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
+                        
+                        Divider()
+                        
+                        Text("Device Name")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
+                    }
+                    .border(Color(NSColor.separatorColor), width: 1)
+                    
+                    // Table Content
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(inventory.devices) { device in
+                                DeviceTableRowView(device: device)
+                                    .onTapGesture {
+                                        selectedDevice = device
+                                    }
+                                    .contextMenu {
+                                        Button("Edit Name") {
+                                            selectedDevice = device
+                                        }
+                                        
+                                        Button("Delete", role: .destructive) {
+                                            deviceToDelete = device
+                                            showingDeleteAlert = true
+                                        }
+                                    }
+                                
+                                Divider()
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 300)
+                    
+                    // Delete Button
+                    HStack {
+                        Button(action: {
+                            if let selected = selectedDevice {
+                                deviceToDelete = selected
+                                showingDeleteAlert = true
+                            }
+                        }) {
+                            Image(systemName: "minus.circle")
+                                .font(.title2)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedDevice == nil)
+                        .foregroundColor(selectedDevice == nil ? .secondary : .red)
+                        
+                        if selectedDevice != nil {
+                            Text("Delete selected device")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(.top, 12)
+                }
+            }
+        }
     }
 }
 
@@ -191,7 +361,7 @@ struct DeviceTableRowView: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            // Anzeigename (Display Name)
+            // Display Name
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.displayName)
                     .font(.body)
@@ -204,37 +374,37 @@ struct DeviceTableRowView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             
             Divider()
             
-            // Größe (Size)
+            // Size
             Text(device.formattedSize)
                 .font(.body)
                 .frame(width: 100, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             
             Divider()
             
-            // Type (placeholder for later)
+            // Type
             Text("—")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .frame(width: 80, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             
             Divider()
             
-            // Device Name (original name)
+            // Device Name
             Text(device.originalName)
                 .font(.body)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
         }
         .background(Color(NSColor.controlBackgroundColor))
         .contentShape(Rectangle())
