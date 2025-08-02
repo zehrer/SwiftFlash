@@ -4,8 +4,10 @@ import Combine
 enum DeviceType: String, CaseIterable, Codable {
     case usbStick = "USB Stick"
     case sdCard = "SD Card"
-    case externalDrive = "External Drive"
-    case unknown = "Unknown"
+    case microSDCard = "microSD Card"
+    case externalHDD = "external HDD"
+    case externalSSD = "external SSD"
+    case unknown = "unknown"
     
     var icon: String {
         switch self {
@@ -13,7 +15,11 @@ enum DeviceType: String, CaseIterable, Codable {
             return "externaldrive"
         case .sdCard:
             return "sdcard"
-        case .externalDrive:
+        case .microSDCard:
+            return "sdcard"
+        case .externalHDD:
+            return "externaldrive.fill"
+        case .externalSSD:
             return "externaldrive.fill"
         case .unknown:
             return "questionmark.circle"

@@ -294,6 +294,11 @@ extension DriveDetectionService {
     private func determineDeviceType(originalName: String, devicePath: String) -> DeviceType {
         let lowercasedName = originalName.lowercased()
         
+        // Check for microSD card indicators
+        if lowercasedName.contains("microsd") || lowercasedName.contains("micro sd") {
+            return .microSDCard
+        }
+        
         // Check for SD card indicators
         if lowercasedName.contains("sd") || lowercasedName.contains("transce") {
             return .sdCard
@@ -304,9 +309,14 @@ extension DriveDetectionService {
             return .usbStick
         }
         
-        // Check for external drive indicators
-        if lowercasedName.contains("external") || lowercasedName.contains("drive") {
-            return .externalDrive
+        // Check for external SSD indicators
+        if lowercasedName.contains("ssd") || lowercasedName.contains("solid state") {
+            return .externalSSD
+        }
+        
+        // Check for external HDD indicators
+        if lowercasedName.contains("external") || lowercasedName.contains("drive") || lowercasedName.contains("hard disk") {
+            return .externalHDD
         }
         
         // Default to unknown if we can't determine
