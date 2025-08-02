@@ -242,10 +242,14 @@ extension DriveDetectionService {
         let name: String
         if let uuid = mediaUUID {
             print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
+            // Determine device type based on original name or other characteristics
+            let deviceType = determineDeviceType(originalName: originalName, devicePath: devicePath)
+            
             inventory.addOrUpdateDevice(
                 mediaUUID: uuid,
                 size: size,
-                originalName: originalName
+                originalName: originalName,
+                deviceType: deviceType
             )
             
             // Use custom name from inventory if available, otherwise use original name
@@ -272,6 +276,29 @@ extension DriveDetectionService {
             mediaUUID: mediaUUID,
             mediaName: mediaName
         )
+    }
+    
+    /// Determines the device type based on the original name and device path
+    private func determineDeviceType(originalName: String, devicePath: String) -> DeviceType {
+        let lowercasedName = originalName.lowercased()
+        
+        // Check for SD card indicators
+        if lowercasedName.contains("sd") || lowercasedName.contains("transce") {
+            return .sdCard
+        }
+        
+        // Check for USB stick indicators
+        if lowercasedName.contains("udisk") || lowercasedName.contains("mass") || lowercasedName.contains("generic") {
+            return .usbStick
+        }
+        
+        // Check for external drive indicators
+        if lowercasedName.contains("external") || lowercasedName.contains("drive") {
+            return .externalDrive
+        }
+        
+        // Default to unknown if we can't determine
+        return .unknown
     }
     
     /// Gets the specific DAMediaName from Disk Arbitration framework

@@ -83,6 +83,8 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showSettingsDialog) {
             SettingsView(inventory: driveService.inventory)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
     

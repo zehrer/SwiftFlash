@@ -1,6 +1,26 @@
 import Foundation
 import Combine
 
+enum DeviceType: String, CaseIterable, Codable {
+    case usbStick = "USB Stick"
+    case sdCard = "SD Card"
+    case externalDrive = "External Drive"
+    case unknown = "Unknown"
+    
+    var icon: String {
+        switch self {
+        case .usbStick:
+            return "externaldrive"
+        case .sdCard:
+            return "sdcard"
+        case .externalDrive:
+            return "externaldrive.fill"
+        case .unknown:
+            return "questionmark.circle"
+        }
+    }
+}
+
 /// Represents a device in the inventory with key identifying information
 struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var id = UUID()
@@ -10,6 +30,7 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var customName: String?
     let firstSeen: Date
     var lastSeen: Date
+    var deviceType: DeviceType = .unknown
     
     var displayName: String {
         return customName ?? originalName
@@ -54,7 +75,8 @@ class DeviceInventory: ObservableObject {
     func addOrUpdateDevice(
         mediaUUID: String,
         size: Int64,
-        originalName: String
+        originalName: String,
+        deviceType: DeviceType = .unknown
     ) {
         let now = Date()
         
@@ -72,7 +94,8 @@ class DeviceInventory: ObservableObject {
                 originalName: originalName,
                 customName: nil,
                 firstSeen: now,
-                lastSeen: now
+                lastSeen: now,
+                deviceType: deviceType
             )
             devices.append(newDevice)
             print("➕ [INVENTORY] Added: \(originalName)")
@@ -95,6 +118,15 @@ class DeviceInventory: ObservableObject {
             for device in devices {
                 print("   - \(device.originalName) (UUID: \(device.mediaUUID))")
             }
+        }
+    }
+    
+    /// Sets the device type for a device
+    func setDeviceType(for mediaUUID: String, deviceType: DeviceType) {
+        if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            devices[index].deviceType = deviceType
+            saveInventory()
+            print("🏷️ [INVENTORY] Device type set: \(deviceType.rawValue)")
         }
     }
     
