@@ -40,7 +40,7 @@ struct ContentView: View {
                 if showInspector, let selectedDrive = selectedDrive {
                     DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
                         .frame(width: 300)
-                        .background(Color(NSColor.windowBackgroundColor))
+                        .background(Color(.windowBackgroundColor))
                 }
             }
         }

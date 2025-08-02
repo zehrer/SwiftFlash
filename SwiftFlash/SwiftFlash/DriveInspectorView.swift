@@ -201,7 +201,7 @@ struct DriveInspectorView: View {
                 }
             }
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color(.windowBackgroundColor))
     }
 }
 
