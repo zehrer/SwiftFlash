@@ -32,37 +32,8 @@ struct SettingsView: View {
             .listStyle(.sidebar)
         } detail: {
             VStack(spacing: 0) {
-                // Header with navigation arrows and topic name
-                HStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        Button(action: previousTab) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedTab == Tab.general)
-                        
-                        Button(action: nextTab) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(selectedTab == Tab.devices)
-                    }
-                    .foregroundColor(.secondary)
-                    
-                    Text(selectedTabTitle)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(Color(NSColor.controlBackgroundColor))
-                
-                Divider()
-                
+                // Entferne den eigenen Header komplett
+                // Die Toolbar kommt jetzt unten
                 // Content based on selected tab
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -81,6 +52,25 @@ struct SettingsView: View {
                     .padding(20)
                 }
                 .background(Color(NSColor.controlBackgroundColor))
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    HStack(spacing: 8) {
+                        Button(action: previousTab) {
+                            Image(systemName: "chevron.left")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTab == Tab.general)
+                        Button(action: nextTab) {
+                            Image(systemName: "chevron.right")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTab == Tab.devices)
+                        Text(selectedTabTitle)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                    }
+                }
             }
         }
         .navigationSplitViewStyle(.balanced)
