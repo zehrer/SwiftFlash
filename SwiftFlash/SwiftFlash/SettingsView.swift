@@ -72,7 +72,8 @@ struct SettingsView: View {
                     }
                 }
             }
-        }
+                }
+        .navigationTitle("")
         .navigationSplitViewStyle(.balanced)
         .sheet(item: $selectedDevice) { device in
             EditDeviceNameView(device: device, inventory: inventory)
