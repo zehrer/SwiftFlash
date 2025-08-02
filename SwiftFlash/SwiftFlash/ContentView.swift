@@ -34,12 +34,13 @@ struct ContentView: View {
                     .padding()
                 }
                 .frame(maxWidth: .infinity)
+                .background(Color.white)
                 
                 // Inspector Panel
                 if showInspector, let selectedDrive = selectedDrive {
                     DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
                         .frame(width: 300)
-                        .background(Color(NSColor.controlBackgroundColor))
+                        .background(Color(NSColor.windowBackgroundColor))
                 }
             }
         }
