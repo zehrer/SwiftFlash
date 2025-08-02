@@ -30,6 +30,7 @@ struct SettingsView: View {
                     .tag(Tab.devices)
             }
             .listStyle(.sidebar)
+            .navigationTitle("")
         } detail: {
             VStack(spacing: 0) {
                 // Entferne den eigenen Header komplett
@@ -54,7 +55,7 @@ struct SettingsView: View {
                 .background(Color(NSColor.controlBackgroundColor))
             }
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .navigation) {
                     HStack(spacing: 8) {
                         Button(action: previousTab) {
                             Image(systemName: "chevron.left")
