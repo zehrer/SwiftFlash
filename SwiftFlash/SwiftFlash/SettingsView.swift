@@ -98,8 +98,44 @@ struct SettingsView: View {
         .background(Color(NSColor.controlBackgroundColor))
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Button("Done") {
-                    dismiss()
+                HStack(spacing: 8) {
+                    // Simulate traffic light buttons
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 12, height: 12)
+                            .onTapGesture {
+                                dismiss()
+                            }
+                            .help("Close")
+                        
+                        Circle()
+                            .fill(Color.yellow)
+                            .frame(width: 12, height: 12)
+                            .onTapGesture {
+                                // Minimize functionality would go here
+                            }
+                            .help("Minimize")
+                        
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 12, height: 12)
+                            .onTapGesture {
+                                // Maximize functionality would go here
+                            }
+                            .help("Zoom")
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+                    
+                    Spacer()
+                    
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
         }

@@ -83,8 +83,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showSettingsDialog) {
             SettingsView(inventory: driveService.inventory)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .frame(minWidth: 800, minHeight: 600)
+                .background(Color(NSColor.controlBackgroundColor))
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenSettings"))) { _ in
+            showSettingsDialog = true
         }
     }
     
