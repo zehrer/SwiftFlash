@@ -35,24 +35,26 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 // Entferne den eigenen Header komplett
                 // Die Toolbar kommt jetzt unten
-                // Content based on selected tab
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        switch selectedTab {
-                        case .general:
-                            GeneralSettingsView()
-                        case .devices:
-                            DevicesSettingsView(
-                                inventory: inventory,
-                                selectedDevice: $selectedDevice,
-                                showingDeleteAlert: $showingDeleteAlert,
-                                deviceToDelete: $deviceToDelete
-                            )
+                                    // Content based on selected tab
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            switch selectedTab {
+                            case .general:
+                                GeneralSettingsView()
+                            case .devices:
+                                DevicesSettingsView(
+                                    inventory: inventory,
+                                    selectedDevice: $selectedDevice,
+                                    showingDeleteAlert: $showingDeleteAlert,
+                                    deviceToDelete: $deviceToDelete
+                                )
+                            }
                         }
+                        .padding(20)
                     }
-                    .padding(20)
-                }
-                .background(Color(NSColor.controlBackgroundColor))
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(NSColor.controlBackgroundColor))
             }
             .toolbar {
                 ToolbarItem(placement: .navigation) {
