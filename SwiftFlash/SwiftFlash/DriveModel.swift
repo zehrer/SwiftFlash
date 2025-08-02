@@ -17,6 +17,8 @@ struct Drive: Identifiable, Hashable {
     let isReadOnly: Bool
     let mediaUUID: String? // Added for inventory tracking
     let mediaName: String? // Specific DAMediaName from Disk Arbitration
+    let vendor: String? // DADeviceVendor from Disk Arbitration
+    let revision: String? // DADeviceRevision from Disk Arbitration
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()

@@ -31,6 +31,8 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     let firstSeen: Date
     var lastSeen: Date
     var deviceType: DeviceType = .unknown
+    var vendor: String?
+    var revision: String?
     
     var displayName: String {
         return customName ?? originalName
@@ -76,7 +78,9 @@ class DeviceInventory: ObservableObject {
         mediaUUID: String,
         size: Int64,
         originalName: String,
-        deviceType: DeviceType = .unknown
+        deviceType: DeviceType = .unknown,
+        vendor: String? = nil,
+        revision: String? = nil
     ) {
         let now = Date()
         
@@ -95,7 +99,9 @@ class DeviceInventory: ObservableObject {
                 customName: nil,
                 firstSeen: now,
                 lastSeen: now,
-                deviceType: deviceType
+                deviceType: deviceType,
+                vendor: vendor,
+                revision: revision
             )
             devices.append(newDevice)
             print("➕ [INVENTORY] Added: \(originalName)")
@@ -127,6 +133,24 @@ class DeviceInventory: ObservableObject {
             devices[index].deviceType = deviceType
             saveInventory()
             print("🏷️ [INVENTORY] Device type set: \(deviceType.rawValue)")
+        }
+    }
+    
+    /// Sets the vendor for a device
+    func setVendor(for mediaUUID: String, vendor: String?) {
+        if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            devices[index].vendor = vendor
+            saveInventory()
+            print("🏭 [INVENTORY] Vendor set: \(vendor ?? "nil")")
+        }
+    }
+    
+    /// Sets the revision for a device
+    func setRevision(for mediaUUID: String, revision: String?) {
+        if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            devices[index].revision = revision
+            saveInventory()
+            print("📋 [INVENTORY] Revision set: \(revision ?? "nil")")
         }
     }
     

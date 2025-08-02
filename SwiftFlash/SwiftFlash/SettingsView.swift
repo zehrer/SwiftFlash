@@ -306,9 +306,23 @@ struct DeviceListRowView: View {
                     .font(.body)
                     .fontWeight(.medium)
                 
-                Text(device.formattedSize)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Text(device.formattedSize)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    if let vendor = device.vendor {
+                        Text("• \(vendor)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if let revision = device.revision {
+                        Text("• \(revision)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             
             Spacer()
@@ -343,6 +357,8 @@ struct EditDeviceNameView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var customName: String
     @State private var selectedDeviceType: DeviceType
+    @State private var vendor: String
+    @State private var revision: String
     @State private var showingDeleteAlert = false
     
     init(device: DeviceInventoryItem, inventory: DeviceInventory) {
@@ -350,6 +366,8 @@ struct EditDeviceNameView: View {
         self.inventory = inventory
         self._customName = State(initialValue: device.customName ?? "")
         self._selectedDeviceType = State(initialValue: device.deviceType)
+        self._vendor = State(initialValue: device.vendor ?? "")
+        self._revision = State(initialValue: device.revision ?? "")
     }
     
     var body: some View {
@@ -389,6 +407,24 @@ struct EditDeviceNameView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Vendor:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("Enter vendor", text: $vendor)
+                    .textFieldStyle(.roundedBorder)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Revision:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("Enter revision", text: $revision)
+                    .textFieldStyle(.roundedBorder)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
             HStack {
                 Button("Delete Device", role: .destructive) {
                     showingDeleteAlert = true
@@ -409,10 +445,15 @@ struct EditDeviceNameView: View {
                         inventory.setCustomName(for: device.mediaUUID, customName: customName)
                     }
                     inventory.setDeviceType(for: device.mediaUUID, deviceType: selectedDeviceType)
+                    inventory.setVendor(for: device.mediaUUID, vendor: vendor.isEmpty ? nil : vendor)
+                    inventory.setRevision(for: device.mediaUUID, revision: revision.isEmpty ? nil : revision)
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(customName == device.customName && selectedDeviceType == device.deviceType)
+                .disabled(customName == device.customName && 
+                         selectedDeviceType == device.deviceType && 
+                         vendor == (device.vendor ?? "") && 
+                         revision == (device.revision ?? ""))
             }
         }
         .padding()

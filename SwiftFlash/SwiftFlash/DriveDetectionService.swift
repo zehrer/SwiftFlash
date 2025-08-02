@@ -144,7 +144,9 @@ class DriveDetectionService: ObservableObject {
                 isSystemDrive: false,
                 isReadOnly: deviceInfo.isReadOnly,
                 mediaUUID: deviceInfo.mediaUUID,
-                mediaName: deviceInfo.mediaName
+                mediaName: deviceInfo.mediaName,
+                vendor: deviceInfo.vendor,
+                revision: deviceInfo.revision
             )
             drives.append(drive)
         }
@@ -166,6 +168,8 @@ struct DeviceInfo {
     let isReadOnly: Bool
     let mediaUUID: String?
     let mediaName: String?
+    let vendor: String?
+    let revision: String?
 }
 
 // MARK: - IOKit Device Detection Functions
@@ -239,6 +243,10 @@ extension DriveDetectionService {
         let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
         print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
         
+        // Extract vendor and revision early
+        let vendor = getVendorFromDiskArbitration(devicePath: devicePath)
+        let revision = getRevisionFromDiskArbitration(devicePath: devicePath)
+        
         let name: String
         if let uuid = mediaUUID {
             print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
@@ -249,7 +257,9 @@ extension DriveDetectionService {
                 mediaUUID: uuid,
                 size: size,
                 originalName: originalName,
-                deviceType: deviceType
+                deviceType: deviceType,
+                vendor: vendor,
+                revision: revision
             )
             
             // Use custom name from inventory if available, otherwise use original name
@@ -274,7 +284,9 @@ extension DriveDetectionService {
             isEjectable: isEjectable,
             isReadOnly: isReadOnly,
             mediaUUID: mediaUUID,
-            mediaName: mediaName
+            mediaName: mediaName,
+            vendor: vendor,
+            revision: revision
         )
     }
     
@@ -327,6 +339,58 @@ extension DriveDetectionService {
         }
         
         print("⚠️ [DEBUG] No DAMediaName found for device: \(devicePath)")
+        return nil
+    }
+    
+    /// Gets the DADeviceVendor from Disk Arbitration framework
+    private func getVendorFromDiskArbitration(devicePath: String) -> String? {
+        guard let session = diskArbitrationSession else {
+            return nil
+        }
+        
+        // Get the disk object for this device
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            return nil
+        }
+
+        // Get disk description
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            return nil
+        }
+        
+        // Specifically get the DADeviceVendor
+        if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty {
+            print("🔍 [DEBUG] Found DADeviceVendor: \(vendor)")
+            return vendor
+        }
+        
+        print("⚠️ [DEBUG] No DADeviceVendor found for device: \(devicePath)")
+        return nil
+    }
+    
+    /// Gets the DADeviceRevision from Disk Arbitration framework
+    private func getRevisionFromDiskArbitration(devicePath: String) -> String? {
+        guard let session = diskArbitrationSession else {
+            return nil
+        }
+        
+        // Get the disk object for this device
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
+            return nil
+        }
+
+        // Get disk description
+        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+            return nil
+        }
+        
+        // Specifically get the DADeviceRevision
+        if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty {
+            print("🔍 [DEBUG] Found DADeviceRevision: \(revision)")
+            return revision
+        }
+        
+        print("⚠️ [DEBUG] No DADeviceRevision found for device: \(devicePath)")
         return nil
     }
     

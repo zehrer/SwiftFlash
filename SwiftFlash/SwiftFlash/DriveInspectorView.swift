@@ -14,9 +14,9 @@ struct DriveInspectorView: View {
                 Divider()
             }
             
-            // Display name
+            // Name
             VStack(alignment: .leading, spacing: 4) {
-                Text("Display Name")
+                Text("Name")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text(drive.displayName)
@@ -32,6 +32,26 @@ struct DriveInspectorView: View {
                 Text(drive.mediaName ?? "No media name")
                     .font(.body)
                     .foregroundColor(drive.mediaName == nil ? .red : .secondary)
+            }
+            
+            // Vendor
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Vendor")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(drive.vendor ?? "No vendor info")
+                    .font(.body)
+                    .foregroundColor(drive.vendor == nil ? .red : .secondary)
+            }
+            
+            // Revision
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Revision")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(drive.revision ?? "No revision info")
+                    .font(.body)
+                    .foregroundColor(drive.revision == nil ? .red : .secondary)
             }
             
             // Size
@@ -119,6 +139,8 @@ struct DriveInspectorView: View {
         isSystemDrive: false,
         isReadOnly: false,
         mediaUUID: "12345678-1234-1234-1234-123456789ABC",
-        mediaName: "Test Media Name"
+        mediaName: "Test Media Name",
+        vendor: "Test Vendor",
+        revision: "1.0"
     ))
 } 
