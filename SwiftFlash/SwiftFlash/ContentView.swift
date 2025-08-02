@@ -24,23 +24,20 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Main Content Area
-            HStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 30) {
-                        imageFileSection
-                        errorMessageSection
-                        driveSelectionSection
-                    }
-                    .padding()
+            ScrollView {
+                VStack(spacing: 30) {
+                    imageFileSection
+                    errorMessageSection
+                    driveSelectionSection
                 }
-                .frame(maxWidth: .infinity)
-                .background(Color.white)
-                
-                // Inspector Panel
-                if showInspector, let selectedDrive = selectedDrive {
+                .padding()
+            }
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .inspector(isPresented: $showInspector) {
+                if let selectedDrive = selectedDrive {
                     DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        .frame(width: 300)
-                        .background(Color(.windowBackgroundColor))
+                        .frame(minWidth: 300, maxWidth: 300)
                 }
             }
         }

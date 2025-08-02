@@ -201,7 +201,6 @@ struct DriveInspectorView: View {
                 }
             }
         }
-        .background(Color(.windowBackgroundColor))
     }
 }
 
