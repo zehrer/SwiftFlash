@@ -41,9 +41,11 @@ struct ContentView: View {
                 refreshButton
                 Divider()
                 debugButton
-                settingsButton
                 aboutButton
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenSettings"))) { _ in
+            showSettingsDialog = true
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
             TextField("Enter custom name", text: $customNameText)
@@ -81,9 +83,6 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showSettingsDialog) {
             SettingsView(inventory: driveService.inventory)
-                .onAppear {
-                    print("🔧 [DEBUG] Settings sheet appeared")
-                }
         }
     }
     
@@ -241,16 +240,7 @@ struct ContentView: View {
         }
     }
     
-    private var settingsButton: some View {
-        Button(action: {
-            showSettingsDialog = true
-        }) {
-            Image(systemName: "gear")
-                .font(.title2)
-        }
-        .buttonStyle(.bordered)
-        .help("Settings")
-    }
+
     
     private var aboutButton: some View {
         Button(action: {

@@ -13,5 +13,13 @@ struct SwiftFlashApp: App {
         WindowGroup {
             ContentView()
         }
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Settings...") {
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenSettings"), object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }
