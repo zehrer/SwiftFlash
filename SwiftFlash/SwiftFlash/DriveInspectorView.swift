@@ -4,11 +4,13 @@ struct DriveInspectorView: View {
     let drive: Drive
     @ObservedObject var deviceInventory: DeviceInventory
     @State private var selectedDeviceType: DeviceType
+    @State private var editableName: String
     
     init(drive: Drive, deviceInventory: DeviceInventory) {
         self.drive = drive
         self.deviceInventory = deviceInventory
         self._selectedDeviceType = State(initialValue: drive.deviceType)
+        self._editableName = State(initialValue: drive.displayName)
     }
     
     var body: some View {
@@ -27,9 +29,19 @@ struct DriveInspectorView: View {
                 Text("Name")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text(drive.displayName)
+                TextField("Enter device name", text: $editableName)
+                    .textFieldStyle(.roundedBorder)
                     .font(.body)
                     .fontWeight(.medium)
+                    .onChange(of: editableName) { newValue in
+                        if let mediaUUID = drive.mediaUUID {
+                            if newValue.isEmpty {
+                                deviceInventory.setCustomName(for: mediaUUID, customName: nil)
+                            } else {
+                                deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
+                            }
+                        }
+                    }
             }
             
             // Media Name (from Disk Arbitration)
