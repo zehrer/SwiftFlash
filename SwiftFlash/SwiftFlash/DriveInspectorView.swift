@@ -129,7 +129,6 @@ struct DriveInspectorView: View {
                     
                     Text(drive.isReadOnly ? "Read-only" : "Writable")
                         .font(.body)
-                        .foregroundColor(drive.isReadOnly ? .red : .green)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
