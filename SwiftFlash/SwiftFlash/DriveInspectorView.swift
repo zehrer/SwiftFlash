@@ -30,9 +30,13 @@ struct DriveInspectorView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 TextField("Enter device name", text: $editableName)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .font(.body)
                     .fontWeight(.medium)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
                     .onChange(of: editableName) { newValue in
                         if let mediaUUID = drive.mediaUUID {
                             if newValue.isEmpty {
@@ -162,7 +166,7 @@ struct DriveInspectorView: View {
             Spacer()
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color(.windowBackgroundColor))
     }
 }
 
