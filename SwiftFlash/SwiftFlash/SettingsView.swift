@@ -326,8 +326,6 @@ struct EditDeviceNameView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var customName: String
     @State private var selectedDeviceType: DeviceType
-    @State private var vendor: String
-    @State private var revision: String
     @State private var showingDeleteAlert = false
     
     init(device: DeviceInventoryItem, inventory: DeviceInventory) {
@@ -335,8 +333,6 @@ struct EditDeviceNameView: View {
         self.inventory = inventory
         self._customName = State(initialValue: device.customName ?? "")
         self._selectedDeviceType = State(initialValue: device.deviceType)
-        self._vendor = State(initialValue: device.vendor ?? "")
-        self._revision = State(initialValue: device.revision ?? "")
     }
     
     var body: some View {
@@ -346,20 +342,20 @@ struct EditDeviceNameView: View {
                 .fontWeight(.bold)
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("Original Name:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(device.originalName)
-                    .font(.body)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Custom Name:")
+                Text("Name:")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 TextField("Enter custom name", text: $customName)
                     .textFieldStyle(.roundedBorder)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Media Name:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(device.originalName)
+                    .font(.body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -380,8 +376,8 @@ struct EditDeviceNameView: View {
                 Text("Vendor:")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TextField("Enter vendor", text: $vendor)
-                    .textFieldStyle(.roundedBorder)
+                Text(device.vendor ?? "")
+                    .font(.body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -389,8 +385,8 @@ struct EditDeviceNameView: View {
                 Text("Revision:")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TextField("Enter revision", text: $revision)
-                    .textFieldStyle(.roundedBorder)
+                Text(device.revision ?? "")
+                    .font(.body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -414,15 +410,11 @@ struct EditDeviceNameView: View {
                         inventory.setCustomName(for: device.mediaUUID, customName: customName)
                     }
                     inventory.setDeviceType(for: device.mediaUUID, deviceType: selectedDeviceType)
-                    inventory.setVendor(for: device.mediaUUID, vendor: vendor.isEmpty ? nil : vendor)
-                    inventory.setRevision(for: device.mediaUUID, revision: revision.isEmpty ? nil : revision)
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(customName == device.customName && 
-                         selectedDeviceType == device.deviceType && 
-                         vendor == (device.vendor ?? "") && 
-                         revision == (device.revision ?? ""))
+                         selectedDeviceType == device.deviceType)
             }
         }
         .padding()
