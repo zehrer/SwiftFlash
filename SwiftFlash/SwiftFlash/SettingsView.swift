@@ -54,7 +54,7 @@ struct SettingsView: View {
                 .background(Color(NSColor.controlBackgroundColor))
             }
             .toolbar {
-                ToolbarItem(placement: .navigation) {
+                ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 8) {
                         Button(action: previousTab) {
                             Image(systemName: "chevron.left")
