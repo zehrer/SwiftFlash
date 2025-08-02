@@ -12,6 +12,15 @@ struct SettingsView: View {
         case devices
     }
     
+    private var selectedTabTitle: String {
+        switch selectedTab {
+        case .general:
+            return "General"
+        case .devices:
+            return "Devices"
+        }
+    }
+    
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTab) {
@@ -22,18 +31,59 @@ struct SettingsView: View {
             }
             .listStyle(.sidebar)
         } detail: {
-            switch selectedTab {
-            case .general:
-                GeneralSettingsView()
-            case .devices:
-                DevicesSettingsView(
-                    inventory: inventory,
-                    selectedDevice: $selectedDevice,
-                    showingDeleteAlert: $showingDeleteAlert,
-                    deviceToDelete: $deviceToDelete
-                )
+            VStack(spacing: 0) {
+                // Header with navigation arrows and topic name
+                HStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Button(action: previousTab) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTab == Tab.general)
+                        
+                        Button(action: nextTab) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(selectedTab == Tab.devices)
+                    }
+                    .foregroundColor(.secondary)
+                    
+                    Text(selectedTabTitle)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                Divider()
+                
+                // Content based on selected tab
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        switch selectedTab {
+                        case .general:
+                            GeneralSettingsView()
+                        case .devices:
+                            DevicesSettingsView(
+                                inventory: inventory,
+                                selectedDevice: $selectedDevice,
+                                showingDeleteAlert: $showingDeleteAlert,
+                                deviceToDelete: $deviceToDelete
+                            )
+                        }
+                    }
+                    .padding(20)
+                }
+                .background(Color(NSColor.controlBackgroundColor))
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .sheet(item: $selectedDevice) { device in
             EditDeviceNameView(device: device, inventory: inventory)
         }
@@ -52,9 +102,17 @@ struct SettingsView: View {
         }
     }
     
-
+    private func previousTab() {
+        if selectedTab == .devices {
+            selectedTab = .general
+        }
+    }
     
-
+    private func nextTab() {
+        if selectedTab == .general {
+            selectedTab = .devices
+        }
+    }
 }
 
 struct GeneralSettingsView: View {
@@ -385,6 +443,7 @@ struct EditDeviceNameView: View {
             Text("Are you sure you want to delete '\(device.displayName)' from the inventory? This action cannot be undone.")
         }
     }
+    
 }
 
 #Preview {
