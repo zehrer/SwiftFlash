@@ -36,6 +36,10 @@ struct DriveInspectorView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color(.textBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color(.separatorColor), lineWidth: 1)
+                    )
                     .cornerRadius(4)
                     .onChange(of: editableName) { newValue in
                         if let mediaUUID = drive.mediaUUID {
@@ -156,6 +160,14 @@ struct DriveInspectorView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(.textBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color(.separatorColor), lineWidth: 1)
+                )
+                .cornerRadius(4)
             }
             
             // Media UUID (if available)
