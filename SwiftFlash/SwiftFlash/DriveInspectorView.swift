@@ -89,14 +89,7 @@ struct DriveInspectorView: View {
                 }
             }
             
-            // Device type
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Type")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(drive.isRemovable ? "Removable" : "Fixed")
-                    .font(.body)
-            }
+
             
             // Media UUID (if available)
             if let mediaUUID = drive.mediaUUID {
