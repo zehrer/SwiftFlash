@@ -37,7 +37,7 @@ struct ContentView: View {
             .inspector(isPresented: $showInspector) {
                 if let selectedDrive = selectedDrive {
                     DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        .frame(minWidth: 300, maxWidth: 300)
+                        .frame(minWidth: 300)
                 }
             }
         }
