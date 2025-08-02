@@ -55,7 +55,10 @@ struct DriveInspectorView: View {
                     .foregroundColor(.secondary)
                 Text(drive.mediaName ?? "No media name")
                     .font(.body)
-                    .foregroundColor(drive.mediaName == nil ? .red : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
             }
             
             // Vendor
@@ -65,7 +68,10 @@ struct DriveInspectorView: View {
                     .foregroundColor(.secondary)
                 Text(drive.vendor ?? "No vendor info")
                     .font(.body)
-                    .foregroundColor(drive.vendor == nil ? .red : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
             }
             
             // Revision
@@ -75,7 +81,10 @@ struct DriveInspectorView: View {
                     .foregroundColor(.secondary)
                 Text(drive.revision ?? "No revision info")
                     .font(.body)
-                    .foregroundColor(drive.revision == nil ? .red : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
             }
             
             // Size
@@ -85,6 +94,10 @@ struct DriveInspectorView: View {
                     .foregroundColor(.secondary)
                 Text(drive.formattedSize)
                     .font(.body)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
             }
             
             // Device path
@@ -94,7 +107,10 @@ struct DriveInspectorView: View {
                     .foregroundColor(.secondary)
                 Text(drive.mountPoint)
                     .font(.body)
-                    .font(.system(.body, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(4)
             }
             
             // Read-only status
@@ -111,6 +127,10 @@ struct DriveInspectorView: View {
                         .font(.body)
                         .foregroundColor(drive.isReadOnly ? .red : .green)
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(.textBackgroundColor))
+                .cornerRadius(4)
             }
             
             // Device Type
@@ -145,11 +165,11 @@ struct DriveInspectorView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(mediaUUID)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.body)
                         .lineLimit(2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(.controlBackgroundColor))
+                        .background(Color(.textBackgroundColor))
                         .cornerRadius(4)
                 }
             } else {
@@ -158,8 +178,12 @@ struct DriveInspectorView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text("Not available")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.textBackgroundColor))
+                        .cornerRadius(4)
                 }
             }
             
