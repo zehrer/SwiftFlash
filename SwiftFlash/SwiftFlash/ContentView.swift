@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var imageHistoryService = ImageHistoryService()
+    @State private var flashService = ImageFlashService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @StateObject private var driveService: DriveDetectionService
     @State private var selectedDrive: Drive?
@@ -20,6 +21,8 @@ struct ContentView: View {
     @State private var showInspector = false  // Hidden by default
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
+    @State private var showFlashConfirmation = false
+    @State private var showFlashProgress = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
     
@@ -40,7 +43,7 @@ struct ContentView: View {
             // Inspector Area (Right Side) - Only show when showInspector is true
             if showInspector {
                 if let selectedImage = selectedImage {
-                ScrollView {
+                    ScrollView {
                         ImageInspectorView(image: selectedImage)
                             .frame(minWidth: 250, idealWidth: 300)
                     }
@@ -55,12 +58,12 @@ struct ContentView: View {
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
                         Text("No Selection")
-                                .font(.title2)
-                                    .foregroundColor(.secondary)
+                            .font(.title2)
+                            .foregroundColor(.secondary)
                         Text("Select an image file or drive to view its details")
                             .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -138,6 +141,39 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAboutDialog) {
             AboutView()
+        }
+        .sheet(isPresented: $showFlashConfirmation) {
+            if let selectedDrive = selectedDrive,
+               let selectedImage = imageService.selectedImage {
+                FlashConfirmationDialog(
+                    image: selectedImage,
+                    device: selectedDrive,
+                    onConfirm: {
+                        showFlashConfirmation = false
+                        showFlashProgress = true
+                        Task {
+                            await performFlash()
+                        }
+                    },
+                    onCancel: {
+                        showFlashConfirmation = false
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showFlashProgress) {
+            if let selectedDrive = selectedDrive,
+               let selectedImage = imageService.selectedImage {
+                FlashProgressView(
+                    image: selectedImage,
+                    device: selectedDrive,
+                    flashState: flashService.flashState,
+                    onCancel: {
+                        showFlashProgress = false
+                        flashService.resetState()
+                    }
+                )
+            }
         }
         .onAppear {
             setupDriveService()
@@ -334,8 +370,7 @@ struct ContentView: View {
     
     private var flashButton: some View {
         Button(action: {
-            // TODO: Implement flash functionality
-            print("🚀 [DEBUG] Flash button pressed")
+            showFlashConfirmation = true
         }) {
             Image(systemName: "bolt.fill")
         }
@@ -375,6 +410,19 @@ struct ContentView: View {
     }
     
     // MARK: - Helper Functions
+    
+    private func performFlash() async {
+        guard let selectedDrive = selectedDrive,
+              let selectedImage = imageService.selectedImage else {
+            return
+        }
+        
+        do {
+            try await flashService.flashImage(selectedImage, to: selectedDrive)
+        } catch {
+            print("❌ [DEBUG] Flash failed: \(error)")
+        }
+    }
     
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
         return drive.mediaUUID
@@ -477,6 +525,7 @@ struct DriveRowView: View {
 struct PreviewContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var imageHistoryService = ImageHistoryService()
+    @State private var flashService = ImageFlashService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @State private var selectedDrive: Drive?
     @State private var selectedImage: ImageFile?
@@ -484,6 +533,8 @@ struct PreviewContentView: View {
     @State private var showInspector = true  // Show by default for preview
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
+    @State private var showFlashConfirmation = false
+    @State private var showFlashProgress = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
     
@@ -536,7 +587,7 @@ struct PreviewContentView: View {
                         Text("Select an image file or drive to view its details")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -608,6 +659,39 @@ struct PreviewContentView: View {
         }
         .sheet(isPresented: $showAboutDialog) {
             AboutView()
+        }
+        .sheet(isPresented: $showFlashConfirmation) {
+            if let selectedDrive = selectedDrive,
+               let selectedImage = imageService.selectedImage {
+                FlashConfirmationDialog(
+                    image: selectedImage,
+                    device: selectedDrive,
+                    onConfirm: {
+                        showFlashConfirmation = false
+                        showFlashProgress = true
+                        Task {
+                            await performFlash()
+                        }
+                    },
+                    onCancel: {
+                        showFlashConfirmation = false
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showFlashProgress) {
+            if let selectedDrive = selectedDrive,
+               let selectedImage = imageService.selectedImage {
+                FlashProgressView(
+                    image: selectedImage,
+                    device: selectedDrive,
+                    flashState: flashService.flashState,
+                    onCancel: {
+                        showFlashProgress = false
+                        flashService.resetState()
+                    }
+                )
+            }
         }
     }
     
@@ -748,7 +832,7 @@ struct PreviewContentView: View {
     
     private var flashButton: some View {
         Button(action: {
-            // No-op for preview
+            showFlashConfirmation = true
         }) {
             Image(systemName: "bolt.fill")
         }
@@ -783,6 +867,21 @@ struct PreviewContentView: View {
             Image(systemName: "tag")
         }
         .help("Edit Tags")
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func performFlash() async {
+        guard let selectedDrive = selectedDrive,
+              let selectedImage = imageService.selectedImage else {
+            return
+        }
+        
+        do {
+            try await flashService.flashImage(selectedImage, to: selectedDrive)
+        } catch {
+            print("❌ [DEBUG] Flash failed: \(error)")
+        }
     }
 }
 
