@@ -15,7 +15,7 @@ struct ContentView: View {
         driveService.inventory = deviceInventory
     }
     @State private var isDropTargeted = false
-    @State private var showInspector = false
+    @State private var showInspector = true   // usually false
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
@@ -36,15 +36,14 @@ struct ContentView: View {
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
             .inspector(isPresented: $showInspector) {
-                VStack {
                     if let selectedDrive = selectedDrive {
-                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                        ScrollView {                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
                             //.frame(minWidth: 400)
                             .frame(minWidth: 300, idealWidth: 350)
+                        }
                     } else {
                         Text("No selection")
                     }
-                }
             }
         }
         .frame(minWidth: 400)
@@ -335,7 +334,48 @@ struct DriveRowView: View {
     }
 }
 
-#Preview {
+// MARK: - Preview Helpers
+
+private func createDemoInventory() -> DeviceInventory {
+    let demoInventory = DeviceInventory()
+    
+    // Add demo devices to inventory
+    demoInventory.addOrUpdateDevice(
+        mediaUUID: "DEMO_USB_001",
+        size: 32000000000, // 32 GB
+        originalName: "SanDisk Ultra USB 3.0",
+        deviceType: .usbStick,
+        vendor: "SanDisk",
+        revision: "1.0"
+    )
+    
+    demoInventory.addOrUpdateDevice(
+        mediaUUID: "DEMO_SD_002",
+        size: 64000000000, // 64 GB
+        originalName: "Samsung EVO Plus SDXC",
+        deviceType: .sdCard,
+        vendor: "Samsung",
+        revision: "2.1"
+    )
+    
+    demoInventory.addOrUpdateDevice(
+        mediaUUID: "DEMO_SSD_003",
+        size: 1000000000000, // 1 TB
+        originalName: "Samsung T7 Portable SSD",
+        deviceType: .externalSSD,
+        vendor: "Samsung",
+        revision: "3.0"
+    )
+    
+    return demoInventory
+}
+
+#Preview("ContentView with Demo Data") {
+    ContentView()
+        .environmentObject(createDemoInventory())
+}
+
+#Preview("ContentView Empty") {
     ContentView()
         .environmentObject(DeviceInventory())
 } 
