@@ -72,6 +72,26 @@ struct ContentView: View {
                 refreshButton
             }
             
+            ToolbarItem(id: "space1", placement: .automatic) {
+                Spacer()
+            }
+            
+            ToolbarItem(id: "flash", placement: .automatic) {
+                flashButton
+            }
+            
+            ToolbarItem(id: "eject", placement: .automatic) {
+                ejectButton
+            }
+            
+            ToolbarItem(id: "flexibleSpace", placement: .automatic) {
+                Spacer()
+            }
+            
+            ToolbarItem(id: "tags", placement: .automatic) {
+                tagsButton
+            }
+            
             ToolbarItem(id: "debug", placement: .automatic) {
                 debugButton
             }
@@ -290,6 +310,38 @@ struct ContentView: View {
         .help("About SwiftFlash")
     }
     
+    private var flashButton: some View {
+        Button(action: {
+            // TODO: Implement flash functionality
+            print("🚀 [DEBUG] Flash button pressed")
+        }) {
+            Image(systemName: "bolt.fill")
+        }
+        .help("Flash Image to Drive")
+        .disabled(selectedDrive == nil || imageService.selectedImage == nil)
+    }
+    
+    private var ejectButton: some View {
+        Button(action: {
+            // TODO: Implement eject functionality
+            print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
+        }) {
+            Image(systemName: "eject.fill")
+        }
+        .help("Eject Drive")
+        .disabled(selectedDrive == nil)
+    }
+    
+    private var tagsButton: some View {
+        Button(action: {
+            // TODO: Implement tags functionality
+            print("🏷️ [DEBUG] Tags button pressed")
+        }) {
+            Image(systemName: "tag")
+        }
+        .help("Edit Tags")
+    }
+    
     // MARK: - Helper Functions
     
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
@@ -454,6 +506,26 @@ struct PreviewContentView: View {
                 refreshButton
             }
             
+            ToolbarItem(id: "space1", placement: .automatic) {
+                Spacer()
+            }
+            
+            ToolbarItem(id: "flash", placement: .automatic) {
+                flashButton
+            }
+            
+            ToolbarItem(id: "eject", placement: .automatic) {
+                ejectButton
+            }
+            
+            ToolbarItem(id: "flexibleSpace", placement: .automatic) {
+                Spacer()
+            }
+            
+            ToolbarItem(id: "tags", placement: .automatic) {
+                tagsButton
+            }
+            
             ToolbarItem(id: "debug", placement: .automatic) {
                 debugButton
             }
@@ -608,6 +680,35 @@ struct PreviewContentView: View {
             Image(systemName: "info.circle")
         }
         .help("About SwiftFlash")
+    }
+    
+    private var flashButton: some View {
+        Button(action: {
+            // No-op for preview
+        }) {
+            Image(systemName: "bolt.fill")
+        }
+        .help("Flash Image to Drive")
+        .disabled(selectedDrive == nil || imageService.selectedImage == nil)
+    }
+    
+    private var ejectButton: some View {
+        Button(action: {
+            // No-op for preview
+        }) {
+            Image(systemName: "eject.fill")
+        }
+        .help("Eject Drive")
+        .disabled(selectedDrive == nil)
+    }
+    
+    private var tagsButton: some View {
+        Button(action: {
+            // No-op for preview
+        }) {
+            Image(systemName: "tag")
+        }
+        .help("Edit Tags")
     }
 }
 
