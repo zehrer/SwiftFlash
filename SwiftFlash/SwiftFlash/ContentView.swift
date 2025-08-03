@@ -14,10 +14,6 @@ struct ContentView: View {
     private func setupDriveService() {
         driveService.inventory = deviceInventory
     }
-    
-    private func loadDrives() async {
-        _ = await driveService.detectDrives()
-    }
     @State private var isDropTargeted = false
     @State private var showInspector = false  // Hidden by default
     @State private var showAboutDialog = false
@@ -111,12 +107,8 @@ struct ContentView: View {
         .onAppear {
             setupDriveService()
         }
-        .onChange(of: deviceInventory.devices) { _, _ in
-            // Reload drives when inventory changes to update device types
-            Task {
-                await loadDrives()
-            }
-        }
+        // Note: No longer need to reload drives when inventory changes
+        // since DriveRowView now reads deviceType live from inventory via @EnvironmentObject
     }
     
     // MARK: - View Sections
