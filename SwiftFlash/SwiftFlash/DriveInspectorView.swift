@@ -83,9 +83,9 @@ struct LabelAndPicker: View {
                 .frame(width: labelWidth, alignment: .leading)
             
             HStack(spacing: 8) {
-                Image(systemName: selection.icon)
-                    .foregroundColor(.blue)
-                    .font(InspectorFonts.icon)
+//                Image(systemName: selection.icon)
+//                    .foregroundColor(.blue)
+//                    .font(InspectorFonts.icon)
                 
                 Menu {
                     ForEach(DeviceType.allCases, id: \.self) { type in
@@ -206,85 +206,83 @@ struct DriveInspectorView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // Identity and Type Section
-                InspectorSectionView(title: "Identity and Type") {
-                    // Name
-                    LabelAndTextField(
-                        label: "Name",
-                        text: $editableName,
-                        placeholder: "Enter device name"
-                    )
-                    .onChange(of: editableName) { _, newValue in
-                        if let mediaUUID = drive.mediaUUID {
-                            if newValue.isEmpty {
-                                deviceInventory.setCustomName(for: mediaUUID, customName: nil)
-                            } else {
-                                deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
-                            }
+        VStack(alignment: .leading, spacing: 0) {
+            // Identity and Type Section
+            InspectorSectionView(title: "Identity and Type") {
+                // Name
+                LabelAndTextField(
+                    label: "Name",
+                    text: $editableName,
+                    placeholder: "Enter device name"
+                )
+                .onChange(of: editableName) { _, newValue in
+                    if let mediaUUID = drive.mediaUUID {
+                        if newValue.isEmpty {
+                            deviceInventory.setCustomName(for: mediaUUID, customName: nil)
+                        } else {
+                            deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
                         }
                     }
-                    
-                    // Device Type
-                    LabelAndPicker(
-                        label: "Type",
-                        selection: $selectedDeviceType
-                    )
-                    .onChange(of: selectedDeviceType) { _, newValue in
-                        if let mediaUUID = drive.mediaUUID {
-                            deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
-                        }
+                }
+                
+                // Device Type
+                LabelAndPicker(
+                    label: "Type",
+                    selection: $selectedDeviceType
+                )
+                .onChange(of: selectedDeviceType) { _, newValue in
+                    if let mediaUUID = drive.mediaUUID {
+                        deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
                     }
-                    
-                    // Capacity
-                    LabelAndText(
-                        label: "Capacity",
-                        value: drive.formattedSize
-                    )
                 }
                 
-                // Status Section
-                InspectorSectionView(title: "Status") {
-                    // Device Path
-                    LabelAndText(
-                        label: "Device Path",
-                        value: drive.mountPoint
-                    )
-                    
-                    // Status
-                    LabelAndStatus(
-                        label: "Status",
-                        isReadOnly: drive.isReadOnly
-                    )
-                }
+                // Capacity
+                LabelAndText(
+                    label: "Capacity",
+                    value: drive.formattedSize
+                )
+            }
+            
+            // Status Section
+            InspectorSectionView(title: "Status") {
+                // Device Path
+                LabelAndText(
+                    label: "Device Path",
+                    value: drive.mountPoint
+                )
                 
-                // Media Details Section
-                InspectorSectionView(title: "Media Details") {
-                    // Media Name
-                    LabelAndText(
-                        label: "Media Name",
-                        value: drive.mediaName ?? "No media name"
-                    )
-                    
-                    // Vendor
-                    LabelAndText(
-                        label: "Vendor",
-                        value: drive.vendor ?? "Unknown"
-                    )
-                    
-                    // Revision
-                    LabelAndText(
-                        label: "Revision",
-                        value: drive.revision ?? "Unknown"
-                    )
-                    
-                    // UUID
-                    LabelAndText(
-                        label: "UUID",
-                        value: drive.mediaUUID ?? "Unknown"
-                    )
-                }
+                // Status
+                LabelAndStatus(
+                    label: "Status",
+                    isReadOnly: drive.isReadOnly
+                )
+            }
+            
+            // Media Details Section
+            InspectorSectionView(title: "Media Details") {
+                // Media Name
+                LabelAndText(
+                    label: "Media Name",
+                    value: drive.mediaName ?? "No media name"
+                )
+                
+                // Vendor
+                LabelAndText(
+                    label: "Vendor",
+                    value: drive.vendor ?? "Unknown"
+                )
+                
+                // Revision
+                LabelAndText(
+                    label: "Revision",
+                    value: drive.revision ?? "Unknown"
+                )
+                
+                // UUID
+                LabelAndText(
+                    label: "UUID",
+                    value: drive.mediaUUID ?? "Unknown"
+                )
             }
         }
     }
