@@ -129,9 +129,21 @@ struct ContentView: View {
                             if let selectedImage = imageService.selectedImage {
                                 Task {
                                     do {
-                                        let updatedImage = try await flashService.generateAndStoreChecksum(for: selectedImage)
+                                        // Try the read-only method first
+                                        let checksum = try await flashService.generateChecksumOnly(for: selectedImage)
+                                        
+                                        // Update the image with the checksum
+                                        var updatedImage = selectedImage
+                                        updatedImage.sha256Checksum = checksum
                                         imageService.selectedImage = updatedImage
-                                        print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
+                                        
+                                        // Try to store in history, but don't fail if it doesn't work
+                                        do {
+                                            imageHistoryService.addToHistory(updatedImage)
+                                            print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
+                                        } catch {
+                                            print("⚠️ [DEBUG] Checksum generated but could not store in history: \(error)")
+                                        }
                                     } catch {
                                         print("❌ [DEBUG] Failed to generate checksum: \(error)")
                                     }
