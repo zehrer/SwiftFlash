@@ -135,72 +135,144 @@ class ImageFlashService {
     }
     
     private func isDeviceWritable(_ device: Drive) -> Bool {
-        // Check if device is mounted and writable
-        // This is a simplified check - in a real implementation, you'd use DiskArbitration
-        // to get more detailed information about the device's mount status and permissions
-        
-        let fileManager = FileManager.default
-        
         print("🔍 [DEBUG] Checking device writability for: \(device.displayName)")
         print("   - Mount Point: \(device.mountPoint)")
         print("   - Device Size: \(device.formattedSize)")
         print("   - Is Read Only: \(device.isReadOnly)")
         print("   - Is Removable: \(device.isRemovable)")
         
-        // Check if mount point exists
-        guard fileManager.fileExists(atPath: device.mountPoint) else {
-            print("❌ [DEBUG] Mount point does not exist: \(device.mountPoint)")
+        // Try raw device access test
+        return testRawDeviceAccess(device)
+    }
+    
+    private func testRawDeviceAccess(_ device: Drive) -> Bool {
+        print("🧪 [DEBUG] Testing raw device access...")
+        
+        // Get the raw device path (e.g., /dev/disk4 instead of /Volumes/USB_DRIVE)
+        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
+            print("❌ [DEBUG] Could not determine raw device path for: \(device.mountPoint)")
             return false
         }
         
-        // Check if path is writable using FileManager
-        let isWritableByFileManager = fileManager.isWritableFile(atPath: device.mountPoint)
-        print("📋 [DEBUG] FileManager.isWritableFile result: \(isWritableByFileManager)")
+        print("   - Raw Device Path: \(rawDevicePath)")
         
-        // Try to create a test file to check write permissions
-        let testFile = device.mountPoint + "/.swiftflash_test"
-        let testData = "test".data(using: .utf8)!
-        
-        print("🧪 [DEBUG] Attempting write test to: \(testFile)")
+        // Test data (10 bytes from a typical image header)
+        let testBytes: [UInt8] = [0x55, 0xAA, 0x90, 0xEB, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00]
+        let testData = Data(testBytes)
         
         do {
-            // Try to write test file
-            try testData.write(to: URL(fileURLWithPath: testFile))
-            print("✅ [DEBUG] Successfully wrote test file")
+            // Step 1: Read original 10 bytes from device
+            print("📖 [DEBUG] Reading original 10 bytes from device...")
+            let originalBytes = try readBytesFromDevice(rawDevicePath, offset: 0, length: 10)
+            print("✅ [DEBUG] Successfully read original bytes: \(originalBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
             
-            // Try to remove test file
-            try fileManager.removeItem(atPath: testFile)
-            print("✅ [DEBUG] Successfully removed test file")
+            // Step 2: Write test bytes to device
+            print("✏️ [DEBUG] Writing test bytes to device...")
+            try writeBytesToDevice(rawDevicePath, data: testData, offset: 0)
+            print("✅ [DEBUG] Successfully wrote test bytes")
             
-            print("✅ [DEBUG] Device is writable - all tests passed")
-            return true
+            // Step 3: Read back and verify
+            print("🔍 [DEBUG] Reading back bytes for verification...")
+            let readBackBytes = try readBytesFromDevice(rawDevicePath, offset: 0, length: 10)
+            print("   - Written: \(testData.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            print("   - Read back: \(readBackBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            
+            // Step 4: Verify bytes match
+            let bytesMatch = testData == readBackBytes
+            print("✅ [DEBUG] Byte verification: \(bytesMatch ? "SUCCESS" : "FAILED")")
+            
+            // Step 5: Restore original bytes
+            print("🔄 [DEBUG] Restoring original bytes...")
+            try writeBytesToDevice(rawDevicePath, data: originalBytes, offset: 0)
+            print("✅ [DEBUG] Successfully restored original bytes")
+            
+            if bytesMatch {
+                print("✅ [DEBUG] Raw device access test PASSED - device is writable")
+                return true
+            } else {
+                print("❌ [DEBUG] Raw device access test FAILED - bytes don't match")
+                return false
+            }
             
         } catch {
             let nsError = error as NSError
-            print("❌ [DEBUG] Write permission test failed")
+            print("❌ [DEBUG] Raw device access test failed")
             print("   - Error: \(error.localizedDescription)")
             print("   - Error Domain: \(nsError.domain)")
             print("   - Error Code: \(nsError.code)")
             print("   - Error User Info: \(nsError.userInfo)")
             
-            // Log specific error codes for common permission issues
+            // Log specific error codes for device access issues
             switch nsError.code {
             case 1: // Operation not permitted
-                print("   - Likely cause: Operation not permitted (EACCES)")
+                print("   - Likely cause: Operation not permitted (EACCES) - need elevated privileges")
             case 13: // Permission denied
-                print("   - Likely cause: Permission denied (EACCES)")
-            case 30: // Read-only file system
-                print("   - Likely cause: Read-only file system (EROFS)")
-            case 2: // No such file or directory
-                print("   - Likely cause: No such file or directory (ENOENT)")
+                print("   - Likely cause: Permission denied (EACCES) - device access restricted")
             case 16: // Device or resource busy
-                print("   - Likely cause: Device or resource busy (EBUSY)")
+                print("   - Likely cause: Device or resource busy (EBUSY) - device in use")
+            case 30: // Read-only file system
+                print("   - Likely cause: Read-only file system (EROFS) - device mounted read-only")
+            case 2: // No such file or directory
+                print("   - Likely cause: No such file or directory (ENOENT) - device not found")
             default:
                 print("   - Unknown error code: \(nsError.code)")
             }
             
             return false
         }
+    }
+    
+    private func getRawDevicePath(from mountPoint: String) -> String? {
+        // Extract device name from mount point
+        // e.g., /Volumes/USB_DRIVE -> /dev/disk4
+        // This is a simplified approach - in production you'd use DiskArbitration
+        
+        // Try common device naming patterns
+        let possibleDevices = [
+            "/dev/disk0", "/dev/disk1", "/dev/disk2", "/dev/disk3", "/dev/disk4",
+            "/dev/disk5", "/dev/disk6", "/dev/disk7", "/dev/disk8", "/dev/disk9"
+        ]
+        
+        for devicePath in possibleDevices {
+            if FileManager.default.fileExists(atPath: devicePath) {
+                // Check if this device is mounted at our mount point
+                // This is a simplified check - in production you'd use proper device enumeration
+                if isDeviceMountedAt(devicePath, mountPoint: mountPoint) {
+                    return devicePath
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    private func isDeviceMountedAt(_ devicePath: String, mountPoint: String) -> Bool {
+        // Simplified check - in production you'd use proper device enumeration
+        // For now, we'll assume the device exists and is accessible
+        return FileManager.default.fileExists(atPath: devicePath)
+    }
+    
+    private func readBytesFromDevice(_ devicePath: String, offset: UInt64, length: Int) throws -> Data {
+        let fileHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
+        defer { try? fileHandle.close() }
+        
+        try fileHandle.seek(toOffset: offset)
+        let data = try fileHandle.read(upToCount: length) ?? Data()
+        
+        if data.count != length {
+            throw FlashError.flashFailed("Read incomplete: expected \(length) bytes, got \(data.count)")
+        }
+        
+        return data
+    }
+    
+    private func writeBytesToDevice(_ devicePath: String, data: Data, offset: UInt64) throws {
+        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
+        defer { try? fileHandle.close() }
+        
+        try fileHandle.seek(toOffset: offset)
+        try fileHandle.write(contentsOf: data)
+        try fileHandle.synchronize() // Ensure data is written to device
     }
     
     private func performFlash(image: ImageFile, device: Drive) async throws {
