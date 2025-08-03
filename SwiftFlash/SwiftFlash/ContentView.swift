@@ -85,8 +85,8 @@ struct ContentView: View {
                     }
                 }
                 
-                if toolbarConfig.toolbarItems.contains("space1") {
-                    ToolbarItem(id: "space1", placement: .automatic) {
+                if toolbarConfig.toolbarItems.contains("flexibleSpace") {
+                    ToolbarItem(id: "flexibleSpace", placement: .automatic) {
                         Spacer()
                     }
                 }
@@ -100,12 +100,6 @@ struct ContentView: View {
                 if toolbarConfig.toolbarItems.contains("eject") {
                     ToolbarItem(id: "eject", placement: .automatic) {
                         ejectButton
-                    }
-                }
-                
-                if toolbarConfig.toolbarItems.contains("flexibleSpace") {
-                    ToolbarItem(id: "flexibleSpace", placement: .automatic) {
-                        Spacer()
                     }
                 }
                 
@@ -356,7 +350,7 @@ struct ContentView: View {
         Button(action: {
             showInspector.toggle()
         }) {
-            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+            Label("Inspector", systemImage: showInspector ? "sidebar.right" : "sidebar.right")
                 .opacity(showInspector ? 1.0 : 0.5)
         }
         .help("Toggle Inspector")
@@ -366,7 +360,7 @@ struct ContentView: View {
         Button(action: {
             driveService.refreshDrives()
         }) {
-            Image(systemName: "arrow.clockwise")
+            Label("Refresh", systemImage: "arrow.clockwise")
         }
         .help("Refresh Drives")
         .disabled(driveService.isScanning)
@@ -378,7 +372,7 @@ struct ContentView: View {
                 Button(action: {
                     printDiskArbitrationInfo(for: selectedDrive)
                 }) {
-                    Image(systemName: "ladybug")
+                    Label("Debug", systemImage: "ladybug")
                 }
                 .help("Print Disk Arbitration Debug Info")
             }
@@ -389,7 +383,7 @@ struct ContentView: View {
         Button(action: {
             showAboutDialog = true
         }) {
-            Image(systemName: "info.circle")
+            Label("About", systemImage: "info.circle")
         }
         .help("About SwiftFlash")
     }
@@ -398,7 +392,7 @@ struct ContentView: View {
         Button(action: {
             showFlashConfirmation = true
         }) {
-            Image(systemName: "bolt.fill")
+            Label("Flash", systemImage: "bolt.fill")
         }
         .help("Flash Image to Drive")
         .disabled(!canFlash)
@@ -419,7 +413,7 @@ struct ContentView: View {
             // TODO: Implement eject functionality
             print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
         }) {
-            Image(systemName: "eject.fill")
+            Label("Eject", systemImage: "eject.fill")
         }
         .help("Eject Drive")
         .disabled(selectedDrive == nil)
@@ -430,7 +424,7 @@ struct ContentView: View {
             // TODO: Implement tags functionality
             print("🏷️ [DEBUG] Tags button pressed")
         }) {
-            Image(systemName: "tag")
+            Label("Tags", systemImage: "tag")
         }
         .help("Edit Tags")
     }
@@ -837,88 +831,6 @@ struct PreviewContentView: View {
                 .cornerRadius(8)
             }
         }
-    }
-    
-    // MARK: - Toolbar Buttons
-    
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            showInspector.toggle()
-        }) {
-            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
-                .opacity(showInspector ? 1.0 : 0.5)
-        }
-        .help("Toggle Inspector")
-    }
-    
-    private var refreshButton: some View {
-        Button(action: {
-            // No-op for preview
-        }) {
-            Image(systemName: "arrow.clockwise")
-        }
-        .help("Refresh Drives")
-    }
-    
-    private var debugButton: some View {
-        Group {
-            if selectedDrive != nil {
-                Button(action: {
-                    // No-op for preview
-                }) {
-                    Image(systemName: "ladybug")
-                }
-                .help("Print Disk Arbitration Debug Info")
-            }
-        }
-    }
-    
-    private var aboutButton: some View {
-        Button(action: {
-            showAboutDialog = true
-        }) {
-            Image(systemName: "info.circle")
-        }
-        .help("About SwiftFlash")
-    }
-    
-    private var flashButton: some View {
-        Button(action: {
-            showFlashConfirmation = true
-        }) {
-            Image(systemName: "bolt.fill")
-        }
-        .help("Flash Image to Drive")
-        .disabled(!canFlash)
-    }
-    
-    private var canFlash: Bool {
-        guard let selectedDrive = selectedDrive,
-              let selectedImage = imageService.selectedImage else {
-            return false
-        }
-        
-        // Check all preconditions
-        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
-    }
-    
-    private var ejectButton: some View {
-        Button(action: {
-            // No-op for preview
-        }) {
-            Image(systemName: "eject.fill")
-        }
-        .help("Eject Drive")
-        .disabled(selectedDrive == nil)
-    }
-    
-    private var tagsButton: some View {
-        Button(action: {
-            // No-op for preview
-        }) {
-            Image(systemName: "tag")
-        }
-        .help("Edit Tags")
     }
     
     // MARK: - Helper Functions

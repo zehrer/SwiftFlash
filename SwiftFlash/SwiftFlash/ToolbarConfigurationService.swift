@@ -9,10 +9,9 @@ class ToolbarConfigurationService {
     // Default toolbar configuration
     var toolbarItems: [String] = [
         "refresh",
-        "space1", 
+        "flexibleSpace",
         "flash",
         "eject",
-        "flexibleSpace",
         "tags",
         "debug",
         "about",
@@ -36,10 +35,9 @@ class ToolbarConfigurationService {
     func resetToDefault() {
         toolbarItems = [
             "refresh",
-            "space1", 
+            "flexibleSpace",
             "flash",
             "eject",
-            "flexibleSpace",
             "tags",
             "debug",
             "about",
