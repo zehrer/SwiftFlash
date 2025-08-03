@@ -67,12 +67,20 @@ struct ContentView: View {
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
+        .toolbar(id: "mainToolbar") {
+            ToolbarItem(id: "refresh", placement: .automatic) {
                 refreshButton
-                Divider()
+            }
+            
+            ToolbarItem(id: "debug", placement: .automatic) {
                 debugButton
+            }
+            
+            ToolbarItem(id: "about", placement: .automatic) {
                 aboutButton
+            }
+            
+            ToolbarItem(id: "inspector", placement: .automatic) {
                 inspectorToggleButton
             }
         }
@@ -441,12 +449,20 @@ struct PreviewContentView: View {
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
+        .toolbar(id: "previewToolbar") {
+            ToolbarItem(id: "refresh", placement: .automatic) {
                 refreshButton
-                Divider()
+            }
+            
+            ToolbarItem(id: "debug", placement: .automatic) {
                 debugButton
+            }
+            
+            ToolbarItem(id: "about", placement: .automatic) {
                 aboutButton
+            }
+            
+            ToolbarItem(id: "inspector", placement: .automatic) {
                 inspectorToggleButton
             }
         }
