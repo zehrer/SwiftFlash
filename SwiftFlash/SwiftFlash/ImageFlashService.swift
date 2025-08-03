@@ -88,30 +88,50 @@ class ImageFlashService {
     // MARK: - Private Methods
     
     private func validateFlashPreconditions(image: ImageFile, device: Drive) throws {
+        print("🔍 [DEBUG] Validating flash preconditions")
+        print("   - Image: \(image.displayName) (\(image.formattedSize))")
+        print("   - Device: \(device.displayName) (\(device.formattedSize))")
+        print("   - Device Path: \(device.mountPoint)")
+        
         // Check if device exists and is accessible
         guard FileManager.default.fileExists(atPath: device.mountPoint) else {
+            print("❌ [DEBUG] Validation failed: Device mount point not found")
             throw FlashError.deviceNotFound
         }
+        print("✅ [DEBUG] Device mount point exists")
         
         // Check if image file exists
         guard FileManager.default.fileExists(atPath: image.path) else {
+            print("❌ [DEBUG] Validation failed: Image file not found")
             throw FlashError.imageNotFound
         }
+        print("✅ [DEBUG] Image file exists")
         
         // Check if device is read-only
         guard !device.isReadOnly else {
+            print("❌ [DEBUG] Validation failed: Device is read-only")
             throw FlashError.deviceReadOnly
         }
+        print("✅ [DEBUG] Device is not read-only")
         
         // Check if image fits on device
         guard image.size < device.size else {
+            print("❌ [DEBUG] Validation failed: Image too large")
+            print("   - Image size: \(image.formattedSize) (\(image.size) bytes)")
+            print("   - Device size: \(device.formattedSize) (\(device.size) bytes)")
             throw FlashError.imageTooLarge
         }
+        print("✅ [DEBUG] Image fits on device")
         
         // Check if device is mounted and writable
+        print("🔍 [DEBUG] Checking device writability...")
         guard isDeviceWritable(device) else {
+            print("❌ [DEBUG] Validation failed: Insufficient permissions")
             throw FlashError.insufficientPermissions
         }
+        print("✅ [DEBUG] Device is writable")
+        
+        print("✅ [DEBUG] All flash preconditions validated successfully")
     }
     
     private func isDeviceWritable(_ device: Drive) -> Bool {
@@ -120,19 +140,65 @@ class ImageFlashService {
         // to get more detailed information about the device's mount status and permissions
         
         let fileManager = FileManager.default
+        
+        print("🔍 [DEBUG] Checking device writability for: \(device.displayName)")
+        print("   - Mount Point: \(device.mountPoint)")
+        print("   - Device Size: \(device.formattedSize)")
+        print("   - Is Read Only: \(device.isReadOnly)")
+        print("   - Is Removable: \(device.isRemovable)")
+        
+        // Check if mount point exists
         guard fileManager.fileExists(atPath: device.mountPoint) else {
+            print("❌ [DEBUG] Mount point does not exist: \(device.mountPoint)")
             return false
         }
+        
+        // Check if path is writable using FileManager
+        let isWritableByFileManager = fileManager.isWritableFile(atPath: device.mountPoint)
+        print("📋 [DEBUG] FileManager.isWritableFile result: \(isWritableByFileManager)")
         
         // Try to create a test file to check write permissions
         let testFile = device.mountPoint + "/.swiftflash_test"
         let testData = "test".data(using: .utf8)!
         
+        print("🧪 [DEBUG] Attempting write test to: \(testFile)")
+        
         do {
+            // Try to write test file
             try testData.write(to: URL(fileURLWithPath: testFile))
+            print("✅ [DEBUG] Successfully wrote test file")
+            
+            // Try to remove test file
             try fileManager.removeItem(atPath: testFile)
+            print("✅ [DEBUG] Successfully removed test file")
+            
+            print("✅ [DEBUG] Device is writable - all tests passed")
             return true
+            
         } catch {
+            let nsError = error as NSError
+            print("❌ [DEBUG] Write permission test failed")
+            print("   - Error: \(error.localizedDescription)")
+            print("   - Error Domain: \(nsError.domain)")
+            print("   - Error Code: \(nsError.code)")
+            print("   - Error User Info: \(nsError.userInfo)")
+            
+            // Log specific error codes for common permission issues
+            switch nsError.code {
+            case 1: // Operation not permitted
+                print("   - Likely cause: Operation not permitted (EACCES)")
+            case 13: // Permission denied
+                print("   - Likely cause: Permission denied (EACCES)")
+            case 30: // Read-only file system
+                print("   - Likely cause: Read-only file system (EROFS)")
+            case 2: // No such file or directory
+                print("   - Likely cause: No such file or directory (ENOENT)")
+            case 16: // Device or resource busy
+                print("   - Likely cause: Device or resource busy (EBUSY)")
+            default:
+                print("   - Unknown error code: \(nsError.code)")
+            }
+            
             return false
         }
     }
