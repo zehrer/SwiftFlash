@@ -517,33 +517,55 @@ class ImageFlashService {
             throw FlashError.flashFailed("File is not readable: \(image.path)")
         }
         
-        print("   🔓 [DEBUG] Attempting to open file handle...")
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
-        defer { try? fileHandle.close() }
+        print("   🔓 [DEBUG] Attempting to read file data...")
         
-        var hasher = SHA256()
-        var bytesProcessed = 0
-        let totalBytes = image.size
-        
-        // Read and hash in chunks to show progress
-        let chunkSize = 1024 * 1024 // 1MB chunks
-        
-        while let data = try fileHandle.read(upToCount: chunkSize) {
-            hasher.update(data: data)
-            bytesProcessed += data.count
+        // For network shares, try using Data(contentsOf:) first
+        // This is more compatible with SMB and other network file systems
+        do {
+            print("   🌐 [DEBUG] Using Data(contentsOf:) for network share compatibility...")
+            let fileData = try Data(contentsOf: fileURL)
+            print("   ✅ [DEBUG] Successfully read \(fileData.count) bytes from file")
             
-            // Log progress every 10%
-            let progress = Double(bytesProcessed) / Double(totalBytes)
-            if Int(progress * 10) % 10 == 0 {
-                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
+            var hasher = SHA256()
+            hasher.update(data: fileData)
+            let digest = hasher.finalize()
+            let checksum = digest.map { String(format: "%02x", $0) }.joined()
+            
+            print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
+            return checksum
+            
+        } catch {
+            print("   ⚠️ [DEBUG] Data(contentsOf:) failed: \(error)")
+            print("   🔄 [DEBUG] Falling back to FileHandle method...")
+            
+            // Fallback to FileHandle method
+            let fileHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? fileHandle.close() }
+            
+            var hasher = SHA256()
+            var bytesProcessed = 0
+            let totalBytes = image.size
+            
+            // Read and hash in chunks to show progress
+            let chunkSize = 1024 * 1024 // 1MB chunks
+            
+            while let data = try fileHandle.read(upToCount: chunkSize) {
+                hasher.update(data: data)
+                bytesProcessed += data.count
+                
+                // Log progress every 10%
+                let progress = Double(bytesProcessed) / Double(totalBytes)
+                if Int(progress * 10) % 10 == 0 {
+                    print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
+                }
             }
+            
+            let digest = hasher.finalize()
+            let checksum = digest.map { String(format: "%02x", $0) }.joined()
+            
+            print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
+            return checksum
         }
-        
-        let digest = hasher.finalize()
-        let checksum = digest.map { String(format: "%02x", $0) }.joined()
-        
-        print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
-        return checksum
     }
     
     /// Verify SHA256 checksum for an image file
