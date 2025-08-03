@@ -134,6 +134,15 @@ struct PreviewContentView: View {
                     }
                 }
                 
+                if toolbarConfig.toolbarItems.contains("checksum") {
+                    ToolbarItem(id: "checksum", placement: .automatic) {
+                        checksumButton(selectedImage: imageService.selectedImage) {
+                            // TODO: Implement checksum functionality for preview
+                            print("🔍 [DEBUG] Checksum button pressed for preview")
+                        }
+                    }
+                }
+                
                 if toolbarConfig.toolbarItems.contains("tags") {
                     ToolbarItem(id: "tags", placement: .automatic) {
                         tagsButton {

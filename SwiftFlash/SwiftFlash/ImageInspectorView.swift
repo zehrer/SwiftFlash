@@ -55,6 +55,23 @@ struct ImageInspectorView: View {
                     value: image.fileType.displayName
                 )
             }
+            
+            // Checksum Section
+            InspectorSectionView(title: "Integrity Verification") {
+                // Checksum Status
+                LabelAndText(
+                    label: "SHA256 Status",
+                    value: image.checksumStatus
+                )
+                
+                // Full Checksum (if available)
+                if let checksum = image.sha256Checksum {
+                    LabelAndText(
+                        label: "Full Checksum",
+                        value: checksum
+                    )
+                }
+            }
         }
     }
 }

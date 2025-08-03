@@ -123,6 +123,24 @@ struct ContentView: View {
                     }
                 }
                 
+                if toolbarConfig.toolbarItems.contains("checksum") {
+                    ToolbarItem(id: "checksum", placement: .automatic) {
+                        checksumButton(selectedImage: imageService.selectedImage) {
+                            if let selectedImage = imageService.selectedImage {
+                                Task {
+                                    do {
+                                        let updatedImage = try await flashService.generateAndStoreChecksum(for: selectedImage)
+                                        imageService.selectedImage = updatedImage
+                                        print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
+                                    } catch {
+                                        print("❌ [DEBUG] Failed to generate checksum: \(error)")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 if toolbarConfig.toolbarItems.contains("tags") {
                     ToolbarItem(id: "tags", placement: .automatic) {
                         tagsButton {
