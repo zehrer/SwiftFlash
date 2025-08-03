@@ -87,13 +87,32 @@ struct LabelAndPicker: View {
                     .foregroundColor(.blue)
                     .font(InspectorFonts.icon)
                 
-                Picker("", selection: $selection) {
+                Menu {
                     ForEach(DeviceType.allCases, id: \.self) { type in
-                        Text(type.rawValue).tag(type)
+                        Button(action: {
+                            selection = type
+                        }) {
+                            HStack {
+                                Image(systemName: type.icon)
+                                    .foregroundColor(.blue)
+                                    .font(InspectorFonts.icon)
+                                Text(type.rawValue)
+                                    .font(InspectorFonts.value)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: selection.icon)
+                            .foregroundColor(.blue)
+                            .font(InspectorFonts.icon)
+                        Text(selection.rawValue)
                             .font(InspectorFonts.value)
+                        Image(systemName: "chevron.down")
+                            .font(InspectorFonts.icon)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .pickerStyle(.menu)
             }
         }
     }
