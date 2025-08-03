@@ -3,11 +3,11 @@ import SwiftUI
 // MARK: - Font Constants
 
 struct InspectorFonts {
-    static let label = Font.system(size: 12)
-    static let value = Font.system(size: 12)
-    static let sectionHeader = Font.system(size: 13, weight: .bold)
-    static let picker = Font.system(size: 12)
-    static let icon = Font.system(size: 12)
+    static let label = Font.system(size: 11)
+    static let value = Font.system(size: 11)
+    static let sectionHeader = Font.system(size: 12, weight: .bold)
+    static let picker = Font.system(size: 11)
+    static let icon = Font.system(size: 11)
 }
 
 // MARK: - Reusable Components
@@ -90,10 +90,10 @@ struct LabelAndPicker: View {
                 Picker("", selection: $selection) {
                     ForEach(DeviceType.allCases, id: \.self) { type in
                         Text(type.rawValue).tag(type)
+                            .font(InspectorFonts.value)
                     }
                 }
                 .pickerStyle(.menu)
-                .font(InspectorFonts.picker)
             }
         }
     }
@@ -290,5 +290,5 @@ struct DriveInspectorView: View {
         ),
         deviceInventory: DeviceInventory()
     )
-    .frame(width: 300)
+    .frame(width: 250)
 }
