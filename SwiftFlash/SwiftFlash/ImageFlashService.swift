@@ -276,30 +276,173 @@ class ImageFlashService {
     }
     
     private func performFlash(image: ImageFile, device: Drive) async throws {
-        // This is a simulation of the flash process
-        // In a real implementation, you would:
-        // 1. Unmount the device if it's mounted
-        // 2. Use dd command or similar to write the image
-        // 3. Verify the write operation
-        // 4. Remount the device if needed
-        
         print("🚀 [DEBUG] Starting flash process")
         print("   - Image: \(image.displayName) (\(image.formattedSize))")
         print("   - Device: \(device.displayName) (\(device.formattedSize))")
         print("   - Device Path: \(device.mountPoint)")
         
-        // Simulate progress updates
+        // Get raw device path
+        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
+            throw FlashError.flashFailed("Could not determine raw device path")
+        }
+        
+        print("   - Raw Device Path: \(rawDevicePath)")
+        
+        // Step 1: Check if device is mounted
+        let isMounted = isDeviceMounted(device)
+        print("📋 [DEBUG] Device mounted: \(isMounted)")
+        
+        // Step 2: Unmount if necessary
+        if isMounted {
+            print("🔽 [DEBUG] Unmounting device...")
+            try await unmountDevice(device)
+            print("✅ [DEBUG] Device unmounted successfully")
+        }
+        
+        // Step 3: Perform the actual flash operation
+        print("✏️ [DEBUG] Writing image to device...")
+        try await writeImageToDevice(image: image, devicePath: rawDevicePath)
+        print("✅ [DEBUG] Image written successfully")
+        
+        // Step 4: Verify the flash operation
+        print("🔍 [DEBUG] Verifying flash operation...")
+        try await verifyFlashOperation(image: image, devicePath: rawDevicePath)
+        print("✅ [DEBUG] Flash verification successful")
+        
+        // Step 5: Remount device if it was originally mounted
+        if isMounted {
+            print("🔼 [DEBUG] Remounting device...")
+            try await mountDevice(device)
+            print("✅ [DEBUG] Device remounted successfully")
+        }
+        
+        print("✅ [DEBUG] Flash completed successfully")
+    }
+    
+    private func isDeviceMounted(_ device: Drive) -> Bool {
+        // Check if the mount point exists and is accessible
+        return FileManager.default.fileExists(atPath: device.mountPoint)
+    }
+    
+    private func unmountDevice(_ device: Drive) async throws {
+        print("   - Unmounting: \(device.mountPoint)")
+        
+        // Use diskutil to unmount the device
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["unmount", device.mountPoint]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus != 0 {
+                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
+                throw FlashError.flashFailed("Failed to unmount device: \(output)")
+            }
+            
+            print("   - Unmount successful")
+        } catch {
+            throw FlashError.flashFailed("Failed to unmount device: \(error.localizedDescription)")
+        }
+    }
+    
+    private func mountDevice(_ device: Drive) async throws {
+        // Get the raw device path for mounting
+        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
+            throw FlashError.flashFailed("Could not determine raw device path for mounting")
+        }
+        
+        print("   - Mounting: \(rawDevicePath)")
+        
+        // Use diskutil to mount the device
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["mount", rawDevicePath]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus != 0 {
+                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
+                throw FlashError.flashFailed("Failed to mount device: \(output)")
+            }
+            
+            print("   - Mount successful")
+        } catch {
+            throw FlashError.flashFailed("Failed to mount device: \(error.localizedDescription)")
+        }
+    }
+    
+    private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
+        print("   - Writing \(image.formattedSize) to \(devicePath)")
+        
+        // Read the image file
+        let imageData = try Data(contentsOf: URL(fileURLWithPath: image.path))
+        print("   - Image size: \(imageData.count) bytes")
+        
+        // Write the image to the device
+        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
+        defer { try? fileHandle.close() }
+        
+        // Write in chunks to show progress
+        let chunkSize = 1024 * 1024 // 1MB chunks
+        var bytesWritten = 0
+        
         for progress in stride(from: 0.0, through: 1.0, by: 0.1) {
             flashState = .flashing(progress: progress)
             
-            // Simulate work
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            // Calculate bytes for this chunk
+            let startByte = Int(progress * Double(imageData.count))
+            let endByte = min(startByte + chunkSize, imageData.count)
+            let chunk = imageData[startByte..<endByte]
             
-            print("📊 [DEBUG] Flash progress: \(Int(progress * 100))%")
+            // Write chunk
+            try fileHandle.write(contentsOf: chunk)
+            bytesWritten += chunk.count
+            
+            print("📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(bytesWritten) bytes written)")
+            
+            // Small delay to show progress
+            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
         
-        // Simulate completion
-        print("✅ [DEBUG] Flash completed successfully")
+        // Ensure all data is written
+        try fileHandle.synchronize()
+        print("   - Write completed: \(bytesWritten) bytes")
+    }
+    
+    private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
+        print("   - Verifying flash operation...")
+        
+        // Read the first 1KB from both image and device for verification
+        let verificationSize = 1024
+        
+        // Read from image
+        let imageHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: image.path))
+        defer { try? imageHandle.close() }
+        let imageData = try imageHandle.read(upToCount: verificationSize) ?? Data()
+        
+        // Read from device
+        let deviceHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
+        defer { try? deviceHandle.close() }
+        let deviceData = try deviceHandle.read(upToCount: verificationSize) ?? Data()
+        
+        // Compare
+        if imageData != deviceData {
+            throw FlashError.flashFailed("Flash verification failed - data mismatch")
+        }
+        
+        print("   - Verification successful")
     }
     
     // MARK: - Utility Methods
