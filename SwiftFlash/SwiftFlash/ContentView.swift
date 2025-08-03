@@ -27,6 +27,18 @@ struct ContentView: View {
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
     
+    // MARK: - Computed Properties
+    
+    private var canFlash: Bool {
+        guard let selectedDrive = selectedDrive,
+              let selectedImage = imageService.selectedImage else {
+            return false
+        }
+        
+        // Check all preconditions
+        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
+    }
+    
     var body: some View {
         HSplitView {
             // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
@@ -81,7 +93,7 @@ struct ContentView: View {
             Group {
                 if toolbarConfig.toolbarItems.contains("refresh") {
                     ToolbarItem(id: "refresh", placement: .automatic) {
-                        refreshButton
+                        refreshButton(driveService: driveService)
                     }
                 }
                 
@@ -93,37 +105,47 @@ struct ContentView: View {
                 
                 if toolbarConfig.toolbarItems.contains("flash") {
                     ToolbarItem(id: "flash", placement: .automatic) {
-                        flashButton
+                        flashButton(showFlashConfirmation: $showFlashConfirmation, canFlash: canFlash)
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("eject") {
                     ToolbarItem(id: "eject", placement: .automatic) {
-                        ejectButton
+                        ejectButton(selectedDrive: selectedDrive) {
+                            // TODO: Implement eject functionality
+                            print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
+                        }
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("tags") {
                     ToolbarItem(id: "tags", placement: .automatic) {
-                        tagsButton
+                        tagsButton {
+                            // TODO: Implement tags functionality
+                            print("🏷️ [DEBUG] Tags button pressed")
+                        }
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("debug") {
                     ToolbarItem(id: "debug", placement: .automatic) {
-                        debugButton
+                        debugButton(selectedDrive: selectedDrive) {
+                            if let selectedDrive = selectedDrive {
+                                printDiskArbitrationInfo(for: selectedDrive)
+                            }
+                        }
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("about") {
                     ToolbarItem(id: "about", placement: .automatic) {
-                        aboutButton
+                        aboutButton(showAboutDialog: $showAboutDialog)
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("inspector") {
                     ToolbarItem(id: "inspector", placement: .automatic) {
-                        inspectorToggleButton
+                        inspectorToggleButton(showInspector: $showInspector)
                     }
                 }
             }
@@ -344,91 +366,6 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Toolbar Buttons
-    
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            showInspector.toggle()
-        }) {
-            Label("Inspector", systemImage: showInspector ? "sidebar.right" : "sidebar.right")
-                .opacity(showInspector ? 1.0 : 0.5)
-        }
-        .help("Toggle Inspector")
-    }
-    
-    private var refreshButton: some View {
-        Button(action: {
-            driveService.refreshDrives()
-        }) {
-            Label("Refresh", systemImage: "arrow.clockwise")
-        }
-        .help("Refresh Drives")
-        .disabled(driveService.isScanning)
-    }
-    
-    private var debugButton: some View {
-        Group {
-            if let selectedDrive = selectedDrive {
-                Button(action: {
-                    printDiskArbitrationInfo(for: selectedDrive)
-                }) {
-                    Label("Debug", systemImage: "ladybug")
-                }
-                .help("Print Disk Arbitration Debug Info")
-            }
-        }
-    }
-    
-    private var aboutButton: some View {
-        Button(action: {
-            showAboutDialog = true
-        }) {
-            Label("About", systemImage: "info.circle")
-        }
-        .help("About SwiftFlash")
-    }
-    
-    private var flashButton: some View {
-        Button(action: {
-            showFlashConfirmation = true
-        }) {
-            Label("Flash", systemImage: "bolt.fill")
-        }
-        .help("Flash Image to Drive")
-        .disabled(!canFlash)
-    }
-    
-    private var canFlash: Bool {
-        guard let selectedDrive = selectedDrive,
-              let selectedImage = imageService.selectedImage else {
-            return false
-        }
-        
-        // Check all preconditions
-        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
-    }
-    
-    private var ejectButton: some View {
-        Button(action: {
-            // TODO: Implement eject functionality
-            print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
-        }) {
-            Label("Eject", systemImage: "eject.fill")
-        }
-        .help("Eject Drive")
-        .disabled(selectedDrive == nil)
-    }
-    
-    private var tagsButton: some View {
-        Button(action: {
-            // TODO: Implement tags functionality
-            print("🏷️ [DEBUG] Tags button pressed")
-        }) {
-            Label("Tags", systemImage: "tag")
-        }
-        .help("Edit Tags")
-    }
-    
     // MARK: - Helper Functions
     
     private func performFlash() async {
@@ -625,25 +562,7 @@ struct PreviewContentView: View {
             Group {
                 if toolbarConfig.toolbarItems.contains("refresh") {
                     ToolbarItem(id: "refresh", placement: .automatic) {
-                        refreshButton
-                    }
-                }
-                
-                if toolbarConfig.toolbarItems.contains("space1") {
-                    ToolbarItem(id: "space1", placement: .automatic) {
-                        Spacer()
-                    }
-                }
-                
-                if toolbarConfig.toolbarItems.contains("flash") {
-                    ToolbarItem(id: "flash", placement: .automatic) {
-                        flashButton
-                    }
-                }
-                
-                if toolbarConfig.toolbarItems.contains("eject") {
-                    ToolbarItem(id: "eject", placement: .automatic) {
-                        ejectButton
+                        refreshButton(driveService: DriveDetectionService())
                     }
                 }
                 
@@ -653,27 +572,49 @@ struct PreviewContentView: View {
                     }
                 }
                 
+                if toolbarConfig.toolbarItems.contains("flash") {
+                    ToolbarItem(id: "flash", placement: .automatic) {
+                        flashButton(showFlashConfirmation: $showFlashConfirmation, canFlash: false)
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("eject") {
+                    ToolbarItem(id: "eject", placement: .automatic) {
+                        ejectButton(selectedDrive: selectedDrive) {
+                            // TODO: Implement eject functionality
+                            print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
+                        }
+                    }
+                }
+                
                 if toolbarConfig.toolbarItems.contains("tags") {
                     ToolbarItem(id: "tags", placement: .automatic) {
-                        tagsButton
+                        tagsButton {
+                            // TODO: Implement tags functionality
+                            print("🏷️ [DEBUG] Tags button pressed")
+                        }
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("debug") {
                     ToolbarItem(id: "debug", placement: .automatic) {
-                        debugButton
+                        debugButton(selectedDrive: selectedDrive) {
+                            if let selectedDrive = selectedDrive {
+                                print("🔍 [DEBUG] Debug button pressed for drive: \(selectedDrive.displayName)")
+                            }
+                        }
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("about") {
                     ToolbarItem(id: "about", placement: .automatic) {
-                        aboutButton
+                        aboutButton(showAboutDialog: $showAboutDialog)
                     }
                 }
                 
                 if toolbarConfig.toolbarItems.contains("inspector") {
                     ToolbarItem(id: "inspector", placement: .automatic) {
-                        inspectorToggleButton
+                        inspectorToggleButton(showInspector: $showInspector)
                     }
                 }
             }
