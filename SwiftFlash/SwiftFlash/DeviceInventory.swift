@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+// MARK: - CRITICAL ENUM (DO NOT MODIFY - Device type definitions)
+// This enum defines device types and their icons. Changes here affect
+// device categorization, UI display, and icon mapping throughout the app.
+// Any modifications require testing of device type detection and display.
 enum DeviceType: String, CaseIterable, Codable {
     case usbStick = "USB Stick"
     case sdCard = "SD Card"
@@ -26,8 +30,12 @@ enum DeviceType: String, CaseIterable, Codable {
         }
     }
 }
+// END: CRITICAL ENUM
 
-/// Represents a device in the inventory with key identifying information
+// MARK: - CRITICAL DATA MODEL (DO NOT MODIFY - Device inventory structure)
+// This struct represents devices in the inventory and is used for persistence.
+// Changes here affect device tracking, data storage, and UI display.
+// Any modifications require testing of device inventory functionality.
 struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var id = UUID()
     let mediaUUID: String
@@ -51,6 +59,7 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
         return formatter.string(fromByteCount: size)
     }
 }
+// END: CRITICAL DATA MODEL
 
 /// Manages the inventory of recognized devices
 @MainActor

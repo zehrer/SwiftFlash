@@ -7,6 +7,10 @@
 
 import Foundation
 
+// MARK: - CRITICAL DATA MODEL (DO NOT MODIFY - Core image data structure)
+// This ImageFile model is used for image file handling, drag & drop, and flash operations.
+// Changes here will affect image processing, UI display, and file operations.
+// Any modifications require testing of image handling functionality.
 struct ImageFile: Identifiable, Hashable {
     let id = UUID()
     let name: String
@@ -44,7 +48,11 @@ struct ImageFile: Identifiable, Hashable {
         fileType: .iso
     )
 }
+// END: CRITICAL DATA MODEL
 
+// MARK: - CRITICAL ENUM (DO NOT MODIFY - File type definitions)
+// This enum defines supported image file types and is used for validation.
+// Changes here affect file type detection and validation logic.
 enum ImageFileType: String, CaseIterable, Codable {
     case img = "img"
     case iso = "iso"
@@ -63,4 +71,5 @@ enum ImageFileType: String, CaseIterable, Codable {
         let cleanExtension = `extension`.lowercased().replacingOccurrences(of: ".", with: "")
         return ImageFileType(rawValue: cleanExtension) ?? .unknown
     }
-} 
+}
+// END: CRITICAL ENUM 

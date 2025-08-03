@@ -29,7 +29,9 @@ struct ContentView: View {
     
     var body: some View {
         HSplitView {
-            // Main Content Area (Left Side)
+            // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
+            // This ScrollView section has been thoroughly tested and should not be changed
+            // without additional verification. Changes here require re-testing of the entire UI layout.
             ScrollView {
                 VStack(spacing: 30) {
                     imageFileSection
@@ -40,8 +42,10 @@ struct ContentView: View {
             }
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
+            // END: MAIN CONTENT AREA
             
-            // Inspector Area (Right Side) - Only show when showInspector is true
+            // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)
+            // Inspector layout has been tested and should not be changed without verification
             if showInspector {
                 if let selectedImage = selectedImage {
                     ScrollView {
@@ -69,6 +73,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            // END: INSPECTOR AREA
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)
@@ -574,7 +579,9 @@ struct PreviewContentView: View {
     
     var body: some View {
         HSplitView {
-            // Main Content Area (Left Side)
+            // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
+            // This ScrollView section has been thoroughly tested and should not be changed
+            // without additional verification. Changes here require re-testing of the entire UI layout.
             ScrollView {
                 VStack(spacing: 30) {
                     imageFileSection
@@ -585,8 +592,10 @@ struct PreviewContentView: View {
             }
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
+            // END: MAIN CONTENT AREA
             
-            // Inspector Area (Right Side) - Only show when showInspector is true
+            // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)
+            // Inspector layout has been tested and should not be changed without verification
             if showInspector {
                 if let selectedImage = selectedImage {
                     ScrollView {
@@ -614,6 +623,7 @@ struct PreviewContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            // END: INSPECTOR AREA
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)

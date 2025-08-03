@@ -11,6 +11,10 @@ import IOKit
 import IOKit.storage
 @preconcurrency import DiskArbitration
 
+// MARK: - CRITICAL SERVICE (DO NOT MODIFY - Device detection and monitoring)
+// This service handles device detection, Disk Arbitration integration, and device monitoring.
+// Changes here affect the core functionality of detecting and tracking USB/SD devices.
+// Any modifications require thorough testing of device detection and system integration.
 @MainActor
 class DriveDetectionService: ObservableObject {
     @Published var drives: [Drive] = []

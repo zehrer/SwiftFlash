@@ -7,6 +7,10 @@
 
 import Foundation
 
+// MARK: - CRITICAL DATA MODEL (DO NOT MODIFY - Core data structure)
+// This Drive model is used throughout the application and changes here
+// will affect device detection, UI display, and data persistence.
+// Any modifications require thorough testing of all dependent components.
 struct Drive: Identifiable, Hashable {
     let id = UUID()
     let name: String
@@ -42,4 +46,5 @@ struct Drive: Identifiable, Hashable {
     static func == (lhs: Drive, rhs: Drive) -> Bool {
         return lhs.mountPoint == rhs.mountPoint
     }
-} 
+}
+// END: CRITICAL DATA MODEL 

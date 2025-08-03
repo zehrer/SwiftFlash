@@ -2,7 +2,10 @@ import Foundation
 import DiskArbitration
 import IOKit
 
-// Move FlashError outside the class to avoid actor isolation issues
+// MARK: - CRITICAL ERROR ENUM (DO NOT MODIFY - Flash error definitions)
+// This enum defines all possible flash operation errors and their descriptions.
+// Changes here affect error handling and user feedback throughout the app.
+// Any modifications require testing of error handling and user messaging.
 enum FlashError: Error {
     case deviceNotFound
     case imageNotFound
@@ -31,7 +34,12 @@ enum FlashError: Error {
         }
     }
 }
+// END: CRITICAL ERROR ENUM
 
+// MARK: - CRITICAL SERVICE (DO NOT MODIFY - Core flash functionality)
+// This service handles the critical flash operations and state management.
+// Changes here affect the core functionality of writing images to devices.
+// Any modifications require thorough testing of flash operations and safety.
 @Observable
 class ImageFlashService {
     enum FlashState {
