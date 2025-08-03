@@ -1,6 +1,17 @@
 import SwiftUI
 
+// MARK: - Font Constants
+
+struct InspectorFonts {
+    static let label = Font.system(size: 12)
+    static let value = Font.system(size: 12)
+    static let sectionHeader = Font.system(size: 13, weight: .bold)
+    static let picker = Font.system(size: 12)
+    static let icon = Font.system(size: 12)
+}
+
 // MARK: - Reusable Components
+
 
 struct LabelAndText: View {
     let label: String
@@ -16,12 +27,12 @@ struct LabelAndText: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .font(InspectorFonts.label)
                 .foregroundColor(.secondary)
                 .frame(width: labelWidth, alignment: .leading)
             
             Text(value)
-                .font(.system(size: 12))
+                .font(InspectorFonts.value)
         }
     }
 }
@@ -42,13 +53,13 @@ struct LabelAndTextField: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .font(InspectorFonts.label)
                 .foregroundColor(.secondary)
                 .frame(width: labelWidth, alignment: .leading)
             
             TextField(placeholder, text: $text)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12))
+                .font(InspectorFonts.value)
         }
     }
 }
@@ -67,14 +78,14 @@ struct LabelAndPicker: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .font(InspectorFonts.label)
                 .foregroundColor(.secondary)
                 .frame(width: labelWidth, alignment: .leading)
             
             HStack(spacing: 8) {
                 Image(systemName: selection.icon)
                     .foregroundColor(.blue)
-                    .font(.system(size: 12))
+                    .font(InspectorFonts.icon)
                 
                 Picker("", selection: $selection) {
                     ForEach(DeviceType.allCases, id: \.self) { type in
@@ -82,7 +93,7 @@ struct LabelAndPicker: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .font(.system(size: 12))
+                .font(InspectorFonts.picker)
             }
         }
     }
@@ -102,17 +113,17 @@ struct LabelAndStatus: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .font(InspectorFonts.label)
                 .foregroundColor(.secondary)
                 .frame(width: labelWidth, alignment: .leading)
             
             HStack(spacing: 6) {
                 Image(systemName: isReadOnly ? "lock.fill" : "lock.open.fill")
                     .foregroundColor(isReadOnly ? .red : .green)
-                    .font(.system(size: 12))
+                    .font(InspectorFonts.icon)
                 
                 Text(isReadOnly ? "Read-only" : "Writable")
-                    .font(.system(size: 12))
+                    .font(InspectorFonts.value)
             }
         }
     }
@@ -129,13 +140,13 @@ struct InspectorSectionView<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(InspectorFonts.sectionHeader)
                 Spacer()
                 Button(action: {
                     isExpanded.toggle()
                 }) {
                     Text(isExpanded ? "Hide" : "Show")
-                        .font(.system(size: 13))
+                        .font(InspectorFonts.value)
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(Color.accentColor)
