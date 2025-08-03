@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
+    @State private var imageHistoryService = ImageHistoryService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @StateObject private var driveService: DriveDetectionService
     @State private var selectedDrive: Drive?
@@ -39,7 +40,7 @@ struct ContentView: View {
             // Inspector Area (Right Side) - Only show when showInspector is true
             if showInspector {
                 if let selectedImage = selectedImage {
-                    ScrollView {
+                ScrollView {
                         ImageInspectorView(image: selectedImage)
                             .frame(minWidth: 250, idealWidth: 300)
                     }
@@ -54,12 +55,12 @@ struct ContentView: View {
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
                         Text("No Selection")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
+                                .font(.title2)
+                                    .foregroundColor(.secondary)
                         Text("Select an image file or drive to view its details")
                             .font(.caption)
-                            .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -157,32 +158,53 @@ struct ContentView: View {
                 Spacer()
             }
             
-            if let selectedImage = imageService.selectedImage {
-                ImageFileView(
-                    imageFile: selectedImage,
-                    onRemove: {
-                        imageService.clearSelection()
-                        self.selectedImage = nil
-                        self.selectedDrive = nil
-                    },
-                    onSelectDifferent: {
-                        imageService.clearSelection()
-                        self.selectedImage = nil
-                        self.selectedDrive = nil
+            HStack(spacing: 16) {
+                // Left side: Drop zone or selected image
+                VStack {
+                    if let selectedImage = imageService.selectedImage {
+                        ImageFileView(
+                            imageFile: selectedImage,
+                            onRemove: {
+                                imageService.clearSelection()
+                                self.selectedImage = nil
+                                self.selectedDrive = nil
+                            },
+                            onSelectDifferent: {
+                                imageService.clearSelection()
+                                self.selectedImage = nil
+                                self.selectedDrive = nil
+                            }
+                        )
+                        .onTapGesture {
+                            self.selectedImage = selectedImage
+                            self.selectedDrive = nil
+                        }
+                    } else {
+                        DropZoneView(isTargeted: $isDropTargeted) { url in
+                            if let imageFile = imageService.validateAndLoadImage(from: url) {
+                                imageService.selectedImage = imageFile
+                                self.selectedImage = imageFile
+                                self.selectedDrive = nil
+                                // Add to history
+                                imageHistoryService.addToHistory(imageFile)
+                            }
+                        }
                     }
-                )
-                .onTapGesture {
-                    self.selectedImage = selectedImage
-                    self.selectedDrive = nil
                 }
-            } else {
-                DropZoneView(isTargeted: $isDropTargeted) { url in
-                    if let imageFile = imageService.validateAndLoadImage(from: url) {
+                .frame(maxWidth: .infinity)
+                
+                // Right side: Image history
+                ImageHistoryView(
+                    imageHistoryService: imageHistoryService,
+                    onImageSelected: { imageFile in
                         imageService.selectedImage = imageFile
                         self.selectedImage = imageFile
                         self.selectedDrive = nil
+                        // Add to history (will move to top)
+                        imageHistoryService.addToHistory(imageFile)
                     }
-                }
+                )
+                .frame(width: 300)
             }
         }
     }
@@ -318,7 +340,17 @@ struct ContentView: View {
             Image(systemName: "bolt.fill")
         }
         .help("Flash Image to Drive")
-        .disabled(selectedDrive == nil || imageService.selectedImage == nil)
+        .disabled(!canFlash)
+    }
+    
+    private var canFlash: Bool {
+        guard let selectedDrive = selectedDrive,
+              let selectedImage = imageService.selectedImage else {
+            return false
+        }
+        
+        // Check all preconditions
+        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
     }
     
     private var ejectButton: some View {
@@ -382,7 +414,7 @@ struct DriveRowView: View {
             // Device Icon
             Image(systemName: deviceType.icon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(drive.isReadOnly ? .red : .blue)
                 .frame(width: 32)
             
             // Device Info
@@ -390,22 +422,30 @@ struct DriveRowView: View {
                 Text(drive.displayName)
                     .font(.body)
                     .fontWeight(.medium)
+                    .foregroundColor(drive.isReadOnly ? .red : .primary)
                 
                 HStack(spacing: 8) {
                     Text(drive.formattedSize)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     
                     if let vendor = drive.vendor {
                         Text("• \(vendor)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
                     
                     if let revision = drive.revision {
                         Text("• \(revision)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
+                    }
+                    
+                    if drive.isReadOnly {
+                        Text("• Read Only")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .fontWeight(.medium)
                     }
                 }
             }
@@ -415,7 +455,7 @@ struct DriveRowView: View {
             // Device Type
             Text(deviceType.rawValue)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(Color(NSColor.controlBackgroundColor))
@@ -436,6 +476,7 @@ struct DriveRowView: View {
 
 struct PreviewContentView: View {
     @StateObject private var imageService = ImageFileService()
+    @State private var imageHistoryService = ImageHistoryService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @State private var selectedDrive: Drive?
     @State private var selectedImage: ImageFile?
@@ -454,6 +495,8 @@ struct PreviewContentView: View {
         if !demoDrives.isEmpty && defaultSelectedIndex < demoDrives.count {
             self._selectedDrive = State(initialValue: demoDrives[defaultSelectedIndex])
         }
+        // Set demo image by default for testing
+        self._selectedImage = State(initialValue: ImageFile.demoImage)
     }
     
     var body: some View {
@@ -607,12 +650,33 @@ struct PreviewContentView: View {
                 Spacer()
             }
             
-            DropZoneView(isTargeted: $isDropTargeted) { url in
-                if let imageFile = imageService.validateAndLoadImage(from: url) {
-                    imageService.selectedImage = imageFile
-                    self.selectedImage = imageFile
-                    self.selectedDrive = nil
+            HStack(spacing: 16) {
+                // Left side: Drop zone
+                VStack {
+                    DropZoneView(isTargeted: $isDropTargeted) { url in
+                        if let imageFile = imageService.validateAndLoadImage(from: url) {
+                            imageService.selectedImage = imageFile
+                            self.selectedImage = imageFile
+                            self.selectedDrive = nil
+                            // Add to history
+                            imageHistoryService.addToHistory(imageFile)
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                
+                // Right side: Image history
+                ImageHistoryView(
+                    imageHistoryService: imageHistoryService,
+                    onImageSelected: { imageFile in
+                        imageService.selectedImage = imageFile
+                        self.selectedImage = imageFile
+                        self.selectedDrive = nil
+                        // Add to history (will move to top)
+                        imageHistoryService.addToHistory(imageFile)
+                    }
+                )
+                .frame(width: 300)
             }
         }
     }
@@ -689,7 +753,17 @@ struct PreviewContentView: View {
             Image(systemName: "bolt.fill")
         }
         .help("Flash Image to Drive")
-        .disabled(selectedDrive == nil || imageService.selectedImage == nil)
+        .disabled(!canFlash)
+    }
+    
+    private var canFlash: Bool {
+        guard let selectedDrive = selectedDrive,
+              let selectedImage = imageService.selectedImage else {
+            return false
+        }
+        
+        // Check all preconditions
+        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
     }
     
     private var ejectButton: some View {

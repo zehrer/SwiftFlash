@@ -35,11 +35,21 @@ struct ImageFile: Identifiable, Hashable {
     static func == (lhs: ImageFile, rhs: ImageFile) -> Bool {
         return lhs.path == rhs.path
     }
+    
+    // Demo image for testing
+    static let demoImage = ImageFile(
+        name: "Ubuntu 22.04 LTS.iso",
+        path: "/Users/demo/Downloads/ubuntu-22.04.iso",
+        size: 4_500_000_000, // 4.5 GB
+        fileType: .iso
+    )
 }
 
-enum ImageFileType: String, CaseIterable {
+enum ImageFileType: String, CaseIterable, Codable {
     case img = "img"
     case iso = "iso"
+    case dmg = "dmg"
+    case unknown = "unknown"
     
     var displayName: String {
         return self.rawValue.uppercased()
@@ -51,6 +61,6 @@ enum ImageFileType: String, CaseIterable {
     
     static func fromFileExtension(_ extension: String) -> ImageFileType? {
         let cleanExtension = `extension`.lowercased().replacingOccurrences(of: ".", with: "")
-        return ImageFileType(rawValue: cleanExtension)
+        return ImageFileType(rawValue: cleanExtension) ?? .unknown
     }
 } 
