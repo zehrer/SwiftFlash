@@ -14,6 +14,10 @@ struct ContentView: View {
     private func setupDriveService() {
         driveService.inventory = deviceInventory
     }
+    
+    private func loadDrives() async {
+        await driveService.detectDrives()
+    }
     @State private var isDropTargeted = false
     @State private var showInspector = false  // Hidden by default
     @State private var showAboutDialog = false
@@ -107,6 +111,12 @@ struct ContentView: View {
         .onAppear {
             setupDriveService()
         }
+        .onChange(of: deviceInventory.devices) { _, _ in
+            // Reload drives when inventory changes to update device types
+            Task {
+                await loadDrives()
+            }
+        }
     }
     
     // MARK: - View Sections
@@ -198,6 +208,7 @@ struct ContentView: View {
                 VStack(spacing: 12) {
                     ForEach(driveService.drives) { drive in
                         DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
+                            .environmentObject(deviceInventory)
                             .onTapGesture {
                                 selectedDrive = drive
                             }
@@ -273,11 +284,20 @@ struct ContentView: View {
 struct DriveRowView: View {
     let drive: Drive
     let isSelected: Bool
+    @EnvironmentObject var deviceInventory: DeviceInventory
+    
+    var deviceType: DeviceType {
+        if let mediaUUID = drive.mediaUUID,
+           let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+            return inventoryDevice.deviceType
+        }
+        return drive.deviceType
+    }
     
     var body: some View {
         HStack(spacing: 16) {
             // Drive icon - use device type icon
-            Image(systemName: drive.deviceType.icon)
+            Image(systemName: deviceType.icon)
                 .font(.title2)
                 .foregroundColor(isSelected ? .white : .blue)
                 .frame(width: 32)
@@ -382,7 +402,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "SanDisk Ultra USB 3.0",
             vendor: "SanDisk",
             revision: "1.0",
-            deviceInventory: createDemoInventory()
+            deviceType: .usbStick
         ),
         Drive(
             name: "Demo SD Card",
@@ -395,7 +415,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "Samsung EVO Plus SDXC",
             vendor: "Samsung",
             revision: "2.1",
-            deviceInventory: createDemoInventory()
+            deviceType: .sdCard
         ),
         Drive(
             name: "Demo External SSD",
@@ -408,7 +428,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "Samsung T7 Portable SSD",
             vendor: "Samsung",
             revision: "3.0",
-            deviceInventory: createDemoInventory()
+            deviceType: .externalSSD
         )
     ]
 }
@@ -568,6 +588,7 @@ struct PreviewContentView: View {
             VStack(spacing: 12) {
                 ForEach(demoDrives) { drive in
                     DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
+                        .environmentObject(deviceInventory)
                         .onTapGesture {
                             selectedDrive = drive
                         }

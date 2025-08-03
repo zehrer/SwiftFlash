@@ -291,17 +291,7 @@ struct DriveInspectorView: View {
 // MARK: - Preview
 
 #Preview {
-    let demoInventory = DeviceInventory()
-    demoInventory.addOrUpdateDevice(
-        mediaUUID: "TS-RDF5_TS37_3191",
-        size: 31910000000,
-        originalName: "TS-RDF5 SD Transcend Media",
-        deviceType: .microSDCard,
-        vendor: "TS-RDF5",
-        revision: "TS37"
-    )
-    
-    return DriveInspectorView(
+    DriveInspectorView(
         drive: Drive(
             name: "Test Drive",
             mountPoint: "/dev/disk4",
@@ -313,9 +303,9 @@ struct DriveInspectorView: View {
             mediaName: "TS-RDF5 SD Transcend Media",
             vendor: "TS-RDF5",
             revision: "TS37",
-            deviceInventory: demoInventory
+            deviceType: .microSDCard
         ),
-        deviceInventory: demoInventory
+        deviceInventory: DeviceInventory()
     )
     .frame(width: 250)
 }
