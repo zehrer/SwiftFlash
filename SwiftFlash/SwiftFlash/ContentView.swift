@@ -40,7 +40,7 @@ struct ContentView: View {
                 if let selectedDrive = selectedDrive {
                     ScrollView {
                         DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            .frame(minWidth: 300, idealWidth: 350)
+                            .frame(minWidth: 250, idealWidth: 300)
                     }
                 } else {
                     VStack {
@@ -382,7 +382,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "SanDisk Ultra USB 3.0",
             vendor: "SanDisk",
             revision: "1.0",
-            deviceType: .usbStick
+            deviceInventory: createDemoInventory()
         ),
         Drive(
             name: "Demo SD Card",
@@ -395,7 +395,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "Samsung EVO Plus SDXC",
             vendor: "Samsung",
             revision: "2.1",
-            deviceType: .sdCard
+            deviceInventory: createDemoInventory()
         ),
         Drive(
             name: "Demo External SSD",
@@ -408,7 +408,7 @@ private func createDemoDrives() -> [Drive] {
             mediaName: "Samsung T7 Portable SSD",
             vendor: "Samsung",
             revision: "3.0",
-            deviceType: .externalSSD
+            deviceInventory: createDemoInventory()
         )
     ]
 }

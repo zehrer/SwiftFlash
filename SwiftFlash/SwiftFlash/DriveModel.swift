@@ -19,7 +19,16 @@ struct Drive: Identifiable, Hashable {
     let mediaName: String? // Specific DAMediaName from Disk Arbitration
     let vendor: String? // DADeviceVendor from Disk Arbitration
     let revision: String? // DADeviceRevision from Disk Arbitration
-    var deviceType: DeviceType = .unknown // Device type for display and settings
+    let deviceInventory: DeviceInventory? // Reference to inventory for dynamic deviceType
+    
+    // Computed property that gets deviceType from inventory
+    var deviceType: DeviceType {
+        if let mediaUUID = mediaUUID,
+           let inventoryDevice = deviceInventory?.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+            return inventoryDevice.deviceType
+        }
+        return .unknown
+    }
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()
