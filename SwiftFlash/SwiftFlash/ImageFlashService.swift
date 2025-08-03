@@ -547,10 +547,26 @@ class ImageFlashService {
         var updatedImage = image
         updatedImage.sha256Checksum = checksum
         
-        // Update in history service
-        imageHistoryService.addToHistory(updatedImage)
+        // Try to update in history service, but don't fail if it doesn't work
+        do {
+            imageHistoryService.addToHistory(updatedImage)
+            print("✅ [DEBUG] Checksum stored in history successfully")
+        } catch {
+            print("⚠️ [DEBUG] Could not store checksum in history: \(error)")
+            print("   - Checksum calculated successfully: \(checksum.prefix(8))...")
+            print("   - Image updated with checksum, but not saved to history")
+        }
         
-        print("✅ [DEBUG] Checksum stored successfully")
         return updatedImage
+    }
+    
+    /// Generate SHA256 checksum for an image file (read-only, no storage)
+    func generateChecksumOnly(for image: ImageFile) async throws -> String {
+        print("🔍 [DEBUG] Generating SHA256 checksum for: \(image.displayName)")
+        
+        let checksum = try await calculateSHA256Checksum(for: image)
+        
+        print("✅ [DEBUG] Checksum calculated: \(checksum.prefix(8))...")
+        return checksum
     }
 } 
