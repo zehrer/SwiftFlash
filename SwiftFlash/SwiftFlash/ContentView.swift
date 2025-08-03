@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var imageHistoryService = ImageHistoryService()
-    @State private var flashService = ImageFlashService()
+    @State private var flashService: ImageFlashService
     @State private var toolbarConfig = ToolbarConfigurationService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @StateObject private var driveService: DriveDetectionService
@@ -13,6 +13,11 @@ struct ContentView: View {
     init() {
         let driveService = DriveDetectionService()
         self._driveService = StateObject(wrappedValue: driveService)
+        
+        let imageHistoryService = ImageHistoryService()
+        let flashService = ImageFlashService(imageHistoryService: imageHistoryService)
+        self._imageHistoryService = State(wrappedValue: imageHistoryService)
+        self._flashService = State(wrappedValue: flashService)
     }
     
     private func setupDriveService() {

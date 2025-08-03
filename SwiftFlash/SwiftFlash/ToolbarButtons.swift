@@ -82,3 +82,14 @@ func inspectorToggleButton(showInspector: Binding<Bool>) -> some View {
     }
     .help("Toggle Inspector")
 }
+
+/// Toolbar-Button für SHA256 Checksum
+func checksumButton(selectedImage: ImageFile?, onChecksum: @escaping () -> Void) -> some View {
+    Button(action: {
+        onChecksum()
+    }) {
+        Label("Checksum", systemImage: "checkmark.shield")
+    }
+    .help("Generate SHA256 Checksum")
+    .disabled(selectedImage == nil)
+}

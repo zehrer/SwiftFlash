@@ -25,9 +25,14 @@ struct PreviewContentView: View {
     @StateObject private var deviceInventory = DeviceInventory()
     
     // MARK: - Preview Data (Regular Services)
-    private let flashService = ImageFlashService()
+    private let flashService: ImageFlashService
     private let historyService = ImageHistoryService()
     private let toolbarConfig = ToolbarConfigurationService()
+    
+    init() {
+        // Initialize flash service with history service
+        self.flashService = ImageFlashService(imageHistoryService: ImageHistoryService())
+    }
     
     // MARK: - Preview State
     @State private var selectedDrive: Drive?

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import DiskArbitration
 import IOKit
 
@@ -52,6 +53,12 @@ class ImageFlashService {
     
     var flashState: FlashState = .idle
     var isFlashing: Bool = false
+    
+    private let imageHistoryService: ImageHistoryService
+    
+    init(imageHistoryService: ImageHistoryService) {
+        self.imageHistoryService = imageHistoryService
+    }
     
     // MARK: - Public Methods
     
@@ -299,17 +306,29 @@ class ImageFlashService {
             print("✅ [DEBUG] Device unmounted successfully")
         }
         
-        // Step 3: Perform the actual flash operation
+        // Step 3: Verify image checksum if available
+        if let checksum = image.sha256Checksum {
+            print("🔍 [DEBUG] Verifying image checksum before flashing...")
+            let isValid = try await verifySHA256Checksum(for: image, expectedChecksum: checksum)
+            if !isValid {
+                throw FlashError.flashFailed("Image checksum verification failed - image may be corrupted")
+            }
+            print("✅ [DEBUG] Image checksum verified successfully")
+        } else {
+            print("⚠️ [DEBUG] No checksum available for image - skipping verification")
+        }
+        
+        // Step 4: Perform the actual flash operation
         print("✏️ [DEBUG] Writing image to device...")
         try await writeImageToDevice(image: image, devicePath: rawDevicePath)
         print("✅ [DEBUG] Image written successfully")
         
-        // Step 4: Verify the flash operation
+        // Step 5: Verify the flash operation
         print("🔍 [DEBUG] Verifying flash operation...")
         try await verifyFlashOperation(image: image, devicePath: rawDevicePath)
         print("✅ [DEBUG] Flash verification successful")
         
-        // Step 5: Remount device if it was originally mounted
+        // Step 6: Remount device if it was originally mounted
         if isMounted {
             print("🔼 [DEBUG] Remounting device...")
             try await mountDevice(device)
@@ -463,6 +482,75 @@ class ImageFlashService {
         Size: \(image.formattedSize)
         Type: \(image.fileType.displayName)
         Path: \(image.path)
+        Checksum: \(image.checksumStatus)
         """
+    }
+    
+    // MARK: - SHA256 Checksum Methods
+    
+    /// Calculate SHA256 checksum for an image file
+    func calculateSHA256Checksum(for image: ImageFile) async throws -> String {
+        print("🔍 [DEBUG] Calculating SHA256 checksum for: \(image.displayName)")
+        
+        let fileURL = URL(fileURLWithPath: image.path)
+        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? fileHandle.close() }
+        
+        var hasher = SHA256()
+        var bytesProcessed = 0
+        let totalBytes = image.size
+        
+        // Read and hash in chunks to show progress
+        let chunkSize = 1024 * 1024 // 1MB chunks
+        
+        while let data = try fileHandle.read(upToCount: chunkSize) {
+            hasher.update(data: data)
+            bytesProcessed += data.count
+            
+            // Log progress every 10%
+            let progress = Double(bytesProcessed) / Double(totalBytes)
+            if Int(progress * 10) % 10 == 0 {
+                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
+            }
+        }
+        
+        let digest = hasher.finalize()
+        let checksum = digest.map { String(format: "%02x", $0) }.joined()
+        
+        print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
+        return checksum
+    }
+    
+    /// Verify SHA256 checksum for an image file
+    func verifySHA256Checksum(for image: ImageFile, expectedChecksum: String) async throws -> Bool {
+        print("🔍 [DEBUG] Verifying SHA256 checksum for: \(image.displayName)")
+        
+        let calculatedChecksum = try await calculateSHA256Checksum(for: image)
+        let isValid = calculatedChecksum.lowercased() == expectedChecksum.lowercased()
+        
+        print("✅ [DEBUG] Checksum verification: \(isValid ? "PASSED" : "FAILED")")
+        if !isValid {
+            print("   - Expected: \(expectedChecksum)")
+            print("   - Calculated: \(calculatedChecksum)")
+        }
+        
+        return isValid
+    }
+    
+    /// Generate and store SHA256 checksum for an image file
+    func generateAndStoreChecksum(for image: ImageFile) async throws -> ImageFile {
+        print("🔍 [DEBUG] Generating and storing SHA256 checksum for: \(image.displayName)")
+        
+        let checksum = try await calculateSHA256Checksum(for: image)
+        
+        // Create new ImageFile with checksum
+        var updatedImage = image
+        updatedImage.sha256Checksum = checksum
+        
+        // Update in history service
+        imageHistoryService.addToHistory(updatedImage)
+        
+        print("✅ [DEBUG] Checksum stored successfully")
+        return updatedImage
     }
 } 

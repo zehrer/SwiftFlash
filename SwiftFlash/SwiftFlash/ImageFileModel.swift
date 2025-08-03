@@ -17,6 +17,7 @@ struct ImageFile: Identifiable, Hashable {
     let path: String
     let size: Int64
     let fileType: ImageFileType
+    var sha256Checksum: String?
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()
@@ -30,6 +31,14 @@ struct ImageFile: Identifiable, Hashable {
             return "Unknown Image"
         }
         return name
+    }
+    
+    var checksumStatus: String {
+        if let checksum = sha256Checksum {
+            return "SHA256: \(checksum.prefix(8))..."
+        } else {
+            return "No checksum available"
+        }
     }
     
     func hash(into hasher: inout Hasher) {

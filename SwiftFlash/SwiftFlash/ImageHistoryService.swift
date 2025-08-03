@@ -25,7 +25,8 @@ class ImageHistoryService {
             filePath: imageFile.path,
             fileSize: imageFile.size,
             fileType: imageFile.fileType,
-            lastUsed: Date()
+            lastUsed: Date(),
+            sha256Checksum: imageFile.sha256Checksum
         )
         
         // Add to beginning of array
@@ -58,12 +59,13 @@ class ImageHistoryService {
         }
         
         // Create ImageFile from history item
-        let imageFile = ImageFile(
+        var imageFile = ImageFile(
             name: item.displayName,
             path: item.filePath,
             size: item.fileSize,
             fileType: item.fileType
         )
+        imageFile.sha256Checksum = item.sha256Checksum
         
         // Update last used date
         if let index = imageHistory.firstIndex(where: { $0.id == item.id }) {
@@ -108,6 +110,7 @@ struct ImageHistoryItem: Identifiable, Codable {
     let fileSize: Int64
     let fileType: ImageFileType
     var lastUsed: Date
+    var sha256Checksum: String?
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()
