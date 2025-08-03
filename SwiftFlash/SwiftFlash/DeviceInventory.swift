@@ -12,11 +12,11 @@ enum DeviceType: String, CaseIterable, Codable {
     var icon: String {
         switch self {
         case .usbStick:
-            return "externaldrive"  // Fallback to externaldrive for USB sticks
+            return "mediastick"
         case .sdCard:
-            return "memorychip"     // Use memorychip for SD cards
+            return "sdcard"
         case .microSDCard:
-            return "memorychip.fill" // Use memorychip.fill for microSD cards
+            return "sdcard.fill"
         case .externalHDD:
             return "externaldrive.fill"
         case .externalSSD:
