@@ -36,12 +36,14 @@ struct ContentView: View {
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
             .inspector(isPresented: $showInspector) {
-                if let selectedDrive = selectedDrive {
-                    DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        //.frame(minWidth: 400)
-                        .frame(minWidth: 300, idealWidth: 350)
-                } else {
-                    Text("No selection")
+                VStack {
+                    if let selectedDrive = selectedDrive {
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                            //.frame(minWidth: 400)
+                            .frame(minWidth: 300, idealWidth: 350)
+                    } else {
+                        Text("No selection")
+                    }
                 }
             }
         }
@@ -335,4 +337,5 @@ struct DriveRowView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(DeviceInventory())
 } 
