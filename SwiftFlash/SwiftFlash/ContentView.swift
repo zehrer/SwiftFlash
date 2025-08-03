@@ -16,7 +16,7 @@ struct ContentView: View {
     }
     
     private func loadDrives() async {
-        await driveService.detectDrives()
+        _ = await driveService.detectDrives()
     }
     @State private var isDropTargeted = false
     @State private var showInspector = false  // Hidden by default
