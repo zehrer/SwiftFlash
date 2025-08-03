@@ -15,6 +15,7 @@ struct ContentView: View {
         driveService.inventory = deviceInventory
     }
     @State private var isDropTargeted = false
+    @State private var showInspector = false  // Hidden by default
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
@@ -35,26 +36,28 @@ struct ContentView: View {
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
         } detail: {
-            // Inspector Area (Right Side)
-            if let selectedDrive = selectedDrive {
-                ScrollView {
-                    DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+            // Inspector Area (Right Side) - Only show when showInspector is true
+            if showInspector {
+                if let selectedDrive = selectedDrive {
+                    ScrollView {
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                            .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+                    }
+                } else {
+                    VStack {
+                        Image(systemName: "sidebar.right")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No Drive Selected")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("Select a drive from the list to view its details")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            } else {
-                VStack {
-                    Image(systemName: "sidebar.right")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No Drive Selected")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Text("Select a drive from the list to view its details")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -66,6 +69,7 @@ struct ContentView: View {
                 Divider()
                 debugButton
                 aboutButton
+                inspectorToggleButton
             }
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
@@ -212,6 +216,16 @@ struct ContentView: View {
     }
     
     // MARK: - Toolbar Buttons
+    
+    private var inspectorToggleButton: some View {
+        Button(action: {
+            showInspector.toggle()
+        }) {
+            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                .opacity(showInspector ? 1.0 : 0.5)
+        }
+        .help("Toggle Inspector")
+    }
     
     private var refreshButton: some View {
         Button(action: {
@@ -408,6 +422,7 @@ struct PreviewContentView: View {
     @EnvironmentObject var deviceInventory: DeviceInventory
     @State private var selectedDrive: Drive?
     @State private var isDropTargeted = false
+    @State private var showInspector = true  // Show by default for preview
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
@@ -438,26 +453,28 @@ struct PreviewContentView: View {
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
         } detail: {
-            // Inspector Area (Right Side)
-            if let selectedDrive = selectedDrive {
-                ScrollView {
-                    DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+            // Inspector Area (Right Side) - Only show when showInspector is true
+            if showInspector {
+                if let selectedDrive = selectedDrive {
+                    ScrollView {
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                            .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+                    }
+                } else {
+                    VStack {
+                        Image(systemName: "sidebar.right")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No Drive Selected")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("Select a drive from the list to view its details")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            } else {
-                VStack {
-                    Image(systemName: "sidebar.right")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No Drive Selected")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Text("Select a drive from the list to view its details")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -469,6 +486,7 @@ struct PreviewContentView: View {
                 Divider()
                 debugButton
                 aboutButton
+                inspectorToggleButton
             }
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
@@ -570,6 +588,16 @@ struct PreviewContentView: View {
     
     // MARK: - Toolbar Buttons
     
+    private var inspectorToggleButton: some View {
+        Button(action: {
+            showInspector.toggle()
+        }) {
+            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                .opacity(showInspector ? 1.0 : 0.5)
+        }
+        .help("Toggle Inspector")
+    }
+    
     private var refreshButton: some View {
         Button(action: {
             // No-op for preview
@@ -581,7 +609,7 @@ struct PreviewContentView: View {
     
     private var debugButton: some View {
         Group {
-            if let selectedDrive = selectedDrive {
+            if selectedDrive != nil {
                 Button(action: {
                     // No-op for preview
                 }) {
@@ -602,22 +630,7 @@ struct PreviewContentView: View {
     }
 }
 
-#Preview("ContentView with Demo Data - USB Selected") {
+#Preview("ContentView with Demo Data") {
     PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 0)
         .environmentObject(createDemoInventory())
 }
-
-#Preview("ContentView with Demo Data - SD Card Selected") {
-    PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 1)
-        .environmentObject(createDemoInventory())
-}
-
-#Preview("ContentView with Demo Data - SSD Selected") {
-    PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 2)
-        .environmentObject(createDemoInventory())
-}
-
-#Preview("ContentView Empty") {
-    ContentView()
-        .environmentObject(DeviceInventory())
-} 
