@@ -491,8 +491,33 @@ class ImageFlashService {
     /// Calculate SHA256 checksum for an image file
     func calculateSHA256Checksum(for image: ImageFile) async throws -> String {
         print("🔍 [DEBUG] Calculating SHA256 checksum for: \(image.displayName)")
+        print("   📁 [DEBUG] Image path: \(image.path)")
         
         let fileURL = URL(fileURLWithPath: image.path)
+        print("   🔗 [DEBUG] File URL: \(fileURL)")
+        print("   🔗 [DEBUG] File URL absolute string: \(fileURL.absoluteString)")
+        print("   🔗 [DEBUG] File URL path: \(fileURL.path)")
+        
+        // Check if file exists before trying to open it
+        let fileManager = FileManager.default
+        let fileExists = fileManager.fileExists(atPath: image.path)
+        print("   📂 [DEBUG] File exists at path: \(fileExists)")
+        
+        if !fileExists {
+            print("   ❌ [DEBUG] File does not exist at path: \(image.path)")
+            throw FlashError.flashFailed("File does not exist: \(image.path)")
+        }
+        
+        // Check file permissions
+        let isReadable = fileManager.isReadableFile(atPath: image.path)
+        print("   📖 [DEBUG] File is readable: \(isReadable)")
+        
+        if !isReadable {
+            print("   ❌ [DEBUG] File is not readable: \(image.path)")
+            throw FlashError.flashFailed("File is not readable: \(image.path)")
+        }
+        
+        print("   🔓 [DEBUG] Attempting to open file handle...")
         let fileHandle = try FileHandle(forReadingFrom: fileURL)
         defer { try? fileHandle.close() }
         
