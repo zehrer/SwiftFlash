@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var imageHistoryService = ImageHistoryService()
     @State private var flashService = ImageFlashService()
+    @State private var toolbarConfig = ToolbarConfigurationService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @StateObject private var driveService: DriveDetectionService
     @State private var selectedDrive: Drive?
@@ -72,40 +73,60 @@ struct ContentView: View {
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar(id: "mainToolbar") {
-            ToolbarItem(id: "refresh", placement: .automatic) {
-                refreshButton
-            }
-            
-            ToolbarItem(id: "space1", placement: .automatic) {
-                Spacer()
-            }
-            
-            ToolbarItem(id: "flash", placement: .automatic) {
-                flashButton
-            }
-            
-            ToolbarItem(id: "eject", placement: .automatic) {
-                ejectButton
-            }
-            
-            ToolbarItem(id: "flexibleSpace", placement: .automatic) {
-                Spacer()
-            }
-            
-            ToolbarItem(id: "tags", placement: .automatic) {
-                tagsButton
-            }
-            
-            ToolbarItem(id: "debug", placement: .automatic) {
-                debugButton
-            }
-            
-            ToolbarItem(id: "about", placement: .automatic) {
-                aboutButton
-            }
-            
-            ToolbarItem(id: "inspector", placement: .automatic) {
-                inspectorToggleButton
+            Group {
+                if toolbarConfig.toolbarItems.contains("refresh") {
+                    ToolbarItem(id: "refresh", placement: .automatic) {
+                        refreshButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("space1") {
+                    ToolbarItem(id: "space1", placement: .automatic) {
+                        Spacer()
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("flash") {
+                    ToolbarItem(id: "flash", placement: .automatic) {
+                        flashButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("eject") {
+                    ToolbarItem(id: "eject", placement: .automatic) {
+                        ejectButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("flexibleSpace") {
+                    ToolbarItem(id: "flexibleSpace", placement: .automatic) {
+                        Spacer()
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("tags") {
+                    ToolbarItem(id: "tags", placement: .automatic) {
+                        tagsButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("debug") {
+                    ToolbarItem(id: "debug", placement: .automatic) {
+                        debugButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("about") {
+                    ToolbarItem(id: "about", placement: .automatic) {
+                        aboutButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("inspector") {
+                    ToolbarItem(id: "inspector", placement: .automatic) {
+                        inspectorToggleButton
+                    }
+                }
             }
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
@@ -526,6 +547,7 @@ struct PreviewContentView: View {
     @StateObject private var imageService = ImageFileService()
     @State private var imageHistoryService = ImageHistoryService()
     @State private var flashService = ImageFlashService()
+    @State private var toolbarConfig = ToolbarConfigurationService()
     @EnvironmentObject var deviceInventory: DeviceInventory
     @State private var selectedDrive: Drive?
     @State private var selectedImage: ImageFile?
@@ -596,40 +618,60 @@ struct PreviewContentView: View {
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar(id: "previewToolbar") {
-            ToolbarItem(id: "refresh", placement: .automatic) {
-                refreshButton
-            }
-            
-            ToolbarItem(id: "space1", placement: .automatic) {
-                Spacer()
-            }
-            
-            ToolbarItem(id: "flash", placement: .automatic) {
-                flashButton
-            }
-            
-            ToolbarItem(id: "eject", placement: .automatic) {
-                ejectButton
-            }
-            
-            ToolbarItem(id: "flexibleSpace", placement: .automatic) {
-                Spacer()
-            }
-            
-            ToolbarItem(id: "tags", placement: .automatic) {
-                tagsButton
-            }
-            
-            ToolbarItem(id: "debug", placement: .automatic) {
-                debugButton
-            }
-            
-            ToolbarItem(id: "about", placement: .automatic) {
-                aboutButton
-            }
-            
-            ToolbarItem(id: "inspector", placement: .automatic) {
-                inspectorToggleButton
+            Group {
+                if toolbarConfig.toolbarItems.contains("refresh") {
+                    ToolbarItem(id: "refresh", placement: .automatic) {
+                        refreshButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("space1") {
+                    ToolbarItem(id: "space1", placement: .automatic) {
+                        Spacer()
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("flash") {
+                    ToolbarItem(id: "flash", placement: .automatic) {
+                        flashButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("eject") {
+                    ToolbarItem(id: "eject", placement: .automatic) {
+                        ejectButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("flexibleSpace") {
+                    ToolbarItem(id: "flexibleSpace", placement: .automatic) {
+                        Spacer()
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("tags") {
+                    ToolbarItem(id: "tags", placement: .automatic) {
+                        tagsButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("debug") {
+                    ToolbarItem(id: "debug", placement: .automatic) {
+                        debugButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("about") {
+                    ToolbarItem(id: "about", placement: .automatic) {
+                        aboutButton
+                    }
+                }
+                
+                if toolbarConfig.toolbarItems.contains("inspector") {
+                    ToolbarItem(id: "inspector", placement: .automatic) {
+                        inspectorToggleButton
+                    }
+                }
             }
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
@@ -883,6 +925,8 @@ struct PreviewContentView: View {
             print("❌ [DEBUG] Flash failed: \(error)")
         }
     }
+    
+
 }
 
 // MARK: - Preview Helpers
