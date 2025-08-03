@@ -370,8 +370,248 @@ private func createDemoInventory() -> DeviceInventory {
     return demoInventory
 }
 
+private func createDemoDrives() -> [Drive] {
+    return [
+        Drive(
+            name: "Demo USB Stick",
+            mountPoint: "/dev/disk2",
+            size: 32000000000, // 32 GB
+            isRemovable: true,
+            isSystemDrive: false,
+            isReadOnly: false,
+            mediaUUID: "DEMO_USB_001",
+            mediaName: "SanDisk Ultra USB 3.0",
+            vendor: "SanDisk",
+            revision: "1.0",
+            deviceType: .usbStick
+        ),
+        Drive(
+            name: "Demo SD Card",
+            mountPoint: "/dev/disk3",
+            size: 64000000000, // 64 GB
+            isRemovable: true,
+            isSystemDrive: false,
+            isReadOnly: true,
+            mediaUUID: "DEMO_SD_002",
+            mediaName: "Samsung EVO Plus SDXC",
+            vendor: "Samsung",
+            revision: "2.1",
+            deviceType: .sdCard
+        ),
+        Drive(
+            name: "Demo External SSD",
+            mountPoint: "/dev/disk4",
+            size: 1000000000000, // 1 TB
+            isRemovable: true,
+            isSystemDrive: false,
+            isReadOnly: false,
+            mediaUUID: "DEMO_SSD_003",
+            mediaName: "Samsung T7 Portable SSD",
+            vendor: "Samsung",
+            revision: "3.0",
+            deviceType: .externalSSD
+        )
+    ]
+}
+
+// MARK: - Preview ContentView
+
+struct PreviewContentView: View {
+    @StateObject private var imageService = ImageFileService()
+    @EnvironmentObject var deviceInventory: DeviceInventory
+    @State private var selectedDrive: Drive?
+    @State private var isDropTargeted = false
+    @State private var showInspector = true
+    @State private var showAboutDialog = false
+    @State private var showCustomNameDialog = false
+    @State private var customNameText = ""
+    @State private var deviceToRename: Drive?
+    
+    let demoDrives: [Drive]
+    
+    init(demoDrives: [Drive]) {
+        self.demoDrives = demoDrives
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Main Content Area
+            ScrollView {
+                VStack(spacing: 30) {
+                    imageFileSection
+                    errorMessageSection
+                    driveSelectionSection
+                }
+                .padding()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minWidth: 400, idealWidth: 500)
+            .background(Color.white)
+            .inspector(isPresented: $showInspector) {
+                if let selectedDrive = selectedDrive {
+                    ScrollView {
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                            .frame(minWidth: 300, idealWidth: 350)
+                    }
+                } else {
+                    Text("No selection")
+                }
+            }
+        }
+        .frame(minWidth: 400)
+        .frame(minHeight: 700)
+        .toolbar {
+            ToolbarItemGroup(placement: .automatic) {
+                refreshButton
+                Divider()
+                debugButton
+                aboutButton
+                inspectorToggleButton
+            }
+        }
+        .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
+            TextField("Enter custom name", text: $customNameText)
+            Button("Cancel", role: .cancel) {
+                customNameText = ""
+                deviceToRename = nil
+            }
+            Button("Save") {
+                if let drive = deviceToRename, !customNameText.isEmpty {
+                    if let mediaUUID = drive.mediaUUID {
+                        deviceInventory.setCustomName(for: mediaUUID, customName: customNameText)
+                    }
+                }
+                customNameText = ""
+                deviceToRename = nil
+            }
+        } message: {
+            if let drive = deviceToRename {
+                Text("Set a custom name for '\(drive.displayName)'")
+            }
+        }
+        .onChange(of: showCustomNameDialog) { _, showDialog in
+            if showDialog, let drive = deviceToRename {
+                customNameText = drive.displayName
+            }
+        }
+        .sheet(isPresented: $showAboutDialog) {
+            AboutView()
+        }
+    }
+    
+    // MARK: - View Components
+    
+    private var imageFileSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Step 1: Select Image File")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            DropZoneView(isTargeted: $isDropTargeted) { url in
+                if let imageFile = imageService.validateAndLoadImage(from: url) {
+                    imageService.selectedImage = imageFile
+                }
+            }
+        }
+    }
+    
+    private var errorMessageSection: some View {
+        Group {
+            if let errorMessage = imageService.errorMessage {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text("Error")
+                            .font(.headline)
+                            .foregroundColor(.red)
+                    }
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
+                .padding()
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+    
+    private var driveSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Step 2: Select USB Drive")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            VStack(spacing: 12) {
+                ForEach(demoDrives) { drive in
+                    DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
+                        .onTapGesture {
+                            selectedDrive = drive
+                        }
+                        .contextMenu {
+                            Button("Set Custom Name") {
+                                deviceToRename = drive
+                                showCustomNameDialog = true
+                            }
+                        }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Toolbar Buttons
+    
+    private var inspectorToggleButton: some View {
+        Button(action: {
+            showInspector.toggle()
+        }) {
+            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                .opacity(showInspector ? 1.0 : 0.5)
+        }
+        .help("Toggle Inspector")
+    }
+    
+    private var refreshButton: some View {
+        Button(action: {
+            // No-op for preview
+        }) {
+            Image(systemName: "arrow.clockwise")
+        }
+        .help("Refresh Drives")
+    }
+    
+    private var debugButton: some View {
+        Group {
+            if let selectedDrive = selectedDrive {
+                Button(action: {
+                    // No-op for preview
+                }) {
+                    Image(systemName: "ladybug")
+                }
+                .help("Print Disk Arbitration Debug Info")
+            }
+        }
+    }
+    
+    private var aboutButton: some View {
+        Button(action: {
+            showAboutDialog = true
+        }) {
+            Image(systemName: "info.circle")
+        }
+        .help("About SwiftFlash")
+    }
+}
+
 #Preview("ContentView with Demo Data") {
-    ContentView()
+    PreviewContentView(demoDrives: createDemoDrives())
         .environmentObject(createDemoInventory())
 }
 
