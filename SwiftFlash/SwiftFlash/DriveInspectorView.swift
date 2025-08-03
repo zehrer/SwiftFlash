@@ -69,7 +69,7 @@ struct DriveInspectorView: View {
                         TextField("Enter device name", text: $editableName)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 12))
-                            .onChange(of: editableName) { newValue in
+                            .onChange(of: editableName) { _, newValue in
                                 if let mediaUUID = drive.mediaUUID {
                                     if newValue.isEmpty {
                                         deviceInventory.setCustomName(for: mediaUUID, customName: nil)
@@ -99,7 +99,7 @@ struct DriveInspectorView: View {
                             }
                             .pickerStyle(.menu)
                             .font(.system(size: 12))
-                            .onChange(of: selectedDeviceType) { newValue in
+                            .onChange(of: selectedDeviceType) { _, newValue in
                                 if let mediaUUID = drive.mediaUUID {
                                     deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
                                 }
