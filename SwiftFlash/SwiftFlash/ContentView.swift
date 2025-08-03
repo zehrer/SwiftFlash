@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var deviceInventory: DeviceInventory
     @StateObject private var driveService: DriveDetectionService
     @State private var selectedDrive: Drive?
+    @State private var selectedImage: ImageFile?
     
     init() {
         let driveService = DriveDetectionService()
@@ -37,7 +38,12 @@ struct ContentView: View {
             
             // Inspector Area (Right Side) - Only show when showInspector is true
             if showInspector {
-                if let selectedDrive = selectedDrive {
+                if let selectedImage = selectedImage {
+                    ScrollView {
+                        ImageInspectorView(image: selectedImage)
+                            .frame(minWidth: 250, idealWidth: 300)
+                    }
+                } else if let selectedDrive = selectedDrive {
                     ScrollView {
                         DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
                             .frame(minWidth: 250, idealWidth: 300)
@@ -47,10 +53,10 @@ struct ContentView: View {
                         Image(systemName: "sidebar.right")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        Text("No Drive Selected")
+                        Text("No Selection")
                             .font(.title2)
                             .foregroundColor(.secondary)
-                        Text("Select a drive from the list to view its details")
+                        Text("Select an image file or drive to view its details")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -106,12 +112,13 @@ struct ContentView: View {
         }
         .onAppear {
             setupDriveService()
+            Task {
+                _ = await driveService.detectDrives()
+            }
         }
-        // Note: No longer need to reload drives when inventory changes
-        // since DriveRowView now reads deviceType live from inventory via @EnvironmentObject
     }
     
-    // MARK: - View Sections
+    // MARK: - View Components
     
     private var imageFileSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -127,15 +134,25 @@ struct ContentView: View {
                     imageFile: selectedImage,
                     onRemove: {
                         imageService.clearSelection()
+                        self.selectedImage = nil
+                        self.selectedDrive = nil
                     },
                     onSelectDifferent: {
                         imageService.clearSelection()
+                        self.selectedImage = nil
+                        self.selectedDrive = nil
                     }
                 )
+                .onTapGesture {
+                    self.selectedImage = selectedImage
+                    self.selectedDrive = nil
+                }
             } else {
                 DropZoneView(isTargeted: $isDropTargeted) { url in
                     if let imageFile = imageService.validateAndLoadImage(from: url) {
                         imageService.selectedImage = imageFile
+                        self.selectedImage = imageFile
+                        self.selectedDrive = nil
                     }
                 }
             }
@@ -145,16 +162,20 @@ struct ContentView: View {
     private var errorMessageSection: some View {
         Group {
             if let errorMessage = imageService.errorMessage {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text("Error")
+                            .font(.headline)
+                            .foregroundColor(.red)
+                    }
                     Text(errorMessage)
                         .font(.subheadline)
-                        .foregroundColor(.orange)
-                    Spacer()
+                        .foregroundColor(.red)
                 }
                 .padding()
-                .background(Color.orange.opacity(0.1))
+                .background(Color.red.opacity(0.1))
                 .cornerRadius(8)
             }
         }
@@ -203,6 +224,7 @@ struct ContentView: View {
                             .environmentObject(deviceInventory)
                             .onTapGesture {
                                 selectedDrive = drive
+                                selectedImage = nil
                             }
                             .contextMenu {
                                 Button("Set Custom Name") {
@@ -262,16 +284,25 @@ struct ContentView: View {
     
     // MARK: - Helper Functions
     
-    /// Helper function to get the media UUID for a drive
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
         return drive.mediaUUID
     }
     
-    /// Debug function to print all Disk Arbitration information for a drive
     private func printDiskArbitrationInfo(for drive: Drive) {
-        driveService.printDiskArbitrationInfo(for: drive)
+        print("🔍 [DEBUG] Disk Arbitration Info for: \(drive.displayName)")
+        print("   - Mount Point: \(drive.mountPoint)")
+        print("   - Size: \(drive.formattedSize)")
+        print("   - Media UUID: \(drive.mediaUUID ?? "Unknown")")
+        print("   - Media Name: \(drive.mediaName ?? "Unknown")")
+        print("   - Vendor: \(drive.vendor ?? "Unknown")")
+        print("   - Revision: \(drive.revision ?? "Unknown")")
+        print("   - Device Type: \(drive.deviceType.rawValue)")
+        print("   - Is Read Only: \(drive.isReadOnly)")
+        print("   - Is Removable: \(drive.isRemovable)")
     }
 }
+
+// MARK: - DriveRowView
 
 struct DriveRowView: View {
     let drive: Drive
@@ -287,61 +318,280 @@ struct DriveRowView: View {
     }
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Drive icon - use device type icon
+        HStack(spacing: 12) {
+            // Device Icon
             Image(systemName: deviceType.icon)
                 .font(.title2)
-                .foregroundColor(isSelected ? .white : .blue)
+                .foregroundColor(.blue)
                 .frame(width: 32)
             
-            // Drive info
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(drive.displayName)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .foregroundColor(isSelected ? .white : .primary)
-                    
-                    if drive.isReadOnly {
-                        Image(systemName: "lock.fill")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                }
+            // Device Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(drive.displayName)
+                    .font(.body)
+                    .fontWeight(.medium)
                 
-                HStack {
+                HStack(spacing: 8) {
                     Text(drive.formattedSize)
-                        .font(.subheadline)
-                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    if drive.isReadOnly {
-                        Text("Read-only")
+                    if let vendor = drive.vendor {
+                        Text("• \(vendor)")
                             .font(.caption)
-                            .foregroundColor(.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.2))
-                            .cornerRadius(4)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if let revision = drive.revision {
+                        Text("• \(revision)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
             
             Spacer()
             
-            // Status indicator
-            if drive.isReadOnly {
-                Image(systemName: "lock.fill")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
+            // Device Type
+            Text(deviceType.rawValue)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(4)
         }
-        .padding()
-        .background(isSelected ? Color.blue : Color(.controlBackgroundColor))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
         )
+    }
+}
+
+// MARK: - Preview ContentView
+
+struct PreviewContentView: View {
+    @StateObject private var imageService = ImageFileService()
+    @EnvironmentObject var deviceInventory: DeviceInventory
+    @State private var selectedDrive: Drive?
+    @State private var selectedImage: ImageFile?
+    @State private var isDropTargeted = false
+    @State private var showInspector = true  // Show by default for preview
+    @State private var showAboutDialog = false
+    @State private var showCustomNameDialog = false
+    @State private var customNameText = ""
+    @State private var deviceToRename: Drive?
+    
+    let demoDrives: [Drive]
+    
+    init(demoDrives: [Drive], defaultSelectedIndex: Int = 0) {
+        self.demoDrives = demoDrives
+        // Set default selection if drives are available
+        if !demoDrives.isEmpty && defaultSelectedIndex < demoDrives.count {
+            self._selectedDrive = State(initialValue: demoDrives[defaultSelectedIndex])
+        }
+    }
+    
+    var body: some View {
+        HSplitView {
+            // Main Content Area (Left Side)
+            ScrollView {
+                VStack(spacing: 30) {
+                    imageFileSection
+                    errorMessageSection
+                    driveSelectionSection
+                }
+                .padding()
+            }
+            .frame(minWidth: 400, idealWidth: 500)
+            .background(Color.white)
+            
+            // Inspector Area (Right Side) - Only show when showInspector is true
+            if showInspector {
+                if let selectedImage = selectedImage {
+                    ScrollView {
+                        ImageInspectorView(image: selectedImage)
+                            .frame(minWidth: 250, idealWidth: 300)
+                    }
+                } else if let selectedDrive = selectedDrive {
+                    ScrollView {
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                            .frame(minWidth: 250, idealWidth: 300)
+                    }
+                } else {
+                    VStack {
+                        Image(systemName: "sidebar.right")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No Selection")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("Select an image file or drive to view its details")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        }
+        .frame(minWidth: 400)
+        .frame(minHeight: 700)
+        .toolbar {
+            ToolbarItemGroup(placement: .automatic) {
+                refreshButton
+                Divider()
+                debugButton
+                aboutButton
+                inspectorToggleButton
+            }
+        }
+        .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
+            TextField("Enter custom name", text: $customNameText)
+            Button("Cancel", role: .cancel) {
+                customNameText = ""
+                deviceToRename = nil
+            }
+            Button("Save") {
+                if let drive = deviceToRename, !customNameText.isEmpty {
+                    if let mediaUUID = drive.mediaUUID {
+                        deviceInventory.setCustomName(for: mediaUUID, customName: customNameText)
+                    }
+                }
+                customNameText = ""
+                deviceToRename = nil
+            }
+        } message: {
+            if let drive = deviceToRename {
+                Text("Set a custom name for '\(drive.displayName)'")
+            }
+        }
+        .onChange(of: showCustomNameDialog) { _, showDialog in
+            if showDialog, let drive = deviceToRename {
+                customNameText = drive.displayName
+            }
+        }
+        .sheet(isPresented: $showAboutDialog) {
+            AboutView()
+        }
+    }
+    
+    // MARK: - View Components
+    
+    private var driveSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Step 2: Select USB Drive")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            VStack(spacing: 12) {
+                ForEach(demoDrives) { drive in
+                    DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
+                        .environmentObject(deviceInventory)
+                        .onTapGesture {
+                            selectedDrive = drive
+                            selectedImage = nil
+                        }
+                        .contextMenu {
+                            Button("Set Custom Name") {
+                                deviceToRename = drive
+                                showCustomNameDialog = true
+                            }
+                        }
+                }
+            }
+        }
+    }
+    
+    private var imageFileSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Step 1: Select Image File")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            DropZoneView(isTargeted: $isDropTargeted) { url in
+                if let imageFile = imageService.validateAndLoadImage(from: url) {
+                    imageService.selectedImage = imageFile
+                    self.selectedImage = imageFile
+                    self.selectedDrive = nil
+                }
+            }
+        }
+    }
+    
+    private var errorMessageSection: some View {
+        Group {
+            if let errorMessage = imageService.errorMessage {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text("Error")
+                            .font(.headline)
+                            .foregroundColor(.red)
+                    }
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
+                .padding()
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+    
+    // MARK: - Toolbar Buttons
+    
+    private var inspectorToggleButton: some View {
+        Button(action: {
+            showInspector.toggle()
+        }) {
+            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                .opacity(showInspector ? 1.0 : 0.5)
+        }
+        .help("Toggle Inspector")
+    }
+    
+    private var refreshButton: some View {
+        Button(action: {
+            // No-op for preview
+        }) {
+            Image(systemName: "arrow.clockwise")
+        }
+        .help("Refresh Drives")
+    }
+    
+    private var debugButton: some View {
+        Group {
+            if selectedDrive != nil {
+                Button(action: {
+                    // No-op for preview
+                }) {
+                    Image(systemName: "ladybug")
+                }
+                .help("Print Disk Arbitration Debug Info")
+            }
+        }
+    }
+    
+    private var aboutButton: some View {
+        Button(action: {
+            showAboutDialog = true
+        }) {
+            Image(systemName: "info.circle")
+        }
+        .help("About SwiftFlash")
     }
 }
 
@@ -425,219 +675,7 @@ private func createDemoDrives() -> [Drive] {
     ]
 }
 
-// MARK: - Preview ContentView
-
-struct PreviewContentView: View {
-    @StateObject private var imageService = ImageFileService()
-    @EnvironmentObject var deviceInventory: DeviceInventory
-    @State private var selectedDrive: Drive?
-    @State private var isDropTargeted = false
-    @State private var showInspector = true  // Show by default for preview
-    @State private var showAboutDialog = false
-    @State private var showCustomNameDialog = false
-    @State private var customNameText = ""
-    @State private var deviceToRename: Drive?
-    
-    let demoDrives: [Drive]
-    
-    init(demoDrives: [Drive], defaultSelectedIndex: Int = 0) {
-        self.demoDrives = demoDrives
-        // Set default selection if drives are available
-        if !demoDrives.isEmpty && defaultSelectedIndex < demoDrives.count {
-            self._selectedDrive = State(initialValue: demoDrives[defaultSelectedIndex])
-        }
-    }
-    
-    var body: some View {
-        HSplitView {
-            // Main Content Area (Left Side)
-            ScrollView {
-                VStack(spacing: 30) {
-                    imageFileSection
-                    errorMessageSection
-                    driveSelectionSection
-                }
-                .padding()
-            }
-            .frame(minWidth: 400, idealWidth: 500)
-            .background(Color.white)
-            
-            // Inspector Area (Right Side) - Only show when showInspector is true
-            if showInspector {
-                if let selectedDrive = selectedDrive {
-                    ScrollView {
-                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            .frame(minWidth: 300, idealWidth: 350)
-                    }
-                } else {
-                    VStack {
-                        Image(systemName: "sidebar.right")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("No Drive Selected")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                        Text("Select a drive from the list to view its details")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        }
-        .frame(minWidth: 400)
-        .frame(minHeight: 700)
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                refreshButton
-                Divider()
-                debugButton
-                aboutButton
-                inspectorToggleButton
-            }
-        }
-        .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
-            TextField("Enter custom name", text: $customNameText)
-            Button("Cancel", role: .cancel) {
-                customNameText = ""
-                deviceToRename = nil
-            }
-            Button("Save") {
-                if let drive = deviceToRename, !customNameText.isEmpty {
-                    if let mediaUUID = drive.mediaUUID {
-                        deviceInventory.setCustomName(for: mediaUUID, customName: customNameText)
-                    }
-                }
-                customNameText = ""
-                deviceToRename = nil
-            }
-        } message: {
-            if let drive = deviceToRename {
-                Text("Set a custom name for '\(drive.displayName)'")
-            }
-        }
-        .onChange(of: showCustomNameDialog) { _, showDialog in
-            if showDialog, let drive = deviceToRename {
-                customNameText = drive.displayName
-            }
-        }
-        .sheet(isPresented: $showAboutDialog) {
-            AboutView()
-        }
-    }
-    
-    // MARK: - View Components
-    
-    private var imageFileSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Step 1: Select Image File")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            
-            DropZoneView(isTargeted: $isDropTargeted) { url in
-                if let imageFile = imageService.validateAndLoadImage(from: url) {
-                    imageService.selectedImage = imageFile
-                }
-            }
-        }
-    }
-    
-    private var errorMessageSection: some View {
-        Group {
-            if let errorMessage = imageService.errorMessage {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
-                        Text("Error")
-                            .font(.headline)
-                            .foregroundColor(.red)
-                    }
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.red)
-                }
-                .padding()
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(8)
-            }
-        }
-    }
-    
-    private var driveSelectionSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Step 2: Select USB Drive")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            
-            VStack(spacing: 12) {
-                ForEach(demoDrives) { drive in
-                    DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
-                        .environmentObject(deviceInventory)
-                        .onTapGesture {
-                            selectedDrive = drive
-                        }
-                        .contextMenu {
-                            Button("Set Custom Name") {
-                                deviceToRename = drive
-                                showCustomNameDialog = true
-                            }
-                        }
-                }
-            }
-        }
-    }
-    
-    // MARK: - Toolbar Buttons
-    
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            showInspector.toggle()
-        }) {
-            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
-                .opacity(showInspector ? 1.0 : 0.5)
-        }
-        .help("Toggle Inspector")
-    }
-    
-    private var refreshButton: some View {
-        Button(action: {
-            // No-op for preview
-        }) {
-            Image(systemName: "arrow.clockwise")
-        }
-        .help("Refresh Drives")
-    }
-    
-    private var debugButton: some View {
-        Group {
-            if selectedDrive != nil {
-                Button(action: {
-                    // No-op for preview
-                }) {
-                    Image(systemName: "ladybug")
-                }
-                .help("Print Disk Arbitration Debug Info")
-            }
-        }
-    }
-    
-    private var aboutButton: some View {
-        Button(action: {
-            showAboutDialog = true
-        }) {
-            Image(systemName: "info.circle")
-        }
-        .help("About SwiftFlash")
-    }
-}
+// MARK: - Preview
 
 #Preview("ContentView with Demo Data") {
     PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 0)
