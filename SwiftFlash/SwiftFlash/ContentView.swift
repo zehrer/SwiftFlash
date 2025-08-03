@@ -22,7 +22,7 @@ struct ContentView: View {
     @State private var deviceToRename: Drive?
     
     var body: some View {
-        NavigationSplitView {
+        HSplitView {
             // Main Content Area (Left Side)
             ScrollView {
                 VStack(spacing: 30) {
@@ -32,16 +32,15 @@ struct ContentView: View {
                 }
                 .padding()
             }
-            .frame(maxWidth: .infinity)
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-        } detail: {
+            
             // Inspector Area (Right Side) - Only show when showInspector is true
             if showInspector {
                 if let selectedDrive = selectedDrive {
                     ScrollView {
                         DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+                            .frame(minWidth: 300, idealWidth: 350)
                     }
                 } else {
                     VStack {
@@ -54,13 +53,12 @@ struct ContentView: View {
                         Text("Select a drive from the list to view its details")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
-        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar {
@@ -439,7 +437,7 @@ struct PreviewContentView: View {
     }
     
     var body: some View {
-        NavigationSplitView {
+        HSplitView {
             // Main Content Area (Left Side)
             ScrollView {
                 VStack(spacing: 30) {
@@ -449,16 +447,15 @@ struct PreviewContentView: View {
                 }
                 .padding()
             }
-            .frame(maxWidth: .infinity)
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-        } detail: {
+            
             // Inspector Area (Right Side) - Only show when showInspector is true
             if showInspector {
                 if let selectedDrive = selectedDrive {
                     ScrollView {
                         DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+                            .frame(minWidth: 300, idealWidth: 350)
                     }
                 } else {
                     VStack {
@@ -471,13 +468,12 @@ struct PreviewContentView: View {
                         Text("Select a drive from the list to view its details")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
-        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar {
