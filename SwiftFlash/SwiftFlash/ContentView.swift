@@ -429,8 +429,12 @@ struct PreviewContentView: View {
     
     let demoDrives: [Drive]
     
-    init(demoDrives: [Drive]) {
+    init(demoDrives: [Drive], defaultSelectedIndex: Int = 0) {
         self.demoDrives = demoDrives
+        // Set default selection if drives are available
+        if !demoDrives.isEmpty && defaultSelectedIndex < demoDrives.count {
+            self._selectedDrive = State(initialValue: demoDrives[defaultSelectedIndex])
+        }
     }
     
     var body: some View {
@@ -610,8 +614,18 @@ struct PreviewContentView: View {
     }
 }
 
-#Preview("ContentView with Demo Data") {
-    PreviewContentView(demoDrives: createDemoDrives())
+#Preview("ContentView with Demo Data - USB Selected") {
+    PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 0)
+        .environmentObject(createDemoInventory())
+}
+
+#Preview("ContentView with Demo Data - SD Card Selected") {
+    PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 1)
+        .environmentObject(createDemoInventory())
+}
+
+#Preview("ContentView with Demo Data - SSD Selected") {
+    PreviewContentView(demoDrives: createDemoDrives(), defaultSelectedIndex: 2)
         .environmentObject(createDemoInventory())
 }
 
