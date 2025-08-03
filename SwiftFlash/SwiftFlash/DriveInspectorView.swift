@@ -1,5 +1,125 @@
 import SwiftUI
 
+// MARK: - Reusable Components
+
+struct LabelAndText: View {
+    let label: String
+    let value: String
+    let labelWidth: CGFloat
+    
+    init(label: String, value: String, labelWidth: CGFloat = 80) {
+        self.label = label
+        self.value = value
+        self.labelWidth = labelWidth
+    }
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(width: labelWidth, alignment: .leading)
+            
+            Text(value)
+                .font(.system(size: 12))
+        }
+    }
+}
+
+struct LabelAndTextField: View {
+    let label: String
+    @Binding var text: String
+    let placeholder: String
+    let labelWidth: CGFloat
+    
+    init(label: String, text: Binding<String>, placeholder: String, labelWidth: CGFloat = 80) {
+        self.label = label
+        self._text = text
+        self.placeholder = placeholder
+        self.labelWidth = labelWidth
+    }
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(width: labelWidth, alignment: .leading)
+            
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+        }
+    }
+}
+
+struct LabelAndPicker: View {
+    let label: String
+    @Binding var selection: DeviceType
+    let labelWidth: CGFloat
+    
+    init(label: String, selection: Binding<DeviceType>, labelWidth: CGFloat = 80) {
+        self.label = label
+        self._selection = selection
+        self.labelWidth = labelWidth
+    }
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(width: labelWidth, alignment: .leading)
+            
+            HStack(spacing: 8) {
+                Image(systemName: selection.icon)
+                    .foregroundColor(.blue)
+                    .font(.system(size: 12))
+                
+                Picker("", selection: $selection) {
+                    ForEach(DeviceType.allCases, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.system(size: 12))
+            }
+        }
+    }
+}
+
+struct LabelAndStatus: View {
+    let label: String
+    let isReadOnly: Bool
+    let labelWidth: CGFloat
+    
+    init(label: String, isReadOnly: Bool, labelWidth: CGFloat = 80) {
+        self.label = label
+        self.isReadOnly = isReadOnly
+        self.labelWidth = labelWidth
+    }
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(width: labelWidth, alignment: .leading)
+            
+            HStack(spacing: 6) {
+                Image(systemName: isReadOnly ? "lock.fill" : "lock.open.fill")
+                    .foregroundColor(isReadOnly ? .red : .green)
+                    .font(.system(size: 12))
+                
+                Text(isReadOnly ? "Read-only" : "Writable")
+                    .font(.system(size: 12))
+            }
+        }
+    }
+}
+
+// MARK: - Inspector Section View
+
 struct InspectorSectionView<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
@@ -9,7 +129,7 @@ struct InspectorSectionView<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 Spacer()
                 Button(action: {
                     isExpanded.toggle()
@@ -40,6 +160,8 @@ struct InspectorSectionView<Content: View>: View {
     }
 }
 
+// MARK: - Drive Inspector View
+
 struct DriveInspectorView: View {
     let drive: Drive
     @ObservedObject var deviceInventory: DeviceInventory
@@ -59,165 +181,103 @@ struct DriveInspectorView: View {
                 // Identity and Type Section
                 InspectorSectionView(title: "Identity and Type") {
                     // Name
-                    HStack {
-                        Text("Name")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        TextField("Enter device name", text: $editableName)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 12))
-                            .onChange(of: editableName) { _, newValue in
-                                if let mediaUUID = drive.mediaUUID {
-                                    if newValue.isEmpty {
-                                        deviceInventory.setCustomName(for: mediaUUID, customName: nil)
-                                    } else {
-                                        deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
-                                    }
-                                }
-                            }
-                    }
-                    
-                    // Device Type
-                    HStack {
-                        Text("Type")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        HStack(spacing: 8) {
-                            Image(systemName: selectedDeviceType.icon)
-                                .foregroundColor(.blue)
-                                .font(.system(size: 12))
-                            
-                            Picker("", selection: $selectedDeviceType) {
-                                ForEach(DeviceType.allCases, id: \.self) { type in
-                                    Text(type.rawValue).tag(type)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .font(.system(size: 12))
-                            .onChange(of: selectedDeviceType) { _, newValue in
-                                if let mediaUUID = drive.mediaUUID {
-                                    deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
-                                }
+                    LabelAndTextField(
+                        label: "Name",
+                        text: $editableName,
+                        placeholder: "Enter device name"
+                    )
+                    .onChange(of: editableName) { _, newValue in
+                        if let mediaUUID = drive.mediaUUID {
+                            if newValue.isEmpty {
+                                deviceInventory.setCustomName(for: mediaUUID, customName: nil)
+                            } else {
+                                deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
                             }
                         }
                     }
                     
-                    // Capacity
-                    HStack {
-                        Text("Capacity")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(drive.formattedSize)
-                            .font(.system(size: 12))
+                    // Device Type
+                    LabelAndPicker(
+                        label: "Type",
+                        selection: $selectedDeviceType
+                    )
+                    .onChange(of: selectedDeviceType) { _, newValue in
+                        if let mediaUUID = drive.mediaUUID {
+                            deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
+                        }
                     }
+                    
+                    // Capacity
+                    LabelAndText(
+                        label: "Capacity",
+                        value: drive.formattedSize
+                    )
                 }
                 
                 // Status Section
                 InspectorSectionView(title: "Status") {
                     // Device Path
-                    HStack {
-                        Text("Device Path")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(drive.mountPoint)
-                            .font(.system(size: 12))
-                    }
+                    LabelAndText(
+                        label: "Device Path",
+                        value: drive.mountPoint
+                    )
                     
                     // Status
-                    HStack {
-                        Text("Status")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        HStack(spacing: 6) {
-                            Image(systemName: drive.isReadOnly ? "lock.fill" : "lock.open.fill")
-                                .foregroundColor(drive.isReadOnly ? .red : .green)
-                                .font(.system(size: 12))
-                            
-                            Text(drive.isReadOnly ? "Read-only" : "Writable")
-                                .font(.system(size: 12))
-                        }
-                    }
+                    LabelAndStatus(
+                        label: "Status",
+                        isReadOnly: drive.isReadOnly
+                    )
                 }
                 
                 // Media Details Section
                 InspectorSectionView(title: "Media Details") {
                     // Media Name
-                    HStack {
-                        Text("Media Name")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(drive.mediaName ?? "No media name")
-                            .font(.system(size: 12))
-                    }
+                    LabelAndText(
+                        label: "Media Name",
+                        value: drive.mediaName ?? "No media name"
+                    )
                     
                     // Vendor
-                    HStack {
-                        Text("Vendor")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(drive.vendor ?? "No vendor info")
-                            .font(.system(size: 12))
-                    }
+                    LabelAndText(
+                        label: "Vendor",
+                        value: drive.vendor ?? "Unknown"
+                    )
                     
                     // Revision
-                    HStack {
-                        Text("Revision")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(drive.revision ?? "No revision info")
-                            .font(.system(size: 12))
-                    }
+                    LabelAndText(
+                        label: "Revision",
+                        value: drive.revision ?? "Unknown"
+                    )
                     
-                    // Media UUID
-                    if let mediaUUID = drive.mediaUUID {
-                        HStack {
-                            Text("UUID")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            
-                            Text(mediaUUID)
-                                .font(.system(size: 12, design: .monospaced))
-                                .lineLimit(2)
-                        }
-                    }
+                    // UUID
+                    LabelAndText(
+                        label: "UUID",
+                        value: drive.mediaUUID ?? "Unknown"
+                    )
                 }
             }
         }
     }
 }
 
+// MARK: - Preview
+
 #Preview {
     DriveInspectorView(
         drive: Drive(
             name: "Test Drive",
             mountPoint: "/dev/disk4",
-            size: 32000000000,
+            size: 31910000000,
             isRemovable: true,
             isSystemDrive: false,
-            isReadOnly: false,
-            mediaUUID: "12345678-1234-1234-1234-123456789ABC",
-            mediaName: "Test Media Name",
-            vendor: "Test Vendor",
-            revision: "1.0",
-            deviceType: .usbStick
+            isReadOnly: true,
+            mediaUUID: "TS-RDF5_TS37_3191",
+            mediaName: "TS-RDF5 SD Transcend Media",
+            vendor: "TS-RDF5",
+            revision: "TS37",
+            deviceType: .microSDCard
         ),
         deviceInventory: DeviceInventory()
     )
-} 
+    .frame(width: 300)
+}
