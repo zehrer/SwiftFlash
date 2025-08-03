@@ -15,15 +15,14 @@ struct ContentView: View {
         driveService.inventory = deviceInventory
     }
     @State private var isDropTargeted = false
-    @State private var showInspector = true   // usually false
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Main Content Area
+        NavigationSplitView {
+            // Main Content Area (Left Side)
             ScrollView {
                 VStack(spacing: 30) {
                     imageFileSection
@@ -35,17 +34,30 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-            .inspector(isPresented: $showInspector) {
-                    if let selectedDrive = selectedDrive {
-                        ScrollView {                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            //.frame(minWidth: 400)
-                            .frame(minWidth: 300, idealWidth: 350)
-                        }
-                    } else {
-                        Text("No selection")
-                    }
+        } detail: {
+            // Inspector Area (Right Side)
+            if let selectedDrive = selectedDrive {
+                ScrollView {
+                    DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                        .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
+                }
+            } else {
+                VStack {
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No Drive Selected")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("Select a drive from the list to view its details")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar {
@@ -54,10 +66,8 @@ struct ContentView: View {
                 Divider()
                 debugButton
                 aboutButton
-                inspectorToggleButton
             }
         }
-
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
             TextField("Enter custom name", text: $customNameText)
             Button("Cancel", role: .cancel) {
@@ -95,7 +105,6 @@ struct ContentView: View {
         .onAppear {
             setupDriveService()
         }
-
     }
     
     // MARK: - View Sections
@@ -165,30 +174,24 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
+                .background(Color(.controlBackgroundColor))
+                .cornerRadius(8)
             } else if driveService.drives.isEmpty {
                 VStack(spacing: 16) {
-                    Image(systemName: "externaldrive.badge.exclamationmark")
+                    Image(systemName: "externaldrive")
                         .font(.system(size: 48))
-                        .foregroundColor(.orange)
-                    
-                    Text("No USB drives detected")
+                        .foregroundColor(.secondary)
+                    Text("No Drives Found")
                         .font(.headline)
-                    
-                    Text("Connect a USB drive and click refresh")
+                        .foregroundColor(.secondary)
+                    Text("Connect a USB drive, SD card, or external storage device")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                    
-                    Button("Refresh") {
-                        driveService.refreshDrives()
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
+                .background(Color(.controlBackgroundColor))
+                .cornerRadius(8)
             } else {
                 VStack(spacing: 12) {
                     ForEach(driveService.drives) { drive in
@@ -209,16 +212,6 @@ struct ContentView: View {
     }
     
     // MARK: - Toolbar Buttons
-    
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            showInspector.toggle()
-        }) {
-            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
-                .opacity(showInspector ? 1.0 : 0.5)
-        }
-        .help("Toggle Inspector")
-    }
     
     private var refreshButton: some View {
         Button(action: {
@@ -242,8 +235,6 @@ struct ContentView: View {
             }
         }
     }
-    
-
     
     private var aboutButton: some View {
         Button(action: {
@@ -313,24 +304,20 @@ struct DriveRowView: View {
             
             Spacer()
             
-            // Selection indicator
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
-                    .foregroundColor(.white)
-            } else {
-                Image(systemName: "chevron.right")
+            // Status indicator
+            if drive.isReadOnly {
+                Image(systemName: "lock.fill")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.orange)
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
+        .padding()
+        .background(isSelected ? Color.blue : Color(.controlBackgroundColor))
+        .cornerRadius(8)
+        .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue : Color.clear)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
         )
-        .contentShape(Rectangle())
     }
 }
 
@@ -421,7 +408,6 @@ struct PreviewContentView: View {
     @EnvironmentObject var deviceInventory: DeviceInventory
     @State private var selectedDrive: Drive?
     @State private var isDropTargeted = false
-    @State private var showInspector = true
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
@@ -438,8 +424,8 @@ struct PreviewContentView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Main Content Area
+        NavigationSplitView {
+            // Main Content Area (Left Side)
             ScrollView {
                 VStack(spacing: 30) {
                     imageFileSection
@@ -451,17 +437,30 @@ struct PreviewContentView: View {
             .frame(maxWidth: .infinity)
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-            .inspector(isPresented: $showInspector) {
-                if let selectedDrive = selectedDrive {
-                    ScrollView {
-                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                            .frame(minWidth: 300, idealWidth: 350)
-                    }
-                } else {
-                    Text("No selection")
+        } detail: {
+            // Inspector Area (Right Side)
+            if let selectedDrive = selectedDrive {
+                ScrollView {
+                    DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                        .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity)
                 }
+            } else {
+                VStack {
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No Drive Selected")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("Select a drive from the list to view its details")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 400)
         .frame(minHeight: 700)
         .toolbar {
@@ -470,7 +469,6 @@ struct PreviewContentView: View {
                 Divider()
                 debugButton
                 aboutButton
-                inspectorToggleButton
             }
         }
         .alert("Set Custom Name", isPresented: $showCustomNameDialog) {
@@ -571,16 +569,6 @@ struct PreviewContentView: View {
     }
     
     // MARK: - Toolbar Buttons
-    
-    private var inspectorToggleButton: some View {
-        Button(action: {
-            showInspector.toggle()
-        }) {
-            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
-                .opacity(showInspector ? 1.0 : 0.5)
-        }
-        .help("Toggle Inspector")
-    }
     
     private var refreshButton: some View {
         Button(action: {
