@@ -12,7 +12,6 @@ struct InspectorSectionView<Content: View>: View {
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 Button(action: {
-                    //TODO: change animation
                     isExpanded.toggle()
                 }) {
                     Text(isExpanded ? "Hide" : "Show")

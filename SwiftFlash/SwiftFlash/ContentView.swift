@@ -15,7 +15,7 @@ struct ContentView: View {
         driveService.inventory = deviceInventory
     }
     @State private var isDropTargeted = false
-    @State private var showInspector = true
+    @State private var showInspector = false
     @State private var showAboutDialog = false
     @State private var showCustomNameDialog = false
     @State private var customNameText = ""
@@ -33,22 +33,27 @@ struct ContentView: View {
                 .padding()
             }
             .frame(maxWidth: .infinity)
+            .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
             .inspector(isPresented: $showInspector) {
                 if let selectedDrive = selectedDrive {
                     DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
-                        .frame(minWidth: 300)
+                        //.frame(minWidth: 400)
+                        .frame(minWidth: 300, idealWidth: 350)
+                } else {
+                    Text("No selection")
                 }
             }
         }
-        .frame(minWidth: 900, minHeight: 700)
+        .frame(minWidth: 400)
+        .frame(minHeight: 700)
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                inspectorToggleButton
+            ToolbarItemGroup(placement: .automatic) {
                 refreshButton
                 Divider()
                 debugButton
                 aboutButton
+                inspectorToggleButton
             }
         }
 
@@ -148,15 +153,6 @@ struct ContentView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
                 Spacer()
-                
-                Button(action: {
-                    driveService.refreshDrives()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.title3)
-                }
-                .buttonStyle(.borderless)
-                .disabled(driveService.isScanning)
             }
             
             if driveService.isScanning {
