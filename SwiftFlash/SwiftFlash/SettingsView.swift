@@ -24,8 +24,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTab) {
-                Label("General", systemImage: "gearshape")
-                    .tag(Tab.general)
+//                Label("General", systemImage: "gearshape")
+//                    .tag(Tab.general)
                 Label("Devices", systemImage: "externaldrive")
                     .tag(Tab.devices)
             }
@@ -40,7 +40,8 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             switch selectedTab {
                             case .general:
-                                GeneralSettingsView()
+                                //GeneralSettingsView()
+                                Text("TODO")
                             case .devices:
                                 DevicesSettingsView(
                                     inventory: inventory,
@@ -291,6 +292,21 @@ struct DeviceListRowView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                }
+                
+                // Timestamps
+                HStack(spacing: 8) {
+                    Text("First seen: \(device.firstSeen.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Last seen: \(device.lastSeen.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
             

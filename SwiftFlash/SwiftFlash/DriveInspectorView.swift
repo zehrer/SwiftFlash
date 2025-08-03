@@ -284,6 +284,34 @@ struct DriveInspectorView: View {
                     value: drive.mediaUUID ?? "Unknown"
                 )
             }
+            
+            // History Section
+            InspectorSectionView(title: "History") {
+                // First Seen
+                if let mediaUUID = drive.mediaUUID,
+                   let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+                    LabelAndText(
+                        label: "First Seen",
+                        value: inventoryDevice.firstSeen.formatted(date: .abbreviated, time: .shortened)
+                    )
+                    
+                    // Last Seen
+                    LabelAndText(
+                        label: "Last Seen",
+                        value: inventoryDevice.lastSeen.formatted(date: .abbreviated, time: .shortened)
+                    )
+                } else {
+                    LabelAndText(
+                        label: "First Seen",
+                        value: "Not in inventory"
+                    )
+                    
+                    LabelAndText(
+                        label: "Last Seen",
+                        value: "Not in inventory"
+                    )
+                }
+            }
         }
     }
 }
