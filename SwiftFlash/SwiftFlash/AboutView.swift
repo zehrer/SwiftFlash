@@ -24,24 +24,11 @@ struct AboutView: View {
             .frame(height: 28)
             
             HStack(alignment: .top, spacing: 24) {
-                // App Logo
-                if let logoURL = Bundle.main.url(forResource: "logo", withExtension: "png") {
-                    AsyncImage(url: logoURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    } placeholder: {
-                        SwiftFlashLogoView()
-                    }
+                // App Logo (SwiftUI Vector)
+                SwiftFlashVectorLogo()
                     .frame(width: 128, height: 128)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(radius: 8)
-                } else {
-                    SwiftFlashLogoView()
-                        .frame(width: 128, height: 128)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .shadow(radius: 8)
-                }
                 
                 VStack(alignment: .leading, spacing: 16) {
                     // App Title
@@ -85,8 +72,8 @@ struct AboutView: View {
     }
 }
 
-// MARK: - SwiftFlash Logo View (Fallback)
-struct SwiftFlashLogoView: View {
+// MARK: - SwiftFlash Vector Logo View
+struct SwiftFlashVectorLogo: View {
     var body: some View {
         ZStack {
             // Background gradient
@@ -97,19 +84,10 @@ struct SwiftFlashLogoView: View {
                     endPoint: .bottomTrailing
                 ))
             
-            // Logo content
-            VStack(spacing: 12) {
-                // Lightning bolt
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 40, weight: .bold))
-                    .foregroundColor(.white)
-                
-                // SwiftFlash text
-                Text("SwiftFlash")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-            }
+            // Vector logo from SVG conversion
+            MyIcon()
+                .fill(Color.white)
+                .padding(16)
         }
     }
 }
