@@ -14,11 +14,23 @@ import SwiftUI
 @main
 struct SwiftFlashApp: App {
     @StateObject private var deviceInventory = DeviceInventory()
+    @State private var showAboutDialog = false
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(deviceInventory)
+                .sheet(isPresented: $showAboutDialog) {
+                    AboutView()
+                }
+        }
+        .commands {
+            // Override the default About menu to use our custom AboutView
+            CommandGroup(replacing: .appInfo) {
+                Button("About SwiftFlash") {
+                    showAboutDialog = true
+                }
+            }
         }
         
         #if os(macOS)
