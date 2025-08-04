@@ -10,11 +10,11 @@ struct FlashProgressView: View {
         VStack(spacing: 24) {
             // Header
             VStack(spacing: 8) {
-                Image(systemName: "bolt.fill")
+                Image(systemName: headerIcon)
                     .font(.system(size: 48))
-                    .foregroundColor(.blue)
+                    .foregroundColor(headerColor)
                 
-                Text("Flashing Image to Device")
+                Text(headerTitle)
                     .font(.title2)
                     .fontWeight(.bold)
             }
@@ -38,6 +38,11 @@ struct FlashProgressView: View {
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(.blue)
+                } else if case .calculatingChecksum(let progress) = flashState {
+                    Text("\(Int(progress * 100))%")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
                 }
             }
             
@@ -98,65 +103,112 @@ struct FlashProgressView: View {
                     .controlSize(.large)
                 }
                 
-                if case .completed = flashState {
-                    Button("Done") {
+                if case .calculatingChecksum = flashState {
+                    Button("Cancel") {
                         onCancel()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                }
-                
-                if case .failed = flashState {
-                    Button("Close") {
-                        onCancel()
-                    }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.large)
                 }
             }
         }
-        .padding(24)
+        .padding(32)
         .frame(width: 500)
     }
     
     // MARK: - Computed Properties
     
-    private var progressValue: Double {
+    private var headerIcon: String {
         switch flashState {
         case .idle, .preparing:
-            return 0.0
-        case .flashing(let progress):
-            return progress
+            return "bolt.fill"
+        case .calculatingChecksum:
+            return "checkmark.shield.fill"
+        case .flashing:
+            return "bolt.fill"
         case .completed:
-            return 1.0
+            return "checkmark.circle.fill"
         case .failed:
-            return 0.0
+            return "xmark.circle.fill"
+        }
+    }
+    
+    private var headerColor: Color {
+        switch flashState {
+        case .idle, .preparing:
+            return .blue
+        case .calculatingChecksum:
+            return .green
+        case .flashing:
+            return .blue
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        }
+    }
+    
+    private var headerTitle: String {
+        switch flashState {
+        case .idle, .preparing:
+            return "Preparing to Flash"
+        case .calculatingChecksum:
+            return "Calculating Checksum"
+        case .flashing:
+            return "Flashing Image to Device"
+        case .completed:
+            return "Flash Completed"
+        case .failed:
+            return "Flash Failed"
         }
     }
     
     private var statusText: String {
         switch flashState {
         case .idle:
-            return "Ready to flash"
+            return "Ready to start"
         case .preparing:
-            return "Preparing device..."
+            return "Preparing device and validating image..."
+        case .calculatingChecksum:
+            return "Verifying image integrity..."
         case .flashing:
             return "Writing image to device..."
         case .completed:
-            return "Flash completed successfully! ✅"
+            return "Image successfully written to device"
         case .failed(let error):
-            return "Flash failed: \(error.localizedDescription) ❌"
+            return "Error: \(error.localizedDescription)"
         }
     }
     
     private var statusColor: Color {
         switch flashState {
-        case .idle, .preparing, .flashing:
+        case .idle, .preparing:
             return .primary
+        case .calculatingChecksum:
+            return .green
+        case .flashing:
+            return .blue
         case .completed:
             return .green
         case .failed:
             return .red
+        }
+    }
+    
+    private var progressValue: Double {
+        switch flashState {
+        case .idle:
+            return 0.0
+        case .preparing:
+            return 0.0
+        case .calculatingChecksum(let progress):
+            return progress
+        case .flashing(let progress):
+            return progress
+        case .completed:
+            return 1.0
+        case .failed:
+            return 0.0
         }
     }
 }

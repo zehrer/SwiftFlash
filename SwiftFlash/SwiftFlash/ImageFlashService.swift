@@ -46,6 +46,7 @@ class ImageFlashService {
     enum FlashState {
         case idle
         case preparing
+        case calculatingChecksum(progress: Double)
         case flashing(progress: Double)
         case completed
         case failed(FlashError)
@@ -306,7 +307,7 @@ class ImageFlashService {
             print("✅ [DEBUG] Device unmounted successfully")
         }
         
-        // Step 3: Verify image checksum if available
+        // Step 3: Calculate or verify image checksum
         if let checksum = image.sha256Checksum {
             print("🔍 [DEBUG] Verifying image checksum before flashing...")
             let isValid = try await verifySHA256Checksum(for: image, expectedChecksum: checksum)
@@ -315,7 +316,21 @@ class ImageFlashService {
             }
             print("✅ [DEBUG] Image checksum verified successfully")
         } else {
-            print("⚠️ [DEBUG] No checksum available for image - skipping verification")
+            print("🔍 [DEBUG] No checksum available - calculating checksum before flashing...")
+            let checksum = try await calculateSHA256Checksum(for: image)
+            print("✅ [DEBUG] Checksum calculated: \(checksum.prefix(8))...")
+            
+            // Update the image with the calculated checksum
+            var updatedImage = image
+            updatedImage.sha256Checksum = checksum
+            
+            // Store in history
+            do {
+                imageHistoryService.addToHistory(updatedImage)
+                print("✅ [DEBUG] Updated image with checksum in history")
+            } catch {
+                print("⚠️ [DEBUG] Could not update image in history: \(error)")
+            }
         }
         
         // Step 4: Perform the actual flash operation
@@ -525,59 +540,48 @@ class ImageFlashService {
             throw FlashError.flashFailed("File is not readable: \(fileURL.path)")
         }
         
-        print("   🔓 [DEBUG] Attempting to read file data...")
+        print("   🔓 [DEBUG] Starting chunked file reading...")
         
-        // For network shares, try using Data(contentsOf:) first
-        // This is more compatible with SMB and other network file systems
-        do {
-            print("   🌐 [DEBUG] Using Data(contentsOf:) for network share compatibility...")
-            let fileData = try Data(contentsOf: fileURL)
-            print("   ✅ [DEBUG] Successfully read \(fileData.count) bytes from file")
-            
-            var hasher = SHA256()
-            hasher.update(data: fileData)
-            let digest = hasher.finalize()
-            let checksum = digest.map { String(format: "%02x", $0) }.joined()
-            
-            print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
-            return checksum
-            
-        } catch {
-            print("   ⚠️ [DEBUG] Data(contentsOf:) failed: \(error)")
-            print("   🔄 [DEBUG] Falling back to FileHandle method...")
-            
-            // Fallback to FileHandle method
-            let fileHandle = try FileHandle(forReadingFrom: fileURL)
-            defer { 
-                try? fileHandle.close()
-                // Stop accessing the secure resource
-                image.stopAccessingSecureResource()
-            }
-            
-            var hasher = SHA256()
-            var bytesProcessed = 0
-            let totalBytes = image.size
-            
-            // Read and hash in chunks to show progress
-            let chunkSize = 1024 * 1024 // 1MB chunks
-            
-            while let data = try fileHandle.read(upToCount: chunkSize) {
-                hasher.update(data: data)
-                bytesProcessed += data.count
-                
-                // Log progress every 10%
-                let progress = Double(bytesProcessed) / Double(totalBytes)
-                if Int(progress * 10) % 10 == 0 {
-                    print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
-                }
-            }
-            
-            let digest = hasher.finalize()
-            let checksum = digest.map { String(format: "%02x", $0) }.joined()
-            
-            print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
-            return checksum
+        // Use FileHandle for chunked reading with progress
+        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        defer { 
+            try? fileHandle.close()
+            // Stop accessing the secure resource
+            image.stopAccessingSecureResource()
         }
+        
+        var hasher = SHA256()
+        var bytesProcessed = 0
+        let totalBytes = image.size
+        
+        // Read and hash in chunks to show progress
+        let chunkSize = 1024 * 1024 // 1MB chunks
+        
+        // Update state to show checksum calculation
+        flashState = .calculatingChecksum(progress: 0.0)
+        
+        while let data = try fileHandle.read(upToCount: chunkSize) {
+            hasher.update(data: data)
+            bytesProcessed += data.count
+            
+            // Calculate and report progress
+            let progress = Double(bytesProcessed) / Double(totalBytes)
+            flashState = .calculatingChecksum(progress: progress)
+            
+            // Log progress every 5% for debugging
+            if Int(progress * 20) % 20 == 0 {
+                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
+            }
+            
+            // Small delay to allow UI updates
+            try await Task.sleep(nanoseconds: 1_000_000) // 1ms delay
+        }
+        
+        let digest = hasher.finalize()
+        let checksum = digest.map { String(format: "%02x", $0) }.joined()
+        
+        print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
+        return checksum
     }
     
     /// Verify SHA256 checksum for an image file
@@ -587,8 +591,10 @@ class ImageFlashService {
         let calculatedChecksum = try await calculateSHA256Checksum(for: image)
         let isValid = calculatedChecksum.lowercased() == expectedChecksum.lowercased()
         
-        print("✅ [DEBUG] Checksum verification: \(isValid ? "PASSED" : "FAILED")")
-        if !isValid {
+        if isValid {
+            print("✅ [DEBUG] Checksum verification successful")
+        } else {
+            print("❌ [DEBUG] Checksum verification failed")
             print("   - Expected: \(expectedChecksum)")
             print("   - Calculated: \(calculatedChecksum)")
         }
