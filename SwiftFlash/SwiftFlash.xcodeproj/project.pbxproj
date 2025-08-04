@@ -7,13 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D4218F392E40D15200CF5A63 /* icon.svg in Resources */ = {isa = PBXBuildFile; fileRef = D4218F382E40D15200CF5A63 /* icon.svg */; };
 		D48B7F9A2E3D0CF500AE3BB8 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D48B7F992E3D0CF500AE3BB8 /* AppIcon.icon */; };
 		D48B80A42E3D181400AE3BB8 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D48B80A32E3D181400AE3BB8 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		D4218F382E40D15200CF5A63 /* icon.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = icon.svg; sourceTree = "<group>"; };
 		D48B7F992E3D0CF500AE3BB8 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		D48B80A32E3D181400AE3BB8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
 		D49EB2442E36597F004B9F0A /* SwiftFlash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftFlash.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -38,18 +36,9 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		D4218F362E40CE7200CF5A63 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				D4218F382E40D15200CF5A63 /* icon.svg */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 		D49EB23B2E36597F004B9F0A = {
 			isa = PBXGroup;
 			children = (
-				D4218F362E40CE7200CF5A63 /* Resources */,
 				D48B80A32E3D181400AE3BB8 /* README.md */,
 				D49EB2462E36597F004B9F0A /* SwiftFlash */,
 				D49EB2452E36597F004B9F0A /* Products */,
@@ -129,7 +118,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D4218F392E40D15200CF5A63 /* icon.svg in Resources */,
 				D48B80A42E3D181400AE3BB8 /* README.md in Resources */,
 				D48B7F9A2E3D0CF500AE3BB8 /* AppIcon.icon in Resources */,
 			);
