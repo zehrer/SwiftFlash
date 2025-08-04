@@ -13,6 +13,7 @@
 - 📊 **Real-time Progress** - Visual feedback during the flashing process
 - 🔐 **Disk Arbitration Integration** - Uses macOS native disk management
 - 💾 **Device Inventory** - Tracks and remembers your devices
+- 🔒 **SHA256 Checksum Verification** - Generate and verify file integrity checksums
 
 ## Supported File Formats
 
@@ -49,6 +50,40 @@ xcodebuild -project SwiftFlash/SwiftFlash.xcodeproj -scheme SwiftFlash -configur
 
 ⚠️ **Warning**: Flashing will erase all data on the target drive. Make sure to backup any important files.
 
+## SHA256 Checksum Verification
+
+SwiftFlash includes built-in SHA256 checksum functionality to ensure file integrity and verify downloaded images.
+
+### Generating Checksums
+
+1. **Select an Image File** - Choose any `.img` or `.iso` file
+2. **Click the Checksum Button** - Use the checksum button in the toolbar (🔒 icon)
+3. **View Results** - The checksum appears in the inspector panel
+4. **Compare with Official Checksums** - Verify against official download checksums
+
+### Features
+
+- **🔒 SHA256 Algorithm** - Industry-standard cryptographic hashing
+- **📁 Network Share Support** - Works with local files and SMB network shares
+- **💾 Automatic Storage** - Checksums are saved in the image history
+- **🔍 Integrity Verification** - Verify file integrity before flashing
+- **📊 Progress Tracking** - Real-time progress for large files
+
+### Supported Locations
+
+- **Local Files** - Any accessible file on your Mac
+- **Network Shares** - SMB, AFP, and other network file systems
+- **External Drives** - USB drives, external SSDs, etc.
+- **Cloud Storage** - Files synced from iCloud, Dropbox, etc.
+
+### Verification Process
+
+The checksum feature automatically verifies image integrity during the flashing process:
+
+1. **Pre-flash Verification** - Checksum is verified before writing to device
+2. **Integrity Confirmation** - Ensures the image hasn't been corrupted
+3. **Safety Enhancement** - Adds an extra layer of verification
+
 ## Safety Features
 
 - **Drive Validation** - Only removable drives are shown as targets
@@ -81,7 +116,13 @@ SwiftFlash/
 │   ├── DropZoneView.swift           # Drag & drop interface
 │   ├── ImageFileModel.swift         # Image file handling
 │   ├── ImageFileService.swift       # Image file operations
-│   └── DeviceInventory.swift        # Device tracking
+│   ├── ImageFlashService.swift      # Flash operations and checksums
+│   ├── ImageHistoryService.swift    # Image history and metadata
+│   ├── ImageInspectorView.swift     # Image details and checksum display
+│   ├── ToolbarButtons.swift         # Reusable toolbar components
+│   ├── ToolbarConfigurationService.swift # Toolbar layout management
+│   ├── DeviceInventory.swift        # Device tracking
+│   └── SwiftFlash.entitlements      # App sandbox permissions
 ```
 
 ### Key Technologies
@@ -90,6 +131,7 @@ SwiftFlash/
 - **IOKit** - Hardware interface and device properties
 - **SwiftUI** - Modern declarative UI framework
 - **Combine** - Reactive programming for data flow
+- **CryptoKit** - SHA256 checksum generation and verification
 
 ## Contributing
 
