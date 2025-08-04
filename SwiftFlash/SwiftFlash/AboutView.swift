@@ -24,12 +24,24 @@ struct AboutView: View {
             .frame(height: 28)
             
             HStack(alignment: .top, spacing: 24) {
-                // App Icon
-                Image("logo")
-                    .resizable()
-                    .frame(width: 128, height: 176)
+                // App Logo
+                if let logoURL = Bundle.main.url(forResource: "logo", withExtension: "png") {
+                    AsyncImage(url: logoURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } placeholder: {
+                        SwiftFlashLogoView()
+                    }
+                    .frame(width: 128, height: 128)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(radius: 8)
+                } else {
+                    SwiftFlashLogoView()
+                        .frame(width: 128, height: 128)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(radius: 8)
+                }
                 
                 VStack(alignment: .leading, spacing: 16) {
                     // App Title
@@ -69,6 +81,35 @@ struct AboutView: View {
             .padding(32)
             .frame(width: 600, height: 300)
             Spacer()
+        }
+    }
+}
+
+// MARK: - SwiftFlash Logo View (Fallback)
+struct SwiftFlashLogoView: View {
+    var body: some View {
+        ZStack {
+            // Background gradient
+            RoundedRectangle(cornerRadius: 16)
+                .fill(LinearGradient(
+                    colors: [Color.blue, Color.blue.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+            
+            // Logo content
+            VStack(spacing: 12) {
+                // Lightning bolt
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(.white)
+                
+                // SwiftFlash text
+                Text("SwiftFlash")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 }
