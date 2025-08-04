@@ -308,3 +308,188 @@ struct MyIcon: Shape {
         return path
     }
 }
+
+// MARK: - Preview
+#Preview("SwiftFlash Logo - Different Sizes") {
+    VStack(spacing: 20) {
+        Text("SwiftFlash Vector Logo Preview")
+            .font(.title)
+            .padding()
+        
+        // Small size (toolbar/icon)
+        VStack {
+            Text("Small (32x32)")
+                .font(.caption)
+            MyIcon()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 32, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        
+        // Medium size (menu/button)
+        VStack {
+            Text("Medium (64x64)")
+                .font(.caption)
+            MyIcon()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        
+        // Large size (About dialog)
+        VStack {
+            Text("Large (128x128)")
+                .font(.caption)
+            MyIcon()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 128, height: 128)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(radius: 4)
+        }
+        
+        // Extra large size (preview)
+        VStack {
+            Text("Extra Large (256x256)")
+                .font(.caption)
+            MyIcon()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 256, height: 256)
+                .clipShape(RoundedRectangle(cornerRadius: 32))
+                .shadow(radius: 8)
+        }
+        
+        // About dialog style
+        VStack {
+            Text("About Dialog Style")
+                .font(.caption)
+            MyIcon()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 128, height: 128)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(radius: 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                )
+        }
+    }
+    .padding()
+    .background(Color(.windowBackgroundColor))
+}
+
+#Preview("SwiftFlash Logo - Color Variations") {
+    VStack(spacing: 20) {
+        Text("Color Variations")
+            .font(.title)
+            .padding()
+        
+        HStack(spacing: 20) {
+            // Blue gradient (current)
+            VStack {
+                Text("Blue Gradient")
+                    .font(.caption)
+                MyIcon()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            
+            // White fill
+            VStack {
+                Text("White Fill")
+                    .font(.caption)
+                MyIcon()
+                    .fill(Color.white)
+                    .frame(width: 64, height: 64)
+                    .background(Color.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            
+            // System blue
+            VStack {
+                Text("System Blue")
+                    .font(.caption)
+                MyIcon()
+                    .fill(Color.accentColor)
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        
+        HStack(spacing: 20) {
+            // Gray
+            VStack {
+                Text("Gray")
+                    .font(.caption)
+                MyIcon()
+                    .fill(Color.gray)
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            
+            // Black
+            VStack {
+                Text("Black")
+                    .font(.caption)
+                MyIcon()
+                    .fill(Color.black)
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            
+            // Custom gradient
+            VStack {
+                Text("Custom Gradient")
+                    .font(.caption)
+                MyIcon()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.orange, Color.red],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+    .padding()
+    .background(Color(.windowBackgroundColor))
+}
