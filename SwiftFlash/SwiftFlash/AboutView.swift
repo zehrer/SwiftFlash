@@ -25,10 +25,10 @@ struct AboutView: View {
             
             HStack(alignment: .top, spacing: 24) {
                 // App Logo (SwiftUI Vector)
-                SwiftFlashVectorLogo()
-                    .frame(width: 128, height: 128)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(radius: 8)
+                IconView()
+                    .frame(width: 187)
+                    //.clipShape(RoundedRectangle(cornerRadius: 16))
+                    //.shadow(radius: 8)
                 
                 VStack(alignment: .leading, spacing: 16) {
                     // App Title
@@ -72,25 +72,6 @@ struct AboutView: View {
     }
 }
 
-// MARK: - SwiftFlash Vector Logo View
-struct SwiftFlashVectorLogo: View {
-    var body: some View {
-        ZStack {
-            // Background gradient
-            RoundedRectangle(cornerRadius: 16)
-                .fill(LinearGradient(
-                    colors: [Color.blue, Color.blue.opacity(0.7)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-            
-            // Vector logo from SVG conversion
-            MyIcon()
-                .fill(Color.white)
-                .padding(16)
-        }
-    }
-}
 
 #Preview {
     AboutView()
