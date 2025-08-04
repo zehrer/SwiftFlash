@@ -57,33 +57,8 @@ struct ImageFileView: View {
                     Text(imageFile.fileType.displayName)
                     Spacer()
                 }
-            }
-            .padding()
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(8)
-            
-            // Checksum Section (replaces "Select Different File" button)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "checkmark.shield")
-                        .foregroundColor(.green)
-                    Text("Integrity Verification")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Spacer()
-                }
                 
-                HStack {
-                    Text("SHA256:")
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                    Text(imageFile.checksumStatus)
-                        .font(.caption)
-                        .foregroundColor(imageFile.sha256Checksum != nil ? .green : .orange)
-                    Spacer()
-                }
-                
-                // Show full checksum if available
+                // Checksum (if available)
                 if let checksum = imageFile.sha256Checksum {
                     HStack {
                         Text("Checksum:")
@@ -98,12 +73,8 @@ struct ImageFileView: View {
                 }
             }
             .padding()
-            .background(Color.green.opacity(0.05))
+            .background(Color.secondary.opacity(0.05))
             .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.green.opacity(0.3), lineWidth: 1)
-            )
         }
         .padding()
         .background(Color.blue.opacity(0.05))
