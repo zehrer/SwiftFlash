@@ -54,6 +54,7 @@ class ImageFlashService {
     
     var flashState: FlashState = .idle
     var isFlashing: Bool = false
+    private var isCancelled: Bool = false
     
     private let imageHistoryService: ImageHistoryService
     
@@ -91,6 +92,12 @@ class ImageFlashService {
     func resetState() {
         flashState = .idle
         isFlashing = false
+        isCancelled = false
+    }
+    
+    func cancel() {
+        isCancelled = true
+        resetState()
     }
     
     // MARK: - Private Methods
@@ -561,6 +568,12 @@ class ImageFlashService {
         flashState = .calculatingChecksum(progress: 0.0)
         
         while let data = try fileHandle.read(upToCount: chunkSize) {
+            // Check for cancellation
+            if isCancelled {
+                print("🛑 [DEBUG] Checksum calculation cancelled by user")
+                throw FlashError.flashFailed("Checksum calculation was cancelled")
+            }
+            
             hasher.update(data: data)
             bytesProcessed += data.count
             

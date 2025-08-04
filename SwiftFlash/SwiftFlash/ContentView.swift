@@ -129,8 +129,11 @@ struct ContentView: View {
                             if let selectedImage = imageService.selectedImage {
                                 Task {
                                     do {
-                                        // Try the read-only method first
-                                        let checksum = try await flashService.generateChecksumOnly(for: selectedImage)
+                                        // Set state to calculating checksum to show progress
+                                        flashService.flashState = .calculatingChecksum(progress: 0.0)
+                                        
+                                        // Calculate checksum with progress updates
+                                        let checksum = try await flashService.calculateSHA256Checksum(for: selectedImage)
                                         
                                         // Update the image with the checksum
                                         var updatedImage = selectedImage
@@ -144,12 +147,48 @@ struct ContentView: View {
                                         } catch {
                                             print("⚠️ [DEBUG] Checksum generated but could not store in history: \(error)")
                                         }
+                                        
+                                        // Reset state when done
+                                        flashService.flashState = .idle
                                     } catch {
                                         print("❌ [DEBUG] Failed to generate checksum: \(error)")
+                                        flashService.flashState = .failed(FlashError.flashFailed("Checksum calculation failed: \(error.localizedDescription)"))
                                     }
                                 }
                             }
                         }
+                    }
+                }
+                
+                // Progress bar for checksum calculation
+                if case .calculatingChecksum(let progress) = flashService.flashState {
+                    ToolbarItem(id: "checksumProgress", placement: .automatic) {
+                        HStack(spacing: 8) {
+                            // Progress bar
+                            ProgressView(value: progress, total: 1.0)
+                                .progressViewStyle(LinearProgressViewStyle())
+                                .frame(width: 120)
+                            
+                            // Percentage text
+                            Text("\(Int(progress * 100))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 35, alignment: .trailing)
+                            
+                            // Cancel button
+                            Button(action: {
+                                flashService.cancel()
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Cancel checksum calculation")
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.controlBackgroundColor))
+                        .cornerRadius(6)
                     }
                 }
                 
