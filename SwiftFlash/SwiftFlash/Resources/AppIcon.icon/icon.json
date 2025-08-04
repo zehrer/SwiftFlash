@@ -5,8 +5,14 @@
       "layers" : [
         {
           "hidden" : false,
-          "image-name" : "icon.png",
-          "name" : "icon"
+          "image-name" : "logo.svg",
+          "name" : "logo",
+          "opacity-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ]
         }
       ],
       "shadow" : {
