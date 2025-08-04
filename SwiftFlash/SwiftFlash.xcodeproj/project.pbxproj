@@ -6,18 +6,29 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		D48B80A42E3D181400AE3BB8 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D48B80A32E3D181400AE3BB8 /* README.md */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		D48B80A32E3D181400AE3BB8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
 		D49EB2442E36597F004B9F0A /* SwiftFlash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftFlash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D4CD78632E413B3D0072DE6E /* Exceptions for "SwiftFlash" folder in "SwiftFlash" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/AppIcon.icon,
+				Resources/logo.png,
+				Resources/logo.svg,
+			);
+			target = D49EB2432E36597F004B9F0A /* SwiftFlash */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D49EB2462E36597F004B9F0A /* SwiftFlash */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D4CD78632E413B3D0072DE6E /* Exceptions for "SwiftFlash" folder in "SwiftFlash" target */,
+			);
 			path = SwiftFlash;
 			sourceTree = "<group>";
 		};
@@ -115,7 +126,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D48B80A42E3D181400AE3BB8 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -255,7 +265,7 @@
 		D49EB2502E365980004B9F0A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon.icon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = SwiftFlash/SwiftFlash.entitlements;
@@ -306,7 +316,7 @@
 		D49EB2512E365980004B9F0A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon.icon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = SwiftFlash/SwiftFlash.entitlements;
