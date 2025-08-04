@@ -44,14 +44,25 @@ class ImageFileService: ObservableObject {
                 return nil
             }
             
+            // Create security-scoped bookmark
+            var bookmarkData: Data?
+            do {
+                bookmarkData = try BookmarkManager.shared.createBookmark(for: url)
+                print("✅ [DEBUG] Created bookmark for: \(url.lastPathComponent)")
+            } catch {
+                print("⚠️ [DEBUG] Failed to create bookmark for: \(url.lastPathComponent), error: \(error)")
+                // Continue without bookmark (fallback to direct access)
+            }
+            
             // Create image file object
             let imageFileType = ImageFileType.fromFileExtension(fileExtension)
-            let imageFile = ImageFile(
+            var imageFile = ImageFile(
                 name: url.lastPathComponent,
                 path: url.path,
                 size: fileSize,
                 fileType: imageFileType ?? .img
             )
+            imageFile.bookmarkData = bookmarkData
             
             errorMessage = nil
             return imageFile
@@ -63,6 +74,8 @@ class ImageFileService: ObservableObject {
     }
     
     func clearSelection() {
+        // Stop accessing the current secure resource if needed
+        selectedImage?.stopAccessingSecureResource()
         selectedImage = nil
         errorMessage = nil
     }

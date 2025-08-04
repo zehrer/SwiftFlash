@@ -278,6 +278,8 @@ struct ContentView: View {
                         ImageFileView(
                             imageFile: selectedImage,
                             onRemove: {
+                                // Stop accessing secure resource before clearing
+                                selectedImage.stopAccessingSecureResource()
                                 imageService.clearSelection()
                                 self.selectedImage = nil
                                 self.selectedDrive = nil

@@ -493,28 +493,36 @@ class ImageFlashService {
         print("🔍 [DEBUG] Calculating SHA256 checksum for: \(image.displayName)")
         print("   📁 [DEBUG] Image path: \(image.path)")
         
-        let fileURL = URL(fileURLWithPath: image.path)
-        print("   🔗 [DEBUG] File URL: \(fileURL)")
+        // Get secure URL using bookmark if available
+        let fileURL: URL
+        do {
+            fileURL = try image.getSecureURL()
+            print("   🔗 [DEBUG] Using secure URL: \(fileURL)")
+        } catch {
+            print("   ❌ [DEBUG] Failed to get secure URL: \(error)")
+            throw FlashError.flashFailed("Failed to access file: \(error.localizedDescription)")
+        }
+        
         print("   🔗 [DEBUG] File URL absolute string: \(fileURL.absoluteString)")
         print("   🔗 [DEBUG] File URL path: \(fileURL.path)")
         
         // Check if file exists before trying to open it
         let fileManager = FileManager.default
-        let fileExists = fileManager.fileExists(atPath: image.path)
+        let fileExists = fileManager.fileExists(atPath: fileURL.path)
         print("   📂 [DEBUG] File exists at path: \(fileExists)")
         
         if !fileExists {
-            print("   ❌ [DEBUG] File does not exist at path: \(image.path)")
-            throw FlashError.flashFailed("File does not exist: \(image.path)")
+            print("   ❌ [DEBUG] File does not exist at path: \(fileURL.path)")
+            throw FlashError.flashFailed("File does not exist: \(fileURL.path)")
         }
         
         // Check file permissions
-        let isReadable = fileManager.isReadableFile(atPath: image.path)
+        let isReadable = fileManager.isReadableFile(atPath: fileURL.path)
         print("   📖 [DEBUG] File is readable: \(isReadable)")
         
         if !isReadable {
-            print("   ❌ [DEBUG] File is not readable: \(image.path)")
-            throw FlashError.flashFailed("File is not readable: \(image.path)")
+            print("   ❌ [DEBUG] File is not readable: \(fileURL.path)")
+            throw FlashError.flashFailed("File is not readable: \(fileURL.path)")
         }
         
         print("   🔓 [DEBUG] Attempting to read file data...")
@@ -540,7 +548,11 @@ class ImageFlashService {
             
             // Fallback to FileHandle method
             let fileHandle = try FileHandle(forReadingFrom: fileURL)
-            defer { try? fileHandle.close() }
+            defer { 
+                try? fileHandle.close()
+                // Stop accessing the secure resource
+                image.stopAccessingSecureResource()
+            }
             
             var hasher = SHA256()
             var bytesProcessed = 0

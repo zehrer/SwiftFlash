@@ -26,7 +26,8 @@ class ImageHistoryService {
             fileSize: imageFile.size,
             fileType: imageFile.fileType,
             lastUsed: Date(),
-            sha256Checksum: imageFile.sha256Checksum
+            sha256Checksum: imageFile.sha256Checksum,
+            bookmarkData: imageFile.bookmarkData
         )
         
         // Add to beginning of array
@@ -51,11 +52,20 @@ class ImageHistoryService {
     }
     
     func loadImageFromHistory(_ item: ImageHistoryItem) -> ImageFile? {
-        // Verify file still exists
-        guard FileManager.default.fileExists(atPath: item.filePath) else {
-            // File no longer exists, remove from history
-            removeFromHistory(item)
-            return nil
+        // Try to validate bookmark if available
+        if let bookmarkData = item.bookmarkData {
+            guard BookmarkManager.shared.isBookmarkValid(bookmarkData) else {
+                print("❌ [DEBUG] Bookmark is no longer valid for: \(item.displayName)")
+                removeFromHistory(item)
+                return nil
+            }
+        } else {
+            // Fallback to file existence check
+            guard FileManager.default.fileExists(atPath: item.filePath) else {
+                print("❌ [DEBUG] File no longer exists: \(item.filePath)")
+                removeFromHistory(item)
+                return nil
+            }
         }
         
         // Create ImageFile from history item
@@ -66,6 +76,7 @@ class ImageHistoryService {
             fileType: item.fileType
         )
         imageFile.sha256Checksum = item.sha256Checksum
+        imageFile.bookmarkData = item.bookmarkData
         
         // Update last used date
         if let index = imageHistory.firstIndex(where: { $0.id == item.id }) {
@@ -111,6 +122,7 @@ struct ImageHistoryItem: Identifiable, Codable {
     let fileType: ImageFileType
     var lastUsed: Date
     var sha256Checksum: String?
+    var bookmarkData: Data? // Added for security-scoped bookmark support
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()

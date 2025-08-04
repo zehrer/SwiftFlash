@@ -18,6 +18,7 @@ struct ImageFile: Identifiable, Hashable {
     let size: Int64
     let fileType: ImageFileType
     var sha256Checksum: String?
+    var bookmarkData: Data? // Added for security-scoped bookmark support
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()
@@ -38,6 +39,28 @@ struct ImageFile: Identifiable, Hashable {
             return "SHA256: \(checksum.prefix(8))..."
         } else {
             return "No checksum available"
+        }
+    }
+    
+    /// Get a secure URL using bookmark data if available, otherwise fall back to path
+    func getSecureURL() throws -> URL {
+        if let bookmarkData = bookmarkData {
+            return try BookmarkManager.shared.getSecureURL(from: bookmarkData)
+        } else {
+            // Fallback to direct path access (for backward compatibility)
+            return URL(fileURLWithPath: path)
+        }
+    }
+    
+    /// Stop accessing the security-scoped resource
+    func stopAccessingSecureResource() {
+        if let bookmarkData = bookmarkData {
+            do {
+                let url = try BookmarkManager.shared.resolveBookmark(bookmarkData)
+                BookmarkManager.shared.stopAccessing(url)
+            } catch {
+                print("⚠️ [DEBUG] Failed to stop accessing secure resource: \(error)")
+            }
         }
     }
     
