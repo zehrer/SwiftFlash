@@ -97,7 +97,8 @@ class ImageFlashService {
     
     func cancel() {
         isCancelled = true
-        resetState()
+        // Don't reset state immediately - let the operation check the flag and handle cancellation
+        // The state will be reset when the operation completes or throws due to cancellation
     }
     
     // MARK: - Private Methods
@@ -571,6 +572,8 @@ class ImageFlashService {
             // Check for cancellation
             if isCancelled {
                 print("🛑 [DEBUG] Checksum calculation cancelled by user")
+                // Reset state before throwing
+                resetState()
                 throw FlashError.flashFailed("Checksum calculation was cancelled")
             }
             
@@ -594,6 +597,10 @@ class ImageFlashService {
         let checksum = digest.map { String(format: "%02x", $0) }.joined()
         
         print("✅ [DEBUG] SHA256 checksum calculated: \(checksum.prefix(8))...")
+        
+        // Reset state when completed successfully
+        resetState()
+        
         return checksum
     }
     

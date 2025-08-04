@@ -129,10 +129,7 @@ struct ContentView: View {
                             if let selectedImage = imageService.selectedImage {
                                 Task {
                                     do {
-                                        // Set state to calculating checksum to show progress
-                                        flashService.flashState = .calculatingChecksum(progress: 0.0)
-                                        
-                                        // Calculate checksum with progress updates
+                                        // Calculate checksum with progress updates (service handles state)
                                         let checksum = try await flashService.calculateSHA256Checksum(for: selectedImage)
                                         
                                         // Update the image with the checksum
@@ -147,12 +144,9 @@ struct ContentView: View {
                                         } catch {
                                             print("⚠️ [DEBUG] Checksum generated but could not store in history: \(error)")
                                         }
-                                        
-                                        // Reset state when done
-                                        flashService.flashState = .idle
                                     } catch {
                                         print("❌ [DEBUG] Failed to generate checksum: \(error)")
-                                        flashService.flashState = .failed(FlashError.flashFailed("Checksum calculation failed: \(error.localizedDescription)"))
+                                        // Service already handles state management, no need to set failed state here
                                     }
                                 }
                             }
