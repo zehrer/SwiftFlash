@@ -122,8 +122,26 @@ SwiftFlash/
 │   ├── ToolbarButtons.swift         # Reusable toolbar components
 │   ├── ToolbarConfigurationService.swift # Toolbar layout management
 │   ├── DeviceInventory.swift        # Device tracking
-│   └── SwiftFlash.entitlements      # App sandbox permissions
+│   ├── SwiftFlash.entitlements      # App sandbox permissions
+│   └── Resources/                   # App resources and assets
+│       ├── logo.swift               # SwiftUI vector logo (converted from SVG)
+│       ├── logo.svg                 # Original SVG source file
+│       ├── logo.png                 # PNG version for reference
+│       └── logo.jpeg                # JPEG version for reference
 ```
+
+### Logo Implementation
+
+The app uses a **vector-based logo** approach for optimal performance and quality:
+
+- **Source**: Original SVG file (`logo.svg`) converted to SwiftUI using [SVG to SwiftUI Converter](https://svg-to-swiftui.quassum.com)
+- **Implementation**: Pure SwiftUI vector paths in `logo.swift` (9 KB)
+- **Benefits**: 
+  - Perfect scalability at any size
+  - Minimal file size (no image assets)
+  - Native SwiftUI rendering
+  - No external dependencies
+- **Source Files**: Original SVG, PNG, and JPEG files are kept in Resources for reference and future use
 
 ### Key Technologies
 
