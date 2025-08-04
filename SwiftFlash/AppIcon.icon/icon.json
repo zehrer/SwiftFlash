@@ -4,7 +4,13 @@
     {
       "layers" : [
         {
+          "hidden" : true,
           "image-name" : "icon.png",
+          "name" : "icon"
+        },
+        {
+          "hidden" : true,
+          "image-name" : "icon.svg",
           "name" : "icon"
         }
       ],
