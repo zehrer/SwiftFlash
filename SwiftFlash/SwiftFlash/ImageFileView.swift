@@ -10,7 +10,6 @@ import SwiftUI
 struct ImageFileView: View {
     let imageFile: ImageFile
     let onRemove: () -> Void
-    let onSelectDifferent: () -> Void
     
     var body: some View {
         VStack(spacing: 16) {
@@ -63,15 +62,48 @@ struct ImageFileView: View {
             .background(Color.secondary.opacity(0.05))
             .cornerRadius(8)
             
-            // Action buttons
-            HStack {
-                Button("Select Different File") {
-                    onSelectDifferent()
+            // Checksum Section (replaces "Select Different File" button)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "checkmark.shield")
+                        .foregroundColor(.green)
+                    Text("Integrity Verification")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
                 }
-                .buttonStyle(.bordered)
                 
-                Spacer()
+                HStack {
+                    Text("SHA256:")
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    Text(imageFile.checksumStatus)
+                        .font(.caption)
+                        .foregroundColor(imageFile.sha256Checksum != nil ? .green : .orange)
+                    Spacer()
+                }
+                
+                // Show full checksum if available
+                if let checksum = imageFile.sha256Checksum {
+                    HStack {
+                        Text("Checksum:")
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        Text(checksum)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                }
             }
+            .padding()
+            .background(Color.green.opacity(0.05))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.green.opacity(0.3), lineWidth: 1)
+            )
         }
         .padding()
         .background(Color.blue.opacity(0.05))
@@ -93,8 +125,7 @@ struct ImageFileView: View {
     
     ImageFileView(
         imageFile: sampleImage,
-        onRemove: {},
-        onSelectDifferent: {}
+        onRemove: {}
     )
     .padding()
 } 

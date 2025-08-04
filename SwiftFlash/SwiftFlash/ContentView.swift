@@ -281,11 +281,6 @@ struct ContentView: View {
                                 imageService.clearSelection()
                                 self.selectedImage = nil
                                 self.selectedDrive = nil
-                            },
-                            onSelectDifferent: {
-                                imageService.clearSelection()
-                                self.selectedImage = nil
-                                self.selectedDrive = nil
                             }
                         )
                         .onTapGesture {

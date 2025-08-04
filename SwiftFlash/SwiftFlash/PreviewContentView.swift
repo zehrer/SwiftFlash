@@ -81,10 +81,6 @@ struct PreviewContentView: View {
                             imageFile: selectedImage,
                             onRemove: { 
                                 imageService.clearSelection()
-                            },
-                            onSelectDifferent: { 
-                                // TODO: Implement select different
-                                print("🔄 [DEBUG] Select different image")
                             }
                         )
                     }
