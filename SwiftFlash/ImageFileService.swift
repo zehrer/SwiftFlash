@@ -112,7 +112,8 @@ class ImageFileService: ObservableObject {
         static func detectPartitionScheme(devicePath: String) -> PartitionScheme {
             let fd = open(devicePath, O_RDONLY)
             guard fd != -1 else {
-                perror("❌ Cannot open device")
+                let errString = String(cString: strerror(errno))
+                print("❌ Cannot open device at \(devicePath): \(errString) (\(errno))")
                 return .unknown
             }
             defer { close(fd) }
