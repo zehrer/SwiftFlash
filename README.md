@@ -139,6 +139,30 @@ The app uses a **vector-based logo** approach for optimal performance and qualit
   - No external dependencies
 - **Source Files**: Original SVG, PNG, and JPEG files are kept in Resources for reference and future use
 
+### Versioning
+
+SwiftFlash uses a **date-based versioning scheme** with automated build number management:
+
+#### Version Format
+- **Marketing Version**: `YYYY.M` (Year.Month format)
+- **Build Number**: Incremental counter (resets with each release)
+- **Example**: `2025.8 (1)`, `2025.8 beta 1 (2)`, `2025.9 (1)`
+
+#### Release Workflow
+```
+Development: 2025.8 (1) → 2025.8 (2) → 2025.8 (3)
+Beta 1:     2025.8 beta 1 (1) → 2025.8 beta 1 (2) → 2025.8 beta 1 (3)
+Beta 2:     2025.8 beta 2 (1) → 2025.8 beta 2 (2) → 2025.8 beta 2 (3)
+Release:    2025.8 (1) → 2025.8 (2) → 2025.8 (3)
+Next Month: 2025.9 (1) → 2025.9 (2) → 2025.9 (3)
+```
+
+#### Version Management
+- **Automated**: Uses Apple's `agvtool` for version management
+- **Build Numbers**: Automatically incremented during development
+- **Release Reset**: Build numbers reset to 1 for each new release
+- **Beta Releases**: Clear distinction with "beta" suffix in marketing version
+
 ### Key Technologies
 
 - **Disk Arbitration Framework** - Native macOS disk management
