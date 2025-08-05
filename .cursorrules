@@ -1,0 +1,106 @@
+# Cursor Rules for SwiftFlash Project
+# These rules apply to ALL AI models working on this project
+
+## CRITICAL: Code Protection Rules
+- **NEVER** modify code marked with "DO NOT MODIFY" comments
+- **NEVER** change sections marked with "CRITICAL" or "TESTED AND VERIFIED"
+- **ALWAYS** ask for permission before modifying protected code sections
+- **RESPECT** all protection markers: `// MARK: - CRITICAL ... (DO NOT MODIFY)`
+- **IGNORE** files or sections marked with `// AI-IGNORE-START` / `// AI-IGNORE-END`
+
+## Technology Standards
+- **ALWAYS** use latest Swift 6 syntax and features
+- **ALWAYS** use latest SwiftUI syntax and modern APIs
+- **TARGET** macOS 15.6 as minimum deployment target
+- **FOLLOW** official Apple coding guidelines and best practices
+- **USE** modern SwiftUI patterns like `@Observable` instead of `ObservableObject` where appropriate
+
+## Code Quality Standards
+- **GENERATE** appropriate comments for each file and function
+- **ADD** additional comments for key steps in the code
+- **EXPLAIN** complex logic with inline comments
+- **DOCUMENT** public APIs and important private methods
+- **USE** descriptive variable and function names
+
+## Code Reusability
+- **REUSE** existing code as much as possible
+- **CREATE** reusable components and utilities
+- **AVOID** code duplication
+- **EXTRACT** common functionality into shared methods
+- **FOLLOW** DRY (Don't Repeat Yourself) principle
+
+## Development Process
+- **ASK** before implementing key changes in the code
+- **EXPLAIN** the reasoning behind significant modifications
+- **SUGGEST** alternatives when making architectural decisions
+- **STOP** and ask for support when encountering recurring problems
+- **TEST** changes thoroughly before suggesting them
+
+## Protected Code Sections
+The following areas are protected and should NOT be modified without explicit permission:
+
+### Data Models (DO NOT MODIFY)
+- `Drive` struct in DriveModel.swift
+- `ImageFile` struct in ImageFileModel.swift  
+- `DeviceInventoryItem` struct in DeviceInventory.swift
+- `DeviceType` enum in DeviceInventory.swift
+- `ImageFileType` enum in ImageFileModel.swift
+
+### Core Services (DO NOT MODIFY)
+- `ImageFlashService` class in ImageFlashService.swift
+- `FlashError` enum in ImageFlashService.swift
+- `DriveDetectionService` class in DriveDetectionService.swift
+
+### UI Components (DO NOT MODIFY)
+- Main ScrollView layout in ContentView.swift
+- Inspector area layout in ContentView.swift
+- App structure in SwiftFlashApp.swift
+
+### Critical Functionality (DO NOT MODIFY)
+- Device detection logic
+- Flash operation safety checks
+- Error handling mechanisms
+- Data persistence logic
+
+## General Development Rules
+- **FOCUS** only on the specific task requested
+- **DON'T** change unrelated UI components or data structures
+- **TEST** any changes thoroughly before suggesting them
+- **DOCUMENT** any modifications clearly
+- **ASK** if unsure about any changes
+
+## When Modification is Necessary
+If changes to protected sections are absolutely required:
+1. **EXPLAIN** why the change is necessary
+2. **ASK** for explicit permission
+3. **SUGGEST** alternative approaches first
+4. **WARN** about potential side effects
+5. **TEST** thoroughly after changes
+
+## File-Specific Rules
+- **ContentView.swift**: UI layout is protected, only modify toolbar and non-layout components
+- **Data Models**: Structure and properties are protected, only add new computed properties if needed
+- **Services**: Core logic is protected, only add new methods or improve existing ones
+- **App Structure**: Main app setup is protected, only add new scenes if needed
+
+## Error Prevention
+- **CHECK** for protection markers before making any changes
+- **VERIFY** that changes don't affect protected sections
+- **CONFIRM** with user before proceeding with risky changes
+- **ROLLBACK** if changes cause issues with protected code
+
+## Comment Standards
+- **FILE HEADERS**: Include purpose, author, and creation date
+- **FUNCTION COMMENTS**: Explain purpose, parameters, and return values
+- **COMPLEX LOGIC**: Add inline comments explaining the reasoning
+- **KEY STEPS**: Comment important operations and state changes
+- **TODO COMMENTS**: Mark areas that need future attention
+
+## Apple Guidelines Compliance
+- **FOLLOW** Apple's Human Interface Guidelines
+- **USE** standard macOS UI patterns and components
+- **IMPLEMENT** proper accessibility features
+- **FOLLOW** Apple's naming conventions
+- **USE** appropriate system colors and fonts
+
+Remember: This project has critical functionality for device flashing. Safety and stability are paramount. 
