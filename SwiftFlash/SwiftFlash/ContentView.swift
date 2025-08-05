@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var showFlashProgress = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
+    @State private var showStatusBar = true // User can toggle this
     
     // MARK: - Computed Properties
     
@@ -45,7 +46,8 @@ struct ContentView: View {
     }
     
     var body: some View {
-        HSplitView {
+        VStack(spacing: 0) {
+            HSplitView {
             // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
             // This ScrollView section has been thoroughly tested and should not be changed
             // without additional verification. Changes here require re-testing of the entire UI layout.
@@ -55,15 +57,7 @@ struct ContentView: View {
                     errorMessageSection
                     driveSelectionSection
                     
-                    // Version info at bottom
-                    HStack {
-                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    .padding(.top, 20)
-                    .padding(.bottom, -10) // Move closer to bottom edge
+                    // Remove version from main content area
                 }
                 .padding()
             }
@@ -107,6 +101,69 @@ struct ContentView: View {
                 }
             }
             // END: INSPECTOR AREA
+            }
+            
+            // Status Bar (toggleable)
+            if showStatusBar {
+                HStack {
+                    // Version info
+                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    // Drive count
+                    if !driveService.drives.isEmpty {
+                        Text("\(driveService.drives.count) drive\(driveService.drives.count == 1 ? "" : "s") detected")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Toggle button
+                    Button(action: {
+                        showStatusBar.toggle()
+                    }) {
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Hide status bar")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(.controlBackgroundColor))
+                .overlay(
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(Color(.separatorColor)),
+                    alignment: .top
+                )
+            } else {
+                // Show button when status bar is hidden
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        showStatusBar.toggle()
+                    }) {
+                        Image(systemName: "chevron.up")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show status bar")
+                    .padding(.trailing, 12)
+                    .padding(.vertical, 4)
+                }
+                .background(Color(.controlBackgroundColor))
+                .overlay(
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(Color(.separatorColor)),
+                    alignment: .top
+                )
+            }
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)
