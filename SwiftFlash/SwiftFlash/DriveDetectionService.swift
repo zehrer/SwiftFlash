@@ -39,14 +39,16 @@ class DriveDetectionService: ObservableObject {
     /// Refreshes the list of available drives
     func refreshDrives() {
         isScanning = true
+        print("🔍 [DEBUG] DriveDetectionService: Starting drive refresh")
         
         Task {
             let detectedDrives = await detectDrives()
-            await MainActor.run {
-                self.drives = detectedDrives
-                self.isScanning = false
-                print("🔍 [DEBUG] DriveDetectionService: Updated drives array on MainActor - count: \(self.drives.count)")
-            }
+            print("🔍 [DEBUG] DriveDetectionService: Detected \(detectedDrives.count) drives, updating on MainActor")
+            
+            // Update directly on MainActor since we're already @MainActor
+            self.drives = detectedDrives
+            self.isScanning = false
+            print("🔍 [DEBUG] DriveDetectionService: Updated drives array - count: \(self.drives.count)")
         }
     }
     
