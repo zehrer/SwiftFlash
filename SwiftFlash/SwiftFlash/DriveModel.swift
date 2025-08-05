@@ -39,6 +39,23 @@ struct Drive: Identifiable, Hashable {
         return name
     }
     
+    /// Computed property to get partition scheme (MBR/GPT) for this drive
+    var partitionScheme: ImageFileService.PartitionScheme {
+        return ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: mountPoint)
+    }
+    
+    /// Formatted partition scheme display string
+    var partitionSchemeDisplay: String {
+        switch partitionScheme {
+        case .mbr:
+            return "MBR (Master Boot Record)"
+        case .gpt:
+            return "GPT (GUID Partition Table)"
+        case .unknown:
+            return "Unknown"
+        }
+    }
+    
     func hash(into hasher: inout Hasher) {
         hasher.combine(mountPoint)
     }

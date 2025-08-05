@@ -103,6 +103,12 @@ struct DriveInspectorView: View {
                     value: drive.mountPoint
                 )
                 
+                // Partition Scheme
+                LabelAndText(
+                    label: "Partition Scheme",
+                    value: drive.partitionSchemeDisplay
+                )
+                
                 // Status
                 LabelAndStatus(
                     label: "Status",
