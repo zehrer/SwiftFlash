@@ -107,7 +107,7 @@ struct ContentView: View {
             if showStatusBar {
                 HStack {
                     // Version info
-                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                    Text("Version : \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (build : \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
