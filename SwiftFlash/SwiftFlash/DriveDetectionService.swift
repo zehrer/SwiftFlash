@@ -105,14 +105,14 @@ class DriveDetectionService: ObservableObject {
         }
         
         DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        print("✅ [DEBUG] Disk Arbitration session created and scheduled")
+        //print("✅ [DEBUG] Disk Arbitration session created and scheduled")
     }
     
     /// Detects all external storage devices that can be used for flashing
     func detectDrives() async -> [Drive] {
         var drives: [Drive] = []
         
-        print("🔍 [DEBUG] Starting external drive detection...")
+        //print("🔍 [DEBUG] Starting external drive detection...")
         
         // Get all external storage devices using IOKit
         let devices = getExternalStorageDevices()
@@ -120,21 +120,22 @@ class DriveDetectionService: ObservableObject {
         
         // Get the system boot device to exclude it
         let systemBootDevice = getSystemBootDevice()
-        print("🔍 [DEBUG] System boot device: \(systemBootDevice)")
+        //print("🔍 [DEBUG] System boot device: \(systemBootDevice)")
         
-        for (index, deviceInfo) in devices.enumerated() {
-            print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
-            print("   📍 Device path: \(deviceInfo.devicePath)")
-            print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
-            print("   🔄 Removable: \(deviceInfo.isRemovable)")
-            print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
-            print("   📝 Read-only: \(deviceInfo.isReadOnly)")
+        //TODO better undestand
+        for (_, deviceInfo) in devices.enumerated() {
+            //print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
+            //print("   📍 Device path: \(deviceInfo.devicePath)")
+            //print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
+            //print("   🔄 Removable: \(deviceInfo.isRemovable)")
+            //print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
+            //print("   📝 Read-only: \(deviceInfo.isReadOnly)")
             
             // Check if this is the system boot device
             let isSystemDrive = deviceInfo.devicePath == systemBootDevice
             
             if isSystemDrive {
-                print("⚠️ [DEBUG] Device \(deviceInfo.name) is the system boot device - excluding")
+                //print("⚠️ [DEBUG] Device \(deviceInfo.name) is the system boot device - excluding")
                 continue
             }
             
@@ -196,7 +197,16 @@ struct DeviceInfo {
 
 extension DriveDetectionService {
     
-    /// Gets all external storage devices using IOKit
+    /// Scans the IOKit registry for external storage devices that are removable and ejectable.
+    ///
+    /// This method uses IOKit to find all media devices that are both marked as `Removable` and `Ejectable`,
+    /// which typically includes USB sticks, SD cards, and other flash media. It filters out partition entries
+    /// and only includes the main device entries (e.g., `/dev/disk2` but not `/dev/disk2s1`).
+    ///
+    /// Devices are further examined using IOKit and Disk Arbitration to extract metadata such as name,
+    /// UUID, vendor, and revision. Devices that pass all checks are returned as `DeviceInfo` instances.
+    ///
+    /// - Returns: An array of `DeviceInfo` objects representing external flashable devices.
     private func getExternalStorageDevices() -> [DeviceInfo] {
         var devices: [DeviceInfo] = []
         
@@ -225,14 +235,15 @@ extension DriveDetectionService {
                 service = IOIteratorNext(iterator)
             }
             
+            
+            // Only include main devices (not partitions)
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
-                print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
-                // Only include main devices (not partitions)
+                //print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
                 if isMainDevice(deviceInfo: deviceInfo) {
                     print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
                     devices.append(deviceInfo)
                 } else {
-                    print("❌ [DEBUG] Excluding device from list: \(deviceInfo.devicePath)")
+                    //print("❌ [DEBUG] Excluding device from list: \(deviceInfo.devicePath)")
                 }
             }
         }
@@ -261,7 +272,7 @@ extension DriveDetectionService {
         
         // Get media UUID and update inventory
         let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
-        print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
+        //print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
         
         // Extract vendor and revision early
         let vendor = getVendorFromDiskArbitration(devicePath: devicePath)
@@ -269,7 +280,8 @@ extension DriveDetectionService {
         
         let name: String
         if let uuid = mediaUUID {
-            print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
+            //TODO: really adding devic? seems this is printed all the time
+            //print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
             // Determine device type based on original name or other characteristics
             let deviceType = determineDeviceType(originalName: originalName, devicePath: devicePath)
             
@@ -284,15 +296,11 @@ extension DriveDetectionService {
             
             // Use custom name from inventory if available, otherwise use original name
             name = inventory?.getDisplayName(for: uuid) ?? originalName
-            print("🔧 [DEBUG] Final display name: \(name)")
+            //print("🔧 [DEBUG] Final display name: \(name)")
         } else {
             print("❌ [DEBUG] No media UUID found for device: \(originalName)")
             name = originalName
         }
-        
-        print("🔍 [DEBUG] Device: \(name)")
-        print("   📍 Path: \(devicePath)")
-        print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))")
         
         let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
         
@@ -364,7 +372,7 @@ extension DriveDetectionService {
         
         // Specifically get the DAMediaName
         if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty {
-            print("🔍 [DEBUG] Found DAMediaName: \(mediaName)")
+            //print("🔍 [DEBUG] Found DAMediaName: \(mediaName)")
             return mediaName
         }
         
@@ -390,7 +398,7 @@ extension DriveDetectionService {
         
         // Specifically get the DADeviceVendor
         if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty {
-            print("🔍 [DEBUG] Found DADeviceVendor: \(vendor)")
+            //print("🔍 [DEBUG] Found DADeviceVendor: \(vendor)")
             return vendor
         }
         
@@ -416,7 +424,7 @@ extension DriveDetectionService {
         
         // Specifically get the DADeviceRevision
         if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty {
-            print("🔍 [DEBUG] Found DADeviceRevision: \(revision)")
+            //print("🔍 [DEBUG] Found DADeviceRevision: \(revision)")
             return revision
         }
         
@@ -477,7 +485,7 @@ extension DriveDetectionService {
     
     /// Gets the media UUID from Disk Arbitration
     private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
-        print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration called for device: \(devicePath)")
+        print("🔧 [DEBUG] Analyse device: \(devicePath)")
         
         guard let session = diskArbitrationSession else {
             print("❌ [DEBUG] Disk Arbitration session is nil")
@@ -498,7 +506,7 @@ extension DriveDetectionService {
         
         // Generate device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
         let deviceID = generateDeviceID(from: diskDescription)
-        print("🔧 [DEBUG] Generated device ID: \(deviceID)")
+        //print("🔧 [DEBUG] Generated device ID: \(deviceID)")
         
         return deviceID
     }
@@ -518,7 +526,7 @@ extension DriveDetectionService {
         let cleanRevision = deviceRevision.replacingOccurrences(of: " ", with: "_")
         
         let deviceID = "\(cleanVendor)_\(cleanRevision)_\(sizePrefix)"
-        print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize) -> Prefix: \(sizePrefix)")
+        print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize)")
         
         return deviceID
     }
@@ -583,7 +591,7 @@ extension DriveDetectionService {
         // Try different property keys for device name in order of preference
         let nameKeys = [
             "Media Name",
-            "Product Name", 
+            "Product Name",
             "Device Name",
             "USB Product Name",
             "USB Vendor Name",
@@ -645,7 +653,7 @@ extension DriveDetectionService {
         // Check if the device path contains partition indicators
         let devicePath = deviceInfo.devicePath
         
-        print("🔍 [DEBUG] Checking if device is main device: \(devicePath)")
+        // print("🔍 [DEBUG] Checking if device is main device: \(devicePath)")
         
         // Check if it's a partition (ends with 's' followed by numbers)
         if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
@@ -658,7 +666,7 @@ extension DriveDetectionService {
         if components.count > 1 {
             // Check if the last component is a number (indicating a partition)
             if let lastComponent = components.last, Int(lastComponent) != nil {
-                print("❌ [DEBUG] Device \(devicePath) is a slice/partition - excluding")
+                //print("❌ [DEBUG] Device \(devicePath) is a slice/partition - excluding")
                 return false
             }
         }
@@ -708,4 +716,4 @@ extension DriveDetectionService {
         // Fallback: return empty string if we can't determine
         return ""
     }
-} 
+}

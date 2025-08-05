@@ -204,10 +204,10 @@ class DeviceInventory: ObservableObject {
         do {
             let data = try JSONEncoder().encode(devices)
             userDefaults.set(data, forKey: inventoryKey)
-            print("💾 [DEBUG] Saved inventory with \(devices.count) devices to UserDefaults")
+            //print("💾 [DEBUG] Saved inventory with \(devices.count) devices to UserDefaults")
             
             // Debug: Show the actual data size
-            print("📊 [DEBUG] Inventory data size: \(data.count) bytes")
+            //print("📊 [DEBUG] Inventory data size: \(data.count) bytes")
         } catch {
             print("❌ [INVENTORY] Failed to save inventory: \(error)")
         }
