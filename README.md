@@ -6,20 +6,16 @@
 
 ## Features
 
-- 🖥️ **Native macOS Interface** - Built with SwiftUI for seamless integration
+- 🖥️ **Native macOS Interface** - Built with SwiftUI for seamless integration with very small size (just around 4MB)
 - 📁 **Drag & Drop Support** - Simply drag your image file onto the app
-- 🔍 **Smart Drive Detection** - Automatically lists connected removable drives
-- 🛡️ **Built-in Safety Checks** - Prevents accidental flashing to wrong disks
-- 📊 **Real-time Progress** - Visual feedback during the flashing process
-- 🔐 **Disk Arbitration Integration** - Uses macOS native disk management
 - 💾 **Device Inventory** - Tracks and remembers your devices
 - 🔒 **SHA256 Checksum Verification** - Generate and verify file integrity checksums
 
+
 ## Supported File Formats
 
-- `.img` - Raw disk images
 - `.iso` - ISO disk images
-- Other raw disk image formats
+
 
 ## System Requirements
 
@@ -183,4 +179,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - IOMediaWhole for detaction of device vs partion
 - Store partion informationin DeviceInfo (List of partion info as far as avaible )
-- 
+- support `.img` - Raw disk images (TODO testing
+- Other raw disk image formats (TODO testing)
+- Image Repository 
+    - local folder storing all images
+    - list of external repositories 
+    - list of URLs for each repositories public images for download
+    - check new publications of images 
+    - search from images
+    - AI support to search for images (MacOS 26)

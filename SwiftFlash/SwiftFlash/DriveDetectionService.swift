@@ -25,7 +25,7 @@ class DriveDetectionService: ObservableObject {
     
     init() {
         setupDiskArbitration()
-        refreshDrives()
+        // Note: refreshDrives() is called from ContentView.onAppear to ensure proper initialization order
     }
     
     deinit {
