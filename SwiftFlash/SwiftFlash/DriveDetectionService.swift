@@ -166,10 +166,12 @@ class DriveDetectionService: ObservableObject {
             
             // Detect partition scheme once and cache it
             var driveWithPartitionScheme = drive
-            driveWithPartitionScheme.partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: deviceInfo.devicePath)
+            let partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: deviceInfo.devicePath)
+            driveWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
             
             drives.append(driveWithPartitionScheme)
+            print("✅ [DEBUG] Added drive to array: \(deviceInfo.name) - Total drives: \(drives.count)")
         }
         
         print("🔍 [DEBUG] Drive detection complete. Found \(drives.count) external drives")
@@ -240,7 +242,7 @@ extension DriveDetectionService {
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
                 //print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
                 if isMainDevice(deviceInfo: deviceInfo) {
-                    print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
+                    //print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
                     devices.append(deviceInfo)
                 } else {
                     //print("❌ [DEBUG] Excluding device from list: \(deviceInfo.devicePath)")
@@ -267,7 +269,7 @@ extension DriveDetectionService {
         
         // Check if this is a main device (not a partition) BEFORE processing further
         if !isMainDevicePath(devicePath: devicePath) {
-            print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
+            // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
         }
         

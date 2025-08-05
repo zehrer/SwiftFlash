@@ -219,7 +219,7 @@ class DeviceInventory: ObservableObject {
             return 
         }
         
-        print("📚 [DEBUG] Found inventory data in UserDefaults: \(data.count) bytes")
+        //print("📚 [DEBUG] Found inventory data in UserDefaults: \(data.count) bytes")
         
         do {
             devices = try JSONDecoder().decode([DeviceInventoryItem].self, from: data)
