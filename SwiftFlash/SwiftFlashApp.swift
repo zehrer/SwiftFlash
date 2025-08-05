@@ -44,13 +44,17 @@ struct SwiftFlashApp: App {
                 }
             }
             
-            // Add View menu with status bar toggle
-            CommandMenu("View") {
+            // Add status bar toggle to Window menu
+            CommandGroup(after: .windowSize) {
+                Divider()
+                
                 Button(showStatusBar ? "Hide Status Bar" : "Show Status Bar") {
                     NotificationCenter.default.post(name: .toggleStatusBar, object: nil)
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
             }
+            
+
         }
         
         #if os(macOS)
