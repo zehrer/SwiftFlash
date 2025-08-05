@@ -63,6 +63,7 @@ struct ContentView: View {
                         Spacer()
                     }
                     .padding(.top, 20)
+                    .padding(.bottom, -10) // Move closer to bottom edge
                 }
                 .padding()
             }
