@@ -325,9 +325,7 @@ struct ContentView: View {
         }
         .onAppear {
             setupDriveService()
-            Task {
-                _ = await driveService.detectDrives()
-            }
+            driveService.refreshDrives()
         }
     }
     
