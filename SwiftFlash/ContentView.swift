@@ -31,7 +31,7 @@ struct ContentView: View {
     @State private var showFlashProgress = false
     @State private var customNameText = ""
     @State private var deviceToRename: Drive?
-    @State private var showStatusBar = true // User can toggle this
+    @AppStorage("showStatusBar") private var showStatusBar = true // User can toggle this
     
     // MARK: - Computed Properties
     
@@ -103,7 +103,7 @@ struct ContentView: View {
             // END: INSPECTOR AREA
             }
             
-            // Status Bar (toggleable)
+            // Status Bar
             if showStatusBar {
                 HStack {
                     // Version info
@@ -119,43 +119,9 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    
-                    // Toggle button
-                    Button(action: {
-                        showStatusBar.toggle()
-                    }) {
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Hide status bar")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color(.controlBackgroundColor))
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(Color(.separatorColor)),
-                    alignment: .top
-                )
-            } else {
-                // Show button when status bar is hidden
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        showStatusBar.toggle()
-                    }) {
-                        Image(systemName: "chevron.up")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Show status bar")
-                    .padding(.trailing, 12)
-                    .padding(.vertical, 4)
-                }
                 .background(Color(.controlBackgroundColor))
                 .overlay(
                     Rectangle()
@@ -167,6 +133,9 @@ struct ContentView: View {
         }
         .frame(minWidth: 400)
         .frame(minHeight: 700)
+        .onReceive(NotificationCenter.default.publisher(for: .toggleStatusBar)) { _ in
+            showStatusBar.toggle()
+        }
         .toolbar(id: "mainToolbar") {
             Group {
                 if toolbarConfig.toolbarItems.contains("refresh") {

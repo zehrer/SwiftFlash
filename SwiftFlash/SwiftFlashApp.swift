@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+// MARK: - Status Bar Toggle Notification
+extension Notification.Name {
+    static let toggleStatusBar = Notification.Name("toggleStatusBar")
+}
+
 // MARK: - CRITICAL APP STRUCTURE (DO NOT MODIFY - Main app entry point)
 // This is the main app entry point and defines the app's scene structure.
 // Changes here affect app initialization, environment setup, and window management.
@@ -15,6 +20,7 @@ import SwiftUI
 struct SwiftFlashApp: App {
     @StateObject private var deviceInventory = DeviceInventory()
     @State private var showAboutDialog = false
+    @AppStorage("showStatusBar") private var showStatusBar = true
     
     init() {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
@@ -36,6 +42,16 @@ struct SwiftFlashApp: App {
                 Button("About SwiftFlash") {
                     showAboutDialog = true
                 }
+            }
+            
+            // Add View menu with status bar toggle
+            CommandGroup(after: .windowSize) {
+                Divider()
+                
+                Button(showStatusBar ? "Hide Status Bar" : "Show Status Bar") {
+                    NotificationCenter.default.post(name: .toggleStatusBar, object: nil)
+                }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
             }
         }
         
