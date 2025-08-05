@@ -72,6 +72,7 @@
 				D49EB2402E36597F004B9F0A /* Sources */,
 				D49EB2412E36597F004B9F0A /* Frameworks */,
 				D49EB2422E36597F004B9F0A /* Resources */,
+				D4CD7B762E4223290072DE6E /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -130,6 +131,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D4CD7B762E4223290072DE6E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "echo \"🔢 Setting build number from Git...\"\n\nbuildNumber=$(git rev-list --count HEAD)\n\nINFO_PLIST=\"${PROJECT_DIR}/SwiftFlash/Info.plist\"\n\n# Prüfe auf Existenz\nif [ ! -f \"$INFO_PLIST\" ]; then\n  echo \"❌ Info.plist not found at: $INFO_PLIST\"\n  exit 1\nfi\n\n# Versuche zu setzen oder anzulegen\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"$INFO_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleVersion string $buildNumber\" \"$INFO_PLIST\"\n\necho \"✅ Build number is now: $buildNumber\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D49EB2402E36597F004B9F0A /* Sources */ = {
