@@ -55,7 +55,7 @@ struct AboutView: View {
                     
                     // Version and Copyright
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Version 0.1.0")
+                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         

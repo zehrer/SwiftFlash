@@ -16,6 +16,12 @@ struct SwiftFlashApp: App {
     @StateObject private var deviceInventory = DeviceInventory()
     @State private var showAboutDialog = false
     
+    init() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        print("🚀 [DEBUG] SwiftFlash App Starting - Version \(version) (\(build))")
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
