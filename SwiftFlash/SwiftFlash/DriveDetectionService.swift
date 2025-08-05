@@ -42,8 +42,11 @@ class DriveDetectionService: ObservableObject {
         
         Task {
             let detectedDrives = await detectDrives()
-            self.drives = detectedDrives
-            self.isScanning = false
+            await MainActor.run {
+                self.drives = detectedDrives
+                self.isScanning = false
+                print("🔍 [DEBUG] DriveDetectionService: Updated drives array on MainActor - count: \(self.drives.count)")
+            }
         }
     }
     
