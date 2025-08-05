@@ -107,9 +107,17 @@ struct ContentView: View {
             if showStatusBar {
                 HStack {
                     // Version info
-                    Text("Version : \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (build : \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Version : \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (build : \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        if let commitHash = Bundle.main.infoDictionary?["CFBundleGitCommitHash"] as? String {
+                            Text("Commit: \(commitHash) • \(Bundle.main.infoDictionary?["CFBundleGitBranch"] as? String ?? "main")")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     
                     Spacer()
                     

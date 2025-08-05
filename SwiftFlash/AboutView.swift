@@ -59,6 +59,13 @@ struct AboutView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
+                        if let commitHash = Bundle.main.infoDictionary?["CFBundleGitCommitHash"] as? String,
+                           let buildDate = Bundle.main.infoDictionary?["CFBundleBuildDate"] as? String {
+                            Text("Commit: \(commitHash) • Built: \(buildDate)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
                         Text("© 2025 Stephan Zehrer. MIT License.")
                             .font(.caption)
                             .foregroundColor(.secondary)

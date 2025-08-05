@@ -149,7 +149,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "echo \"🔢 Setting build number from Git...\"\n\nbuildNumber=$(git rev-list --count HEAD)\n\nINFO_PLIST=\"${PROJECT_DIR}/SwiftFlash/Info.plist\"\n\n# Prüfe auf Existenz\nif [ ! -f \"$INFO_PLIST\" ]; then\n  echo \"❌ Info.plist not found at: $INFO_PLIST\"\n  exit 1\nfi\n\n# Versuche zu setzen oder anzulegen\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"$INFO_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleVersion string $buildNumber\" \"$INFO_PLIST\"\n\necho \"✅ Build number is now: $buildNumber\"\n";
+			shellScript = "echo \"🔢 Setting build information from Git...\"\n\n# Git informationen sammeln\nbuildNumber=$(git rev-list --count HEAD)\ngitCommitHash=$(git rev-parse --short HEAD)\ngitBranch=$(git rev-parse --abbrev-ref HEAD)\nbuildDate=$(date '+%Y-%m-%d %H:%M:%S')\n\n# Pfad zur automatisch generierten Info.plist\nGENERATED_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\n# Prüfen, ob die Datei existiert\nif [ ! -f \"$GENERATED_PLIST\" ]; then\n  echo \"❌ Generated Info.plist not found at: $GENERATED_PLIST\"\n  exit 1\nfi\n\n# Build informationen setzen oder anlegen\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"$GENERATED_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleVersion string $buildNumber\" \"$GENERATED_PLIST\"\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleGitCommitHash $gitCommitHash\" \"$GENERATED_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleGitCommitHash string $gitCommitHash\" \"$GENERATED_PLIST\"\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleGitBranch $gitBranch\" \"$GENERATED_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleGitBranch string $gitBranch\" \"$GENERATED_PLIST\"\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleBuildDate $buildDate\" \"$GENERATED_PLIST\" 2>/dev/null || \\\n/usr/libexec/PlistBuddy -c \"Add :CFBundleBuildDate string $buildDate\" \"$GENERATED_PLIST\"\n\necho \"✅ Build info updated:\"\necho \"   Build Number: $buildNumber\"\necho \"   Git Commit: $gitCommitHash\"\necho \"   Git Branch: $gitBranch\"\necho \"   Build Date: $buildDate\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -203,7 +203,7 @@
 				DEVELOPMENT_TEAM = NV9LC295QZ;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -267,7 +267,7 @@
 				DEVELOPMENT_TEAM = NV9LC295QZ;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
