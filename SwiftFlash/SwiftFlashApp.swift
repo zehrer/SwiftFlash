@@ -23,6 +23,13 @@ struct SwiftFlashApp: App {
     @AppStorage("showStatusBar") private var showStatusBar = true
     
     init() {
+        #if os(macOS)
+        // Disable Tabbar feature !!
+        // TODO: swicht to SwiftUI setting when available
+        NSWindow.allowsAutomaticWindowTabbing = false
+        #endif
+        
+        
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         print("🚀 [DEBUG] SwiftFlash App Starting - Version \(version) (\(build))")
@@ -44,8 +51,9 @@ struct SwiftFlashApp: App {
                 }
             }
             
-            // Add status bar toggle to Window menu
-            CommandGroup(after: .windowSize) {
+            // Add status bar toggle in View menu
+            // TODO: improve when direct access to view menu exist.
+            CommandGroup(before: .toolbar) {
                 Divider()
                 
                 Button(showStatusBar ? "Hide Status Bar" : "Show Status Bar") {
