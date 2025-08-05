@@ -59,6 +59,12 @@ struct ContentView: View {
             }
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
+            .onReceive(driveService.$drives) { drives in
+                print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
+            }
+            .onReceive(driveService.$isScanning) { isScanning in
+                print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
+            }
             // END: MAIN CONTENT AREA
             
             // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)
