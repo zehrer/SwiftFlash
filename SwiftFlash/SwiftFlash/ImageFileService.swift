@@ -150,5 +150,47 @@ class ImageFileService: ObservableObject {
 
             return .unknown
         }
+        
+        static func detectPartitionScheme(fileURL: URL) -> PartitionScheme {
+            guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
+                print("❌ Cannot open file at \(fileURL.path)")
+                return .unknown
+            }
+            defer { try? handle.close() }
+
+            do {
+                // Read first 1024 bytes (MBR = 0, GPT Header = 512)
+                try handle.seek(toOffset: 0)
+                let data = try handle.read(upToCount: 1024) ?? Data()
+                guard data.count >= 1024 else {
+                    print("❌ Not enough data read from file.")
+                    return .unknown
+                }
+
+                let mbr = data[0..<512]
+                let gptHeader = data[512..<520] // 8 bytes starting from sector 1
+
+                // Check MBR signature (last two bytes = 0x55AA)
+                if mbr[510] == 0x55 && mbr[511] == 0xAA {
+                    // Check if first partition type is 0xEE (Protective MBR)
+                    if mbr[450] == 0xEE {
+                        return .gpt
+                    } else {
+                        return .mbr
+                    }
+                }
+
+                // Fallback: check GPT signature in sector 1
+                let gptSignature = String(bytes: gptHeader, encoding: .ascii)
+                if gptSignature == "EFI PART" {
+                    return .gpt
+                }
+
+            } catch {
+                print("❌ Error reading file: \(error)")
+            }
+
+            return .unknown
+        }
     }
 }

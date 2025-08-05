@@ -226,9 +226,9 @@ class DeviceInventory: ObservableObject {
             print("📚 [INVENTORY] Loaded \(devices.count) devices")
             
             // Debug: Show loaded devices
-            for (index, device) in devices.enumerated() {
-                print("   📱 [DEBUG] Device \(index + 1): \(device.originalName) (ID: \(device.mediaUUID))")
-            }
+//            for (index, device) in devices.enumerated() {
+//                print("   📱 [DEBUG] Device \(index + 1): \(device.originalName) (ID: \(device.mediaUUID))")
+//            }
         } catch {
             print("❌ [INVENTORY] Failed to load inventory: \(error)")
             devices = []

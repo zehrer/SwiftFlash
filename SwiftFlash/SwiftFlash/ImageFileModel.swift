@@ -42,6 +42,23 @@ struct ImageFile: Identifiable, Hashable {
         }
     }
     
+    /// Computed property to get partition scheme (MBR/GPT) for this image file
+    var partitionScheme: ImageFileService.PartitionScheme {
+        return ImageFileService.PartitionSchemeDetector.detectPartitionScheme(fileURL: URL(fileURLWithPath: path))
+    }
+    
+    /// Formatted partition scheme display string
+    var partitionSchemeDisplay: String {
+        switch partitionScheme {
+        case .mbr:
+            return "MBR (Master Boot Record)"
+        case .gpt:
+            return "GPT (GUID Partition Table)"
+        case .unknown:
+            return "Unknown"
+        }
+    }
+    
     /// Get a secure URL using bookmark data if available, otherwise fall back to path
     func getSecureURL() throws -> URL {
         if let bookmarkData = bookmarkData {

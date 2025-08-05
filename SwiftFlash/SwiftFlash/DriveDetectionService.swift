@@ -494,7 +494,7 @@ extension DriveDetectionService {
             return nil
         }
         
-        print("🔧 [DEBUG] Disk description keys available: \(Array(diskDescription.keys))")
+        //print("🔧 [DEBUG] Disk description keys available: \(Array(diskDescription.keys))")
         
         // Generate device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
         let deviceID = generateDeviceID(from: diskDescription)

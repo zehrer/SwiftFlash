@@ -64,6 +64,12 @@ struct ImageInspectorView: View {
                     value: image.checksumStatus
                 )
                 
+                // Partition Scheme
+                LabelAndText(
+                    label: "Partition Scheme",
+                    value: image.partitionSchemeDisplay
+                )
+                
                 // Full Checksum (if available)
                 if let checksum = image.sha256Checksum {
                     LabelAndText(
