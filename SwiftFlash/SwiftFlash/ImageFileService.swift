@@ -110,48 +110,50 @@ class ImageFileService: ObservableObject {
     
     class PartitionSchemeDetector {
         static func detectPartitionScheme(devicePath: String) -> PartitionScheme {
-            guard let handle = FileHandle(forReadingAtPath: devicePath) else {
-                print("❌ Cannot open device at \(devicePath)")
+            let fd = open(devicePath, O_RDONLY)
+            guard fd != -1 else {
+                perror("❌ Cannot open device")
                 return .unknown
             }
-            defer { try? handle.close() }
+            defer { close(fd) }
 
-            do {
-                // Read first 1024 bytes (MBR = 0, GPT Header = 512)
-                try handle.seek(toOffset: 0)
-                let data = try handle.read(upToCount: 1024) ?? Data()
-                guard data.count >= 1024 else {
-                    print("❌ Not enough data read.")
-                    return .unknown
-                }
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            let bytesRead = read(fd, &buffer, 1024)
+            guard bytesRead == 1024 else {
+                print("❌ Not enough data read from device.")
+                return .unknown
+            }
 
-                let mbr = data[0..<512]
-                let gptHeader = data[512..<520] // 8 bytes starting from sector 1
+            let mbr = buffer[0..<512]
+            let gptHeader = buffer[512..<520]
 
-                // Check MBR signature (last two bytes = 0x55AA)
-                if mbr[510] == 0x55 && mbr[511] == 0xAA {
-                    // Check if first partition type is 0xEE (Protective MBR)
-                    if mbr[450] == 0xEE {
-                        return .gpt
-                    } else {
-                        return .mbr
-                    }
-                }
-
-                // Fallback: check GPT signature in sector 1
-                let gptSignature = String(bytes: gptHeader, encoding: .ascii)
-                if gptSignature == "EFI PART" {
+            // Check MBR signature (last two bytes = 0x55AA)
+            if mbr[510] == 0x55 && mbr[511] == 0xAA {
+                // Check if first partition type is 0xEE (Protective MBR)
+                if mbr[450] == 0xEE {
                     return .gpt
+                } else {
+                    return .mbr
                 }
+            }
 
-            } catch {
-                print("❌ Error reading device: \(error)")
+            // Fallback: check GPT signature in sector 1
+            let gptSignatureData = Data(gptHeader)
+            if let gptSignature = String(data: gptSignatureData, encoding: .ascii),
+               gptSignature == "EFI PART" {
+                return .gpt
             }
 
             return .unknown
         }
         
         static func detectPartitionScheme(fileURL: URL) -> PartitionScheme {
+            guard fileURL.startAccessingSecurityScopedResource() else {
+                print("❌ Failed to access security-scoped resource: \(fileURL.path)")
+                return .unknown
+            }
+            defer { fileURL.stopAccessingSecurityScopedResource() }
+
             guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
                 print("❌ Cannot open file at \(fileURL.path)")
                 return .unknown

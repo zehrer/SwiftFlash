@@ -138,12 +138,8 @@ struct ContentView: View {
                                         imageService.selectedImage = updatedImage
                                         
                                         // Try to store in history, but don't fail if it doesn't work
-                                        do {
-                                            imageHistoryService.addToHistory(updatedImage)
-                                            print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
-                                        } catch {
-                                            print("⚠️ [DEBUG] Checksum generated but could not store in history: \(error)")
-                                        }
+                                        imageHistoryService.addToHistory(updatedImage)
+                                        print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
                                     } catch {
                                         print("❌ [DEBUG] Failed to generate checksum: \(error)")
                                         // Service already handles state management, no need to set failed state here

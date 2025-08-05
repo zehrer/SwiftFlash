@@ -264,6 +264,13 @@ extension DriveDetectionService {
         
         // Extract device information
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
+        
+        // Check if this is a main device (not a partition) BEFORE processing further
+        if !isMainDevicePath(devicePath: devicePath) {
+            print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
+            return nil
+        }
+        
         let originalName = getDeviceNameFromDiskArbitration(devicePath: devicePath) ?? getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
@@ -526,7 +533,7 @@ extension DriveDetectionService {
         let cleanRevision = deviceRevision.replacingOccurrences(of: " ", with: "_")
         
         let deviceID = "\(cleanVendor)_\(cleanRevision)_\(sizePrefix)"
-        print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize)")
+        //print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize)")
         
         return deviceID
     }
@@ -648,16 +655,13 @@ extension DriveDetectionService {
         return 0
     }
     
-    /// Checks if a device is a main device (not a partition)
-    private func isMainDevice(deviceInfo: DeviceInfo) -> Bool {
+    /// Checks if a device path represents a main device (not a partition)
+    private func isMainDevicePath(devicePath: String) -> Bool {
         // Check if the device path contains partition indicators
-        let devicePath = deviceInfo.devicePath
-        
-        // print("🔍 [DEBUG] Checking if device is main device: \(devicePath)")
+        // print("🔍 [DEBUG] Checking if device path is main device: \(devicePath)")
         
         // Check if it's a partition (ends with 's' followed by numbers)
         if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
-            print("❌ [DEBUG] Device \(devicePath) is a partition - excluding")
             return false
         }
         
@@ -666,19 +670,29 @@ extension DriveDetectionService {
         if components.count > 1 {
             // Check if the last component is a number (indicating a partition)
             if let lastComponent = components.last, Int(lastComponent) != nil {
-                //print("❌ [DEBUG] Device \(devicePath) is a slice/partition - excluding")
                 return false
             }
         }
         
         // Check if it's a nested partition (contains multiple 's' like disk3s1s1)
         if devicePath.components(separatedBy: "s").count > 2 {
-            print("❌ [DEBUG] Device \(devicePath) is a nested partition - excluding")
             return false
         }
         
-        print("✅ [DEBUG] Device \(devicePath) is a main device - including")
         return true
+    }
+    
+    /// Checks if a device is a main device (not a partition)
+    private func isMainDevice(deviceInfo: DeviceInfo) -> Bool {
+        let isMain = isMainDevicePath(devicePath: deviceInfo.devicePath)
+        
+        if isMain {
+            print("✅ [DEBUG] Device \(deviceInfo.devicePath) is a main device - including")
+        } else {
+            print("❌ [DEBUG] Device \(deviceInfo.devicePath) is a partition - excluding")
+        }
+        
+        return isMain
     }
     
     /// Gets the system boot device path to exclude it from the list

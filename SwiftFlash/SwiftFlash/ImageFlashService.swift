@@ -333,12 +333,8 @@ class ImageFlashService {
             updatedImage.sha256Checksum = checksum
             
             // Store in history
-            do {
-                imageHistoryService.addToHistory(updatedImage)
-                print("✅ [DEBUG] Updated image with checksum in history")
-            } catch {
-                print("⚠️ [DEBUG] Could not update image in history: \(error)")
-            }
+            imageHistoryService.addToHistory(updatedImage)
+            print("✅ [DEBUG] Updated image with checksum in history")
         }
         
         // Step 4: Perform the actual flash operation
@@ -585,9 +581,9 @@ class ImageFlashService {
             flashState = .calculatingChecksum(progress: progress)
             
             // Log progress every 5% for debugging
-            if Int(progress * 20) % 20 == 0 {
-                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
-            }
+//            if Int(progress * 20) % 20 == 0 {
+//                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
+//            }
             
             // Small delay to allow UI updates
             try await Task.sleep(nanoseconds: 1_000_000) // 1ms delay
@@ -633,15 +629,9 @@ class ImageFlashService {
         updatedImage.sha256Checksum = checksum
         
         // Try to update in history service, but don't fail if it doesn't work
-        do {
-            imageHistoryService.addToHistory(updatedImage)
-            print("✅ [DEBUG] Checksum stored in history successfully")
-        } catch {
-            print("⚠️ [DEBUG] Could not store checksum in history: \(error)")
-            print("   - Checksum calculated successfully: \(checksum.prefix(8))...")
-            print("   - Image updated with checksum, but not saved to history")
-        }
-        
+        imageHistoryService.addToHistory(updatedImage)
+        print("✅ [DEBUG] Checksum stored in history successfully")
+
         return updatedImage
     }
     

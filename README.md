@@ -177,3 +177,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **SwiftFlash** - Making disk flashing simple and safe on macOS.
+
+
+## TODO
+
+- IOMediaWhole for detaction of device vs partion
+- Store partion informationin DeviceInfo (List of partion info as far as avaible )
+- 
