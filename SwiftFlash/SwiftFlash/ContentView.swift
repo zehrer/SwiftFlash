@@ -406,6 +406,9 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, minHeight: 120)
                 .background(Color(.controlBackgroundColor))
                 .cornerRadius(8)
+                .onAppear {
+                    print("🔍 [DEBUG] UI: drives.isEmpty = true, drives count: \(driveService.drives.count)")
+                }
             } else {
                 VStack(spacing: 12) {
                     ForEach(driveService.drives) { drive in
@@ -421,6 +424,12 @@ struct ContentView: View {
                                     showCustomNameDialog = true
                                 }
                             }
+                    }
+                }
+                .onAppear {
+                    print("🔍 [DEBUG] UI: drives.isEmpty = false, drives count: \(driveService.drives.count)")
+                    for (index, drive) in driveService.drives.enumerated() {
+                        print("🔍 [DEBUG] UI: Drive \(index): \(drive.displayName)")
                     }
                 }
             }
