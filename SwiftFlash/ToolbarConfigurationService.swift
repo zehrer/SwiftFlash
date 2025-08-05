@@ -6,16 +6,11 @@ class ToolbarConfigurationService {
     private let userDefaults = UserDefaults.standard
     private let toolbarConfigurationKey = "toolbarConfiguration"
     
-    // Default toolbar configuration
+    // Default toolbar configuration - Only essential items
     var toolbarItems: [String] = [
         "refresh",
         "flexibleSpace",
         "flash",
-        "eject",
-        "checksum",
-        "tags",
-        "debug",
-        "about",
         "inspector"
     ]
     
@@ -38,11 +33,6 @@ class ToolbarConfigurationService {
             "refresh",
             "flexibleSpace",
             "flash",
-            "eject",
-            "checksum",
-            "tags",
-            "debug",
-            "about",
             "inspector"
         ]
         saveToolbarConfiguration()

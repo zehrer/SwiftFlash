@@ -40,8 +40,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             switch selectedTab {
                             case .general:
-                                //GeneralSettingsView()
-                                Text("TODO")
+                                GeneralSettingsView()
                             case .devices:
                                 DevicesSettingsView(
                                     inventory: inventory,
@@ -111,8 +110,80 @@ struct SettingsView: View {
 }
 
 struct GeneralSettingsView: View {
+    @State private var toolbarConfig = ToolbarConfigurationService()
+    
+    // Available toolbar items with descriptions
+    private let availableToolbarItems = [
+        ("refresh", "Refresh", "arrow.clockwise", "Refresh drive list"),
+        ("flash", "Flash", "bolt.fill", "Flash image to drive"),
+        ("inspector", "Inspector", "sidebar.right", "Toggle inspector panel"),
+        ("eject", "Eject", "eject.fill", "Eject selected drive"),
+        ("checksum", "Checksum", "checkmark.shield", "Generate SHA256 checksum"),
+        ("tags", "Tags", "tag", "Edit tags (coming soon)"),
+        ("debug", "Debug", "ladybug", "Debug information (special)"),
+        ("about", "About", "info.circle", "About SwiftFlash")
+    ]
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            // Toolbar Configuration Section
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Toolbar Configuration")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text("Customize which buttons appear in the main toolbar")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(availableToolbarItems, id: \.0) { item in
+                        let isEnabled = toolbarConfig.toolbarItems.contains(item.0)
+                        Toggle(isOn: Binding(
+                            get: { isEnabled },
+                            set: { newValue in
+                                if newValue {
+                                    toolbarConfig.addItem(item.0)
+                                } else {
+                                    if let index = toolbarConfig.toolbarItems.firstIndex(of: item.0) {
+                                        toolbarConfig.toolbarItems.remove(at: index)
+                                        toolbarConfig.saveToolbarConfiguration()
+                                    }
+                                }
+                            }
+                        )) {
+                            HStack {
+                                Image(systemName: item.2)
+                                    .foregroundColor(.blue)
+                                    .frame(width: 16)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.1)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Text(item.3)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                    }
+                }
+                
+                HStack {
+                    Button("Reset to Default") {
+                        toolbarConfig.resetToDefault()
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Spacer()
+                }
+                .padding(.top, 8)
+            }
+            
+            Divider()
+            
             // Appearance Section
             VStack(alignment: .leading, spacing: 12) {
                 Text("Appearance")
