@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		D48B80A32E3D181400AE3BB8 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
+
 		D49EB2442E36597F004B9F0A /* SwiftFlash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftFlash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -48,7 +48,6 @@
 		D49EB23B2E36597F004B9F0A = {
 			isa = PBXGroup;
 			children = (
-				D48B80A32E3D181400AE3BB8 /* README.md */,
 				D49EB2462E36597F004B9F0A /* SwiftFlash */,
 				D49EB2452E36597F004B9F0A /* Products */,
 			);
