@@ -54,6 +54,15 @@ struct ContentView: View {
                     imageFileSection
                     errorMessageSection
                     driveSelectionSection
+                    
+                    // Version info at bottom
+                    HStack {
+                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.top, 20)
                 }
                 .padding()
             }
