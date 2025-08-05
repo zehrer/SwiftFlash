@@ -45,7 +45,7 @@ struct SwiftFlashApp: App {
             }
             
             // Add View menu with status bar toggle
-            CommandGroup(after: .windowSize) {
+            CommandGroup(after: .viewMenu) {
                 Divider()
                 
                 Button(showStatusBar ? "Hide Status Bar" : "Show Status Bar") {
