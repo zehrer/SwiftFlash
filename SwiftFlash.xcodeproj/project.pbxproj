@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-
+		D47213772E424D98005F3821 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D49EB2442E36597F004B9F0A /* SwiftFlash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftFlash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -50,6 +50,7 @@
 			children = (
 				D49EB2462E36597F004B9F0A /* SwiftFlash */,
 				D49EB2452E36597F004B9F0A /* Products */,
+				D47213772E424D98005F3821 /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -294,7 +295,6 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = NV9LC295QZ;
 				ENABLE_APP_SANDBOX = YES;
@@ -345,7 +345,6 @@
 				"CODE_SIGN_IDENTITY[sdk=macosX*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = NV9LC295QZ;
 				ENABLE_APP_SANDBOX = YES;
