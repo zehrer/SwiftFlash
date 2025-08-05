@@ -24,6 +24,7 @@ struct Drive: Identifiable, Hashable {
     let vendor: String? // DADeviceVendor from Disk Arbitration
     let revision: String? // DADeviceRevision from Disk Arbitration
     var deviceType: DeviceType = .unknown // Device type for display and settings
+    var partitionScheme: ImageFileService.PartitionScheme = .unknown // Cached partition scheme
     
     var formattedSize: String {
         let formatter = ByteCountFormatter()
@@ -37,11 +38,6 @@ struct Drive: Identifiable, Hashable {
             return "Unknown Drive"
         }
         return name
-    }
-    
-    /// Computed property to get partition scheme (MBR/GPT) for this drive
-    var partitionScheme: ImageFileService.PartitionScheme {
-        return ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: mountPoint)
     }
     
     /// Formatted partition scheme display string

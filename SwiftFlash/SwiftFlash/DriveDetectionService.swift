@@ -162,7 +162,13 @@ class DriveDetectionService: ObservableObject {
                 revision: deviceInfo.revision,
                 deviceType: deviceType
             )
-            drives.append(drive)
+            
+            // Detect partition scheme once and cache it
+            var driveWithPartitionScheme = drive
+            driveWithPartitionScheme.partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: deviceInfo.devicePath)
+            print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
+            
+            drives.append(driveWithPartitionScheme)
         }
         
         print("🔍 [DEBUG] Drive detection complete. Found \(drives.count) external drives")
