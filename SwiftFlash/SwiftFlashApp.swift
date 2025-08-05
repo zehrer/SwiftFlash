@@ -45,9 +45,7 @@ struct SwiftFlashApp: App {
             }
             
             // Add View menu with status bar toggle
-            CommandGroup(after: .viewMenu) {
-                Divider()
-                
+            CommandMenu("View") {
                 Button(showStatusBar ? "Hide Status Bar" : "Show Status Bar") {
                     NotificationCenter.default.post(name: .toggleStatusBar, object: nil)
                 }
