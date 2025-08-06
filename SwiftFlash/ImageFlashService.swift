@@ -228,8 +228,16 @@ class ImageFlashService {
         }
     }
     
+    
+    
     private func getRawDevicePath(from mountPoint: String) -> String? {
-        print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
+        //print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
+        
+        // Safety check: reject volume mount points
+        if mountPoint.contains("/Volumes") {
+            print("❌ [DEBUG] Volume mount point detected - rejecting: \(mountPoint)")
+            return nil
+        }
         
         // Convert device path to raw device (e.g., /dev/disk4 → /dev/rdisk4)
         if mountPoint.hasPrefix("/dev/disk") {
