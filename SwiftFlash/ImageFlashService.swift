@@ -231,54 +231,14 @@ class ImageFlashService {
     private func getRawDevicePath(from mountPoint: String) -> String? {
         print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
         
-        // If the mount point is already a device path (e.g., /dev/disk4), convert to raw device
+        // Convert device path to raw device (e.g., /dev/disk4 → /dev/rdisk4)
         if mountPoint.hasPrefix("/dev/disk") {
             let rawDevicePath = mountPoint.replacingOccurrences(of: "/dev/disk", with: "/dev/rdisk")
             print("✅ [DEBUG] Converting device path to raw: \(mountPoint) → \(rawDevicePath)")
             return rawDevicePath
         }
         
-        // If it's a volume mount point (e.g., /Volumes/USB_DRIVE), we need to find the device
-        if mountPoint.hasPrefix("/Volumes/") {
-            print("🔍 [DEBUG] Mount point is a volume, need to find device...")
-            
-            // Use diskutil to find the device for this mount point
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-            process.arguments = ["info", mountPoint]
-            
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            
-            do {
-                try process.run()
-                process.waitUntilExit()
-                
-                if process.terminationStatus == 0 {
-                    let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                    
-                    // Parse the output to find the device identifier
-                    // Look for "Device / Media Name:" line
-                    let lines = output.components(separatedBy: .newlines)
-                    for line in lines {
-                        if line.contains("Device / Media Name:") {
-                            let parts = line.components(separatedBy: ":")
-                            if parts.count >= 2 {
-                                let deviceName = parts[1].trimmingCharacters(in: .whitespaces)
-                                let devicePath = "/dev/\(deviceName)"
-                                print("✅ [DEBUG] Found device path: \(devicePath)")
-                                return devicePath
-                            }
-                        }
-                    }
-                }
-            } catch {
-                print("❌ [DEBUG] Failed to get device info: \(error)")
-            }
-        }
-        
-        print("❌ [DEBUG] Could not determine raw device path for: \(mountPoint)")
+        print("❌ [DEBUG] Invalid device path format: \(mountPoint)")
         return nil
     }
     
