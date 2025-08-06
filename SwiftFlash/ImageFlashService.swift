@@ -249,9 +249,9 @@ class ImageFlashService {
         //print("   - Raw Device Path: \(rawDevicePath)")
         
         // Check sudo availability first and get its path
-        print("🔐 [DEBUG] Checking sudo availability...")
+        //print("🔐 [DEBUG] Checking sudo availability...")
         let sudoPath = try await checkSudoAvailability()
-        print("✅ [DEBUG] Sudo is available")
+        //print("✅ [DEBUG] Sudo is available")
         
         // Step 1: Check if device is mounted
         let isMounted = isDeviceMounted(deviceMountPoint)
@@ -320,14 +320,14 @@ class ImageFlashService {
     /// 
     /// - Parameter mountPoint: The mount point to unmount (e.g., `/dev/disk4`)
     /// - Throws: `FlashError.flashFailed` if the unmount operation fails
-    /// - Note: This method uses `diskutil unmount` which is the standard macOS way to unmount devices
+    /// - Note: This method uses `diskutil unmountDisk` which handles both mounted volumes and devices with partitioning schemes
     private func unmountDevice(_ mountPoint: String) async throws {
         print("   - Unmounting: \(mountPoint)")
         
-        // Use diskutil to unmount the device
+        // Use diskutil unmountDisk to handle both mounted volumes and devices with partitioning schemes
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["unmount", mountPoint]
+        process.arguments = ["unmountDisk", mountPoint]
         
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -608,7 +608,7 @@ class ImageFlashService {
                 let sudoPath = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 if !sudoPath.isEmpty {
-                    print("✅ [DEBUG] Sudo found at: \(sudoPath)")
+                    //print("✅ [DEBUG] Sudo found at: \(sudoPath)")
                     return sudoPath
                 }
             }

@@ -213,3 +213,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
     - AI support to search for images (MacOS 26)
 - write Unit tests and HMI test cases :)
 - change build number based on tagged releases (git describe --tags --long)
+- move SUDO check to App startup
