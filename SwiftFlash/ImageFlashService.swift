@@ -297,6 +297,11 @@ class ImageFlashService {
         print("   - Device: \(device.displayName) (\(device.formattedSize))")
         print("   - Device Path: \(device.mountPoint)")
         
+        // Check sudo availability first
+        print("🔐 [DEBUG] Checking sudo availability...")
+        try await checkSudoAvailability()
+        print("✅ [DEBUG] Sudo is available")
+        
         // Get raw device path
         guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
             throw FlashError.flashFailed("Could not determine raw device path")
@@ -422,68 +427,191 @@ class ImageFlashService {
     }
     
     private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
-        print("   - Writing \(image.formattedSize) to \(devicePath)")
+        print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
         
-        // Read the image file
-        let imageData = try Data(contentsOf: URL(fileURLWithPath: image.path))
-        print("   - Image size: \(imageData.count) bytes")
-        
-        // Write the image to the device
-        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
-        defer { try? fileHandle.close() }
-        
-        // Write in chunks to show progress
-        let chunkSize = 1024 * 1024 // 1MB chunks
-        var bytesWritten = 0
-        
-        for progress in stride(from: 0.0, through: 1.0, by: 0.1) {
-            flashState = .flashing(progress: progress)
-            
-            // Calculate bytes for this chunk
-            let startByte = Int(progress * Double(imageData.count))
-            let endByte = min(startByte + chunkSize, imageData.count)
-            let chunk = imageData[startByte..<endByte]
-            
-            // Write chunk
-            try fileHandle.write(contentsOf: chunk)
-            bytesWritten += chunk.count
-            
-            print("📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(bytesWritten) bytes written)")
-            
-            // Small delay to show progress
-            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        // Get secure URL for the image file
+        let imageURL = try image.getSecureURL()
+        guard imageURL.startAccessingSecurityScopedResource() else {
+            throw FlashError.flashFailed("Cannot access image file")
         }
+        defer { imageURL.stopAccessingSecurityScopedResource() }
         
-        // Ensure all data is written
-        try fileHandle.synchronize()
-        print("   - Write completed: \(bytesWritten) bytes")
+        // Create dd command with sudo
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        process.arguments = [
+            "/bin/dd",
+            "if=\(imageURL.path)",
+            "of=\(devicePath)",
+            "bs=1m",
+            "status=progress"
+        ]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        print("   - Executing: sudo dd if=\(imageURL.path) of=\(devicePath) bs=1m status=progress")
+        
+        // Start the process
+        do {
+            try process.run()
+            
+            // Monitor progress from dd output
+            let fileHandle = pipe.fileHandleForReading
+            let totalBytes = image.size
+            var lastProgressUpdate = Date()
+            
+            while process.isRunning && !isCancelled {
+                // Read available output
+                let data = fileHandle.availableData
+                if !data.isEmpty {
+                    let output = String(data: data, encoding: .utf8) ?? ""
+                    
+                    // Parse dd progress output (format: "1234567+0 records in/out")
+                    if let progressMatch = output.range(of: #"(\d+)\+0 records out"#, options: .regularExpression) {
+                        let progressString = String(output[progressMatch])
+                        if let recordsOut = progressString.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap({ Int($0) }).first {
+                            // dd uses 1MB blocks by default with bs=1m
+                            let bytesWritten = UInt64(recordsOut) * 1024 * 1024
+                            let progress = min(Double(bytesWritten) / Double(totalBytes), 1.0)
+                            
+                            // Update progress every 0.5 seconds to avoid UI spam
+                            if Date().timeIntervalSince(lastProgressUpdate) >= 0.5 {
+                                await MainActor.run {
+                                    flashState = .flashing(progress: progress)
+                                }
+                                lastProgressUpdate = Date()
+                                
+                                print("📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(ByteCountFormatter.string(fromByteCount: Int64(bytesWritten), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)))")
+                            }
+                        }
+                    }
+                }
+                
+                // Small delay to avoid busy waiting
+                try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            }
+            
+            // Wait for process to complete
+            process.waitUntilExit()
+            
+            if isCancelled {
+                // Try to terminate dd process
+                process.terminate()
+                throw FlashError.flashFailed("Flash operation was cancelled")
+            }
+            
+            if process.terminationStatus != 0 {
+                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
+                throw FlashError.flashFailed("dd command failed (exit code: \(process.terminationStatus)): \(output)")
+            }
+            
+            // Final progress update
+            await MainActor.run {
+                flashState = .flashing(progress: 1.0)
+            }
+            
+            print("   - dd command completed successfully")
+            
+        } catch {
+            throw FlashError.flashFailed("Failed to execute dd command: \(error.localizedDescription)")
+        }
     }
     
     private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
-        print("   - Verifying flash operation...")
+        print("   - Verifying flash operation using dd...")
         
-        // Read the first 1KB from both image and device for verification
-        let verificationSize = 1024
+        // Create temporary files for comparison
+        let tempDir = FileManager.default.temporaryDirectory
+        let imageSamplePath = tempDir.appendingPathComponent("image_sample.bin")
+        let deviceSamplePath = tempDir.appendingPathComponent("device_sample.bin")
         
-        // Read from image
-        let imageHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: image.path))
-        defer { try? imageHandle.close() }
-        let imageData = try imageHandle.read(upToCount: verificationSize) ?? Data()
+        // Get secure URL for the image file
+        let imageURL = try image.getSecureURL()
+        guard imageURL.startAccessingSecurityScopedResource() else {
+            throw FlashError.flashFailed("Cannot access image file for verification")
+        }
+        defer { imageURL.stopAccessingSecurityScopedResource() }
         
-        // Read from device
-        let deviceHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
-        defer { try? deviceHandle.close() }
-        let deviceData = try deviceHandle.read(upToCount: verificationSize) ?? Data()
+        // Extract first 1MB from image using dd
+        let imageProcess = Process()
+        imageProcess.executableURL = URL(fileURLWithPath: "/bin/dd")
+        imageProcess.arguments = [
+            "if=\(imageURL.path)",
+            "of=\(imageSamplePath.path)",
+            "bs=1m",
+            "count=1"
+        ]
+        
+        do {
+            try imageProcess.run()
+            imageProcess.waitUntilExit()
+            
+            if imageProcess.terminationStatus != 0 {
+                throw FlashError.flashFailed("Failed to extract image sample for verification")
+            }
+        } catch {
+            throw FlashError.flashFailed("Failed to execute dd for image verification: \(error.localizedDescription)")
+        }
+        
+        // Extract first 1MB from device using dd with sudo
+        let deviceProcess = Process()
+        deviceProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        deviceProcess.arguments = [
+            "/bin/dd",
+            "if=\(devicePath)",
+            "of=\(deviceSamplePath.path)",
+            "bs=1m",
+            "count=1"
+        ]
+        
+        do {
+            try deviceProcess.run()
+            deviceProcess.waitUntilExit()
+            
+            if deviceProcess.terminationStatus != 0 {
+                throw FlashError.flashFailed("Failed to extract device sample for verification")
+            }
+        } catch {
+            throw FlashError.flashFailed("Failed to execute dd for device verification: \(error.localizedDescription)")
+        }
+        
+        // Compare the files
+        let imageData = try Data(contentsOf: imageSamplePath)
+        let deviceData = try Data(contentsOf: deviceSamplePath)
+        
+        // Clean up temporary files
+        try? FileManager.default.removeItem(at: imageSamplePath)
+        try? FileManager.default.removeItem(at: deviceSamplePath)
         
         // Compare
         if imageData != deviceData {
-            throw FlashError.flashFailed("Flash verification failed - data mismatch")
+            throw FlashError.flashFailed("Flash verification failed - data mismatch in first 1MB")
         }
         
         print("   - Verification successful")
     }
     
     // MARK: - Utility Methods
+    
+    /// Check if sudo is available and user has sudo privileges
+    private func checkSudoAvailability() async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        process.arguments = ["-n", "true"]
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus != 0 {
+                throw FlashError.insufficientPermissions
+            }
+        } catch {
+            throw FlashError.insufficientPermissions
+        }
+    }
     
     func getDeviceInfo(_ device: Drive) -> String {
         return """
