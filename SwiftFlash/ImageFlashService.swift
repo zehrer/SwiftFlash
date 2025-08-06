@@ -84,15 +84,15 @@ class ImageFlashService {
             throw FlashError.deviceBusy
         }
         
-        // Validate preconditions and get raw device path
-        let rawDevicePath = try validateFlashPreconditions(image: image, device: device)
+        // Validate preconditions
+        try validateFlashPreconditions(image: image, device: device)
         
         isFlashing = true
         flashState = .preparing
         
         do {
             // Perform flash process with progress updates
-            try await performFlash(image: image, deviceMountPoint: device.mountPoint, rawDevicePath: rawDevicePath)
+            try await performFlash(image: image, deviceMountPoint: device.mountPoint)
             flashState = .completed
         } catch {
             let flashError = error as? FlashError ?? .flashFailed("\(error)")
@@ -134,14 +134,13 @@ class ImageFlashService {
     /// - Image file existence
     /// - Device read-only status
     /// - Image size compatibility with device
-    /// - Raw device path validation
+    /// - Device mount point validation
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to validate
     ///   - device: The target `Drive` to validate
-    /// - Returns: The validated raw device path (e.g., `/dev/rdisk4`)
     /// - Throws: `FlashError` for any validation failure
-    private func validateFlashPreconditions(image: ImageFile, device: Drive) throws -> String {
+    private func validateFlashPreconditions(image: ImageFile, device: Drive) throws {
         
         // Check if device exists and is accessible
         guard FileManager.default.fileExists(atPath: device.mountPoint) else {
@@ -170,22 +169,20 @@ class ImageFlashService {
             throw FlashError.imageTooLarge
         }
         
-        // Get and validate raw device path
-        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
-            print("❌ [DEBUG] Validation failed: Could not determine raw device path")
+        // Validate device mount point format
+        guard !device.mountPoint.contains("/Volumes") else {
+            print("❌ [DEBUG] Validation failed: Volume mount points are not supported for flashing")
             throw FlashError.deviceNotFound
         }
         
-        // Check if raw device exists
-        guard FileManager.default.fileExists(atPath: rawDevicePath) else {
-            print("❌ [DEBUG] Validation failed: Raw device path does not exist: \(rawDevicePath)")
+        // Check if device mount point exists
+        guard FileManager.default.fileExists(atPath: device.mountPoint) else {
+            print("❌ [DEBUG] Validation failed: Device mount point does not exist: \(device.mountPoint)")
             throw FlashError.deviceNotFound
         }
         
-        print("✅ [DEBUG] Raw device path validated: \(rawDevicePath)")
+        print("✅ [DEBUG] Device mount point validated: \(device.mountPoint)")
         print("✅ [DEBUG] All flash preconditions validated successfully")
-        
-        return rawDevicePath
     }
     
     
@@ -235,6 +232,7 @@ class ImageFlashService {
     /// Performs the complete flash operation with all necessary steps.
     /// 
     /// This method orchestrates the entire flash process:
+    /// - Converts device mount point to raw device path
     /// - Sudo availability verification
     /// - Device mount state management (unmount/remount as needed)
     /// - Image checksum calculation or verification
@@ -243,14 +241,18 @@ class ImageFlashService {
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to flash
-    ///   - deviceMountPoint: The device mount point for mount/unmount operations
-    ///   - rawDevicePath: The raw device path for the actual flash operation
+    ///   - deviceMountPoint: The device mount point (e.g., `/dev/disk4` or `/Volumes/USB_DRIVE`)
     /// - Throws: `FlashError` for any operation failure
     /// - Note: This method requires sudo privileges and handles device mounting automatically
-    private func performFlash(image: ImageFile, deviceMountPoint: String, rawDevicePath: String) async throws {
+    private func performFlash(image: ImageFile, deviceMountPoint: String) async throws {
         print("🚀 [DEBUG] Starting flash process")
         print("   - Image: \(image.displayName) (\(image.formattedSize))")
         print("   - Device Mount Point: \(deviceMountPoint)")
+        
+        // Get raw device path for flash operations
+        guard let rawDevicePath = getRawDevicePath(from: deviceMountPoint) else {
+            throw FlashError.flashFailed("Could not determine raw device path for: \(deviceMountPoint)")
+        }
         print("   - Raw Device Path: \(rawDevicePath)")
         
         // Check sudo availability first
@@ -579,29 +581,6 @@ class ImageFlashService {
         print("   - Verification successful")
     }
     
-    //    private func readBytesFromDevice(_ devicePath: String, offset: UInt64, length: Int) throws -> Data {
-    //        let fileHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
-    //        defer { try? fileHandle.close() }
-    //
-    //        try fileHandle.seek(toOffset: offset)
-    //        let data = try fileHandle.read(upToCount: length) ?? Data()
-    //
-    //        if data.count != length {
-    //            throw FlashError.flashFailed("Read incomplete: expected \(length) bytes, got \(data.count)")
-    //        }
-    //
-    //        return data
-    //    }
-        
-    //    private func writeBytesToDevice(_ devicePath: String, data: Data, offset: UInt64) throws {
-    //        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
-    //        defer { try? fileHandle.close() }
-    //
-    //        try fileHandle.seek(toOffset: offset)
-    //        try fileHandle.write(contentsOf: data)
-    //        try fileHandle.synchronize() // Ensure data is written to device
-    //    }
-    
     // MARK: - Utility Methods
     
     /// Checks if sudo is available and the user has sudo privileges.
@@ -629,34 +608,6 @@ class ImageFlashService {
             throw FlashError.insufficientPermissions
         }
     }
-    
-    /// Returns a formatted string containing device information for display purposes.
-    /// 
-    /// - Parameter device: The `Drive` to get information for
-    /// - Returns: A formatted string with device details including name, size, mount point, and properties
-    func getDeviceInfo(_ device: Drive) -> String {
-        return """
-        Device: \(device.displayName)
-        Size: \(device.formattedSize)
-        Mount Point: \(device.mountPoint)
-        Read Only: \(device.isReadOnly ? "Yes" : "No")
-        Removable: \(device.isRemovable ? "Yes" : "No")
-        """
-    }
-    
-    /// Returns a formatted string containing image information for display purposes.
-    /// 
-    /// - Parameter image: The `ImageFile` to get information for
-    /// - Returns: A formatted string with image details including name, size, type, path, and checksum status
-//    func getImageInfo(_ image: ImageFile) -> String {
-//        return """
-//        Image: \(image.displayName)
-//        Size: \(image.formattedSize)
-//        Type: \(image.fileType.displayName)
-//        Path: \(image.path)
-//        Checksum: \(image.checksumStatus)
-//        """
-//    }
     
     // MARK: - SHA256 Checksum Methods
     
