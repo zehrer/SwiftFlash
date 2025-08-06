@@ -69,15 +69,15 @@ class ImageFlashService {
             throw FlashError.deviceBusy
         }
         
-        // Validate preconditions
-        try validateFlashPreconditions(image: image, device: device)
+        // Validate preconditions and get raw device path
+        let rawDevicePath = try validateFlashPreconditions(image: image, device: device)
         
         isFlashing = true
         flashState = .preparing
         
         do {
-            // Simulate flash process with progress updates
-            try await performFlash(image: image, device: device)
+            // Perform flash process with progress updates
+            try await performFlash(image: image, device: device, rawDevicePath: rawDevicePath)
             flashState = .completed
         } catch {
             let flashError = error as? FlashError ?? .flashFailed("\(error)")
@@ -103,32 +103,26 @@ class ImageFlashService {
     
     // MARK: - Private Methods
     
-    private func validateFlashPreconditions(image: ImageFile, device: Drive) throws {
-        print("🔍 [DEBUG] Validating flash preconditions")
-        print("   - Image: \(image.displayName) (\(image.formattedSize))")
-        print("   - Device: \(device.displayName) (\(device.formattedSize))")
-        print("   - Device Path: \(device.mountPoint)")
+    private func validateFlashPreconditions(image: ImageFile, device: Drive) throws -> String {
         
         // Check if device exists and is accessible
         guard FileManager.default.fileExists(atPath: device.mountPoint) else {
             print("❌ [DEBUG] Validation failed: Device mount point not found")
             throw FlashError.deviceNotFound
         }
-        print("✅ [DEBUG] Device mount point exists")
         
         // Check if image file exists
         guard FileManager.default.fileExists(atPath: image.path) else {
             print("❌ [DEBUG] Validation failed: Image file not found")
             throw FlashError.imageNotFound
         }
-        print("✅ [DEBUG] Image file exists")
         
+        // TODO: to analyse which failure modes is covered here
         // Check if device is read-only
         guard !device.isReadOnly else {
             print("❌ [DEBUG] Validation failed: Device is read-only")
             throw FlashError.deviceReadOnly
         }
-        print("✅ [DEBUG] Device is not read-only")
         
         // Check if image fits on device
         guard image.size < device.size else {
@@ -137,96 +131,27 @@ class ImageFlashService {
             print("   - Device size: \(device.formattedSize) (\(device.size) bytes)")
             throw FlashError.imageTooLarge
         }
-        print("✅ [DEBUG] Image fits on device")
         
-        // Check if device is mounted and writable
-        print("🔍 [DEBUG] Checking device writability...")
-        guard testRawDeviceAccess(device) else {
-            print("❌ [DEBUG] Validation failed: Insufficient permissions")
-            throw FlashError.insufficientPermissions
-        }
-        print("✅ [DEBUG] Device is writable")
-        
-        print("✅ [DEBUG] All flash preconditions validated successfully")
-    }
-    
-    
-    private func testRawDeviceAccess(_ device: Drive) -> Bool {
-        print("🧪 [DEBUG] Testing raw device access...")
-        
-        // Get the raw device path (e.g., /dev/disk4 instead of /Volumes/USB_DRIVE)
+        // Get and validate raw device path
         guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
-            print("❌ [DEBUG] Could not determine raw device path for: \(device.mountPoint)")
-            return false
+            print("❌ [DEBUG] Validation failed: Could not determine raw device path")
+            throw FlashError.deviceNotFound
         }
         
-        print("   - Raw Device Path: \(rawDevicePath)")
-        
-        // Test data (10 bytes from a typical image header)
-        let testBytes: [UInt8] = [0x55, 0xAA, 0x90, 0xEB, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00]
-        let testData = Data(testBytes)
-        
-        do {
-            // Step 1: Read original 10 bytes from device
-            print("📖 [DEBUG] Reading original 10 bytes from device...")
-            let originalBytes = try readBytesFromDevice(rawDevicePath, offset: 0, length: 10)
-            print("✅ [DEBUG] Successfully read original bytes: \(originalBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
-            
-            // Step 2: Write test bytes to device
-            print("✏️ [DEBUG] Writing test bytes to device...")
-            try writeBytesToDevice(rawDevicePath, data: testData, offset: 0)
-            print("✅ [DEBUG] Successfully wrote test bytes")
-            
-            // Step 3: Read back and verify
-            print("🔍 [DEBUG] Reading back bytes for verification...")
-            let readBackBytes = try readBytesFromDevice(rawDevicePath, offset: 0, length: 10)
-            print("   - Written: \(testData.map { String(format: "%02X", $0) }.joined(separator: " "))")
-            print("   - Read back: \(readBackBytes.map { String(format: "%02X", $0) }.joined(separator: " "))")
-            
-            // Step 4: Verify bytes match
-            let bytesMatch = testData == readBackBytes
-            print("✅ [DEBUG] Byte verification: \(bytesMatch ? "SUCCESS" : "FAILED")")
-            
-            // Step 5: Restore original bytes
-            print("🔄 [DEBUG] Restoring original bytes...")
-            try writeBytesToDevice(rawDevicePath, data: originalBytes, offset: 0)
-            print("✅ [DEBUG] Successfully restored original bytes")
-            
-            if bytesMatch {
-                print("✅ [DEBUG] Raw device access test PASSED - device is writable")
-                return true
-            } else {
-                print("❌ [DEBUG] Raw device access test FAILED - bytes don't match")
-                return false
-            }
-            
-        } catch {
-            let nsError = error as NSError
-            print("❌ [DEBUG] Raw device access test failed")
-            print("   - Error: \(error.localizedDescription)")
-            print("   - Error Domain: \(nsError.domain)")
-            print("   - Error Code: \(nsError.code)")
-            print("   - Error User Info: \(nsError.userInfo)")
-            
-            // Log specific error codes for device access issues
-            switch nsError.code {
-            case 1: // Operation not permitted
-                print("   - Likely cause: Operation not permitted (EACCES) - need elevated privileges")
-            case 13: // Permission denied
-                print("   - Likely cause: Permission denied (EACCES) - device access restricted")
-            case 16: // Device or resource busy
-                print("   - Likely cause: Device or resource busy (EBUSY) - device in use")
-            case 30: // Read-only file system
-                print("   - Likely cause: Read-only file system (EROFS) - device mounted read-only")
-            case 2: // No such file or directory
-                print("   - Likely cause: No such file or directory (ENOENT) - device not found")
-            default:
-                print("   - Unknown error code: \(nsError.code)")
-            }
-            
-            return false
+        // Check if raw device exists
+        guard FileManager.default.fileExists(atPath: rawDevicePath) else {
+            print("❌ [DEBUG] Validation failed: Raw device path does not exist: \(rawDevicePath)")
+            throw FlashError.deviceNotFound
         }
+        
+        print("✅ [DEBUG] Raw device path validated: \(rawDevicePath)")
+        print("✅ [DEBUG] All flash preconditions validated successfully")
+        
+        return rawDevicePath
     }
+    
+    
+
     
     
     
@@ -280,23 +205,17 @@ class ImageFlashService {
         try fileHandle.synchronize() // Ensure data is written to device
     }
     
-    private func performFlash(image: ImageFile, device: Drive) async throws {
+    private func performFlash(image: ImageFile, device: Drive, rawDevicePath: String) async throws {
         print("🚀 [DEBUG] Starting flash process")
         print("   - Image: \(image.displayName) (\(image.formattedSize))")
         print("   - Device: \(device.displayName) (\(device.formattedSize))")
         print("   - Device Path: \(device.mountPoint)")
+        print("   - Raw Device Path: \(rawDevicePath)")
         
         // Check sudo availability first
         print("🔐 [DEBUG] Checking sudo availability...")
         try await checkSudoAvailability()
         print("✅ [DEBUG] Sudo is available")
-        
-        // Get raw device path
-        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
-            throw FlashError.flashFailed("Could not determine raw device path")
-        }
-        
-        print("   - Raw Device Path: \(rawDevicePath)")
         
         // Step 1: Check if device is mounted
         let isMounted = isDeviceMounted(device)
