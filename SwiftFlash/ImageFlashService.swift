@@ -64,6 +64,21 @@ class ImageFlashService {
     
     // MARK: - Public Methods
     
+    /// Flashes an image file to a target device with comprehensive validation and progress tracking.
+    /// 
+    /// This method performs the complete flash operation including:
+    /// - Precondition validation (device accessibility, image compatibility, etc.)
+    /// - Checksum calculation/verification
+    /// - Device unmounting/mounting as needed
+    /// - Image writing using `dd` with sudo privileges
+    /// - Flash verification
+    /// - Progress state management
+    ///
+    /// - Parameters:
+    ///   - image: The `ImageFile` to flash to the device
+    ///   - device: The target `Drive` to flash the image to
+    /// - Throws: `FlashError` for various failure conditions (device not found, insufficient permissions, etc.)
+    /// - Note: This method requires sudo privileges for the actual flash operation
     func flashImage(_ image: ImageFile, to device: Drive) async throws {
         guard !isFlashing else {
             throw FlashError.deviceBusy
@@ -89,12 +104,21 @@ class ImageFlashService {
         isFlashing = false
     }
     
+    /// Resets the flash service state to idle, clearing all flags and state variables.
+    /// 
+    /// This method should be called to prepare the service for a new flash operation
+    /// or to clear any previous operation state.
     func resetState() {
         flashState = .idle
         isFlashing = false
         isCancelled = false
     }
     
+    /// Cancels the current flash operation by setting the cancellation flag.
+    /// 
+    /// The actual cancellation is handled gracefully by the running operation
+    /// which will check this flag and stop at appropriate points.
+    /// The state will be reset when the operation completes.
     func cancel() {
         isCancelled = true
         // Don't reset state immediately - let the operation check the flag and handle cancellation
@@ -103,6 +127,20 @@ class ImageFlashService {
     
     // MARK: - Private Methods
     
+    /// Validates all preconditions required for a successful flash operation.
+    /// 
+    /// This method performs comprehensive validation including:
+    /// - Device existence and accessibility
+    /// - Image file existence
+    /// - Device read-only status
+    /// - Image size compatibility with device
+    /// - Raw device path validation
+    ///
+    /// - Parameters:
+    ///   - image: The `ImageFile` to validate
+    ///   - device: The target `Drive` to validate
+    /// - Returns: The validated raw device path (e.g., `/dev/rdisk4`)
+    /// - Throws: `FlashError` for any validation failure
     private func validateFlashPreconditions(image: ImageFile, device: Drive) throws -> String {
         
         // Check if device exists and is accessible
@@ -155,6 +193,16 @@ class ImageFlashService {
     
     
     
+    /// Converts a device mount point to its corresponding raw device path.
+    /// 
+    /// This method performs safety checks and path conversion:
+    /// - Rejects volume mount points (e.g., `/Volumes/USB_DRIVE`)
+    /// - Rejects partition paths (e.g., `/dev/disk4s1`)
+    /// - Converts device paths to raw device paths (e.g., `/dev/disk4` → `/dev/rdisk4`)
+    ///
+    /// - Parameter mountPoint: The device mount point or path to convert
+    /// - Returns: The raw device path if valid, `nil` if the path is invalid or unsafe
+    /// - Note: Raw device paths are required for direct device access operations
     private func getRawDevicePath(from mountPoint: String) -> String? {
         //print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
         
@@ -182,29 +230,23 @@ class ImageFlashService {
         return nil
     }
     
-    private func readBytesFromDevice(_ devicePath: String, offset: UInt64, length: Int) throws -> Data {
-        let fileHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
-        defer { try? fileHandle.close() }
-        
-        try fileHandle.seek(toOffset: offset)
-        let data = try fileHandle.read(upToCount: length) ?? Data()
-        
-        if data.count != length {
-            throw FlashError.flashFailed("Read incomplete: expected \(length) bytes, got \(data.count)")
-        }
-        
-        return data
-    }
+
     
-    private func writeBytesToDevice(_ devicePath: String, data: Data, offset: UInt64) throws {
-        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
-        defer { try? fileHandle.close() }
-        
-        try fileHandle.seek(toOffset: offset)
-        try fileHandle.write(contentsOf: data)
-        try fileHandle.synchronize() // Ensure data is written to device
-    }
-    
+    /// Performs the complete flash operation with all necessary steps.
+    /// 
+    /// This method orchestrates the entire flash process:
+    /// - Sudo availability verification
+    /// - Device mount state management (unmount/remount as needed)
+    /// - Image checksum calculation or verification
+    /// - Image writing using `dd` with progress tracking
+    /// - Flash verification
+    ///
+    /// - Parameters:
+    ///   - image: The `ImageFile` to flash
+    ///   - deviceMountPoint: The device mount point for mount/unmount operations
+    ///   - rawDevicePath: The raw device path for the actual flash operation
+    /// - Throws: `FlashError` for any operation failure
+    /// - Note: This method requires sudo privileges and handles device mounting automatically
     private func performFlash(image: ImageFile, deviceMountPoint: String, rawDevicePath: String) async throws {
         print("🚀 [DEBUG] Starting flash process")
         print("   - Image: \(image.displayName) (\(image.formattedSize))")
@@ -269,11 +311,21 @@ class ImageFlashService {
         print("✅ [DEBUG] Flash completed successfully")
     }
     
+    /// Checks if a device is currently mounted by verifying the mount point exists.
+    /// 
+    /// - Parameter mountPoint: The mount point path to check (e.g., `/dev/disk4`)
+    /// - Returns: `true` if the device is mounted and accessible, `false` otherwise
+    /// - Note: This is a simple file existence check and doesn't verify mount status
     private func isDeviceMounted(_ mountPoint: String) -> Bool {
         // Check if the mount point exists and is accessible
         return FileManager.default.fileExists(atPath: mountPoint)
     }
     
+    /// Unmounts a device using the `diskutil` command-line tool.
+    /// 
+    /// - Parameter mountPoint: The mount point to unmount (e.g., `/dev/disk4`)
+    /// - Throws: `FlashError.flashFailed` if the unmount operation fails
+    /// - Note: This method uses `diskutil unmount` which is the standard macOS way to unmount devices
     private func unmountDevice(_ mountPoint: String) async throws {
         print("   - Unmounting: \(mountPoint)")
         
@@ -301,6 +353,11 @@ class ImageFlashService {
         }
     }
     
+    /// Mounts a device using the `diskutil` command-line tool.
+    /// 
+    /// - Parameter rawDevicePath: The raw device path to mount (e.g., `/dev/rdisk4`)
+    /// - Throws: `FlashError.flashFailed` if the mount operation fails
+    /// - Note: This method uses `diskutil mount` which is the standard macOS way to mount devices
     private func mountDevice(_ rawDevicePath: String) async throws {
         print("   - Mounting: \(rawDevicePath)")
         
@@ -328,6 +385,20 @@ class ImageFlashService {
         }
     }
     
+    /// Writes an image file to a device using the `dd` command with sudo privileges.
+    /// 
+    /// This method handles the core flash operation:
+    /// - Secures access to the image file using security-scoped bookmarks
+    /// - Executes `dd` with sudo for raw device access
+    /// - Monitors progress by parsing `dd` output
+    /// - Updates the flash state with progress information
+    /// - Handles cancellation gracefully
+    ///
+    /// - Parameters:
+    ///   - image: The `ImageFile` to write to the device
+    ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
+    /// - Throws: `FlashError.flashFailed` if the write operation fails
+    /// - Note: This method requires sudo privileges and uses 1MB block size for optimal performance
     private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
         print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
         
@@ -421,6 +492,19 @@ class ImageFlashService {
         }
     }
     
+    /// Verifies that the flash operation was successful by comparing samples from the image and device.
+    /// 
+    /// This method performs verification by:
+    /// - Extracting the first 1MB from both the original image and the flashed device
+    /// - Comparing the samples to ensure they match
+    /// - Using `dd` commands for both extraction operations
+    /// - Cleaning up temporary files after verification
+    ///
+    /// - Parameters:
+    ///   - image: The original `ImageFile` to compare against
+    ///   - devicePath: The raw device path to verify (e.g., `/dev/rdisk4`)
+    /// - Throws: `FlashError.flashFailed` if verification fails or samples don't match
+    /// - Note: This method requires sudo privileges for device access and creates temporary files
     private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
         print("   - Verifying flash operation using dd...")
         
@@ -495,9 +579,40 @@ class ImageFlashService {
         print("   - Verification successful")
     }
     
+    //    private func readBytesFromDevice(_ devicePath: String, offset: UInt64, length: Int) throws -> Data {
+    //        let fileHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: devicePath))
+    //        defer { try? fileHandle.close() }
+    //
+    //        try fileHandle.seek(toOffset: offset)
+    //        let data = try fileHandle.read(upToCount: length) ?? Data()
+    //
+    //        if data.count != length {
+    //            throw FlashError.flashFailed("Read incomplete: expected \(length) bytes, got \(data.count)")
+    //        }
+    //
+    //        return data
+    //    }
+        
+    //    private func writeBytesToDevice(_ devicePath: String, data: Data, offset: UInt64) throws {
+    //        let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: devicePath))
+    //        defer { try? fileHandle.close() }
+    //
+    //        try fileHandle.seek(toOffset: offset)
+    //        try fileHandle.write(contentsOf: data)
+    //        try fileHandle.synchronize() // Ensure data is written to device
+    //    }
+    
     // MARK: - Utility Methods
     
-    /// Check if sudo is available and user has sudo privileges
+    /// Checks if sudo is available and the user has sudo privileges.
+    /// 
+    /// This method tests sudo availability by running `sudo -n true` which:
+    /// - Tests if sudo is available without requiring a password prompt
+    /// - Verifies that the user has sudo privileges configured
+    /// - Fails if sudo is not available or user lacks privileges
+    ///
+    /// - Throws: `FlashError.insufficientPermissions` if sudo is not available or user lacks privileges
+    /// - Note: This check is performed before any flash operations that require sudo
     private func checkSudoAvailability() async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
@@ -515,6 +630,10 @@ class ImageFlashService {
         }
     }
     
+    /// Returns a formatted string containing device information for display purposes.
+    /// 
+    /// - Parameter device: The `Drive` to get information for
+    /// - Returns: A formatted string with device details including name, size, mount point, and properties
     func getDeviceInfo(_ device: Drive) -> String {
         return """
         Device: \(device.displayName)
@@ -525,19 +644,34 @@ class ImageFlashService {
         """
     }
     
-    func getImageInfo(_ image: ImageFile) -> String {
-        return """
-        Image: \(image.displayName)
-        Size: \(image.formattedSize)
-        Type: \(image.fileType.displayName)
-        Path: \(image.path)
-        Checksum: \(image.checksumStatus)
-        """
-    }
+    /// Returns a formatted string containing image information for display purposes.
+    /// 
+    /// - Parameter image: The `ImageFile` to get information for
+    /// - Returns: A formatted string with image details including name, size, type, path, and checksum status
+//    func getImageInfo(_ image: ImageFile) -> String {
+//        return """
+//        Image: \(image.displayName)
+//        Size: \(image.formattedSize)
+//        Type: \(image.fileType.displayName)
+//        Path: \(image.path)
+//        Checksum: \(image.checksumStatus)
+//        """
+//    }
     
     // MARK: - SHA256 Checksum Methods
     
-    /// Calculate SHA256 checksum for an image file
+    /// Calculates SHA256 checksum for an image file with progress tracking.
+    /// 
+    /// This method reads the image file in chunks and calculates the SHA256 hash:
+    /// - Uses chunked reading to handle large files efficiently
+    /// - Updates progress state during calculation
+    /// - Handles security-scoped bookmarks for file access
+    /// - Provides detailed debug logging
+    ///
+    /// - Parameter image: The `ImageFile` to calculate checksum for
+    /// - Returns: The SHA256 checksum as a hexadecimal string
+    /// - Throws: `FlashError.flashFailed` if the calculation fails
+    /// - Note: This method updates the flash state with progress information
     func calculateSHA256Checksum(for image: ImageFile) async throws -> String {
         print("🔍 [DEBUG] Calculating SHA256 checksum for: \(image.displayName)")
         print("   📁 [DEBUG] Image path: \(image.path)")
@@ -630,7 +764,19 @@ class ImageFlashService {
         return checksum
     }
     
-    /// Verify SHA256 checksum for an image file
+    /// Verifies that an image file matches an expected SHA256 checksum.
+    /// 
+    /// This method calculates the checksum of the image file and compares it to the expected value:
+    /// - Calculates the SHA256 checksum of the image file
+    /// - Compares it with the provided expected checksum (case-insensitive)
+    /// - Returns true if they match, false otherwise
+    ///
+    /// - Parameters:
+    ///   - image: The `ImageFile` to verify
+    ///   - expectedChecksum: The expected SHA256 checksum to compare against
+    /// - Returns: `true` if the checksums match, `false` otherwise
+    /// - Throws: `FlashError.flashFailed` if the checksum calculation fails
+    /// - Note: This method uses the same calculation logic as `calculateSHA256Checksum`
     func verifySHA256Checksum(for image: ImageFile, expectedChecksum: String) async throws -> Bool {
         print("🔍 [DEBUG] Verifying SHA256 checksum for: \(image.displayName)")
         
@@ -648,7 +794,18 @@ class ImageFlashService {
         return isValid
     }
     
-    /// Generate and store SHA256 checksum for an image file
+    /// Generates a SHA256 checksum for an image file and stores it in the image history.
+    /// 
+    /// This method combines checksum calculation with storage:
+    /// - Calculates the SHA256 checksum of the image file
+    /// - Creates a new `ImageFile` with the calculated checksum
+    /// - Stores the updated image in the history service
+    /// - Returns the updated image with the checksum
+    ///
+    /// - Parameter image: The `ImageFile` to generate checksum for and store
+    /// - Returns: A new `ImageFile` with the calculated checksum
+    /// - Throws: `FlashError.flashFailed` if the checksum calculation fails
+    /// - Note: This method updates the image history but doesn't fail if storage fails
     func generateAndStoreChecksum(for image: ImageFile) async throws -> ImageFile {
         print("🔍 [DEBUG] Generating and storing SHA256 checksum for: \(image.displayName)")
         
@@ -665,7 +822,17 @@ class ImageFlashService {
         return updatedImage
     }
     
-    /// Generate SHA256 checksum for an image file (read-only, no storage)
+    /// Generates a SHA256 checksum for an image file without storing it.
+    /// 
+    /// This method calculates the checksum but doesn't modify the image or store it:
+    /// - Calculates the SHA256 checksum of the image file
+    /// - Returns the checksum as a string
+    /// - Does not update the image or store in history
+    ///
+    /// - Parameter image: The `ImageFile` to generate checksum for
+    /// - Returns: The SHA256 checksum as a hexadecimal string
+    /// - Throws: `FlashError.flashFailed` if the checksum calculation fails
+    /// - Note: This is a read-only operation that doesn't modify the image or history
     func generateChecksumOnly(for image: ImageFile) async throws -> String {
         print("🔍 [DEBUG] Generating SHA256 checksum for: \(image.displayName)")
         
