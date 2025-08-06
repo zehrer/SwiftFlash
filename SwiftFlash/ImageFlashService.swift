@@ -141,7 +141,7 @@ class ImageFlashService {
         
         // Check if device is mounted and writable
         print("🔍 [DEBUG] Checking device writability...")
-        guard isDeviceWritable(device) else {
+        guard testRawDeviceAccess(device) else {
             print("❌ [DEBUG] Validation failed: Insufficient permissions")
             throw FlashError.insufficientPermissions
         }
@@ -150,16 +150,6 @@ class ImageFlashService {
         print("✅ [DEBUG] All flash preconditions validated successfully")
     }
     
-    private func isDeviceWritable(_ device: Drive) -> Bool {
-        print("🔍 [DEBUG] Checking device writability for: \(device.displayName)")
-        print("   - Mount Point: \(device.mountPoint)")
-        print("   - Device Size: \(device.formattedSize)")
-        print("   - Is Read Only: \(device.isReadOnly)")
-        print("   - Is Removable: \(device.isRemovable)")
-        
-        // Try raw device access test
-        return testRawDeviceAccess(device)
-    }
     
     private func testRawDeviceAccess(_ device: Drive) -> Bool {
         print("🧪 [DEBUG] Testing raw device access...")
@@ -239,33 +229,56 @@ class ImageFlashService {
     }
     
     private func getRawDevicePath(from mountPoint: String) -> String? {
-        // Extract device name from mount point
-        // e.g., /Volumes/USB_DRIVE -> /dev/disk4
-        // This is a simplified approach - in production you'd use DiskArbitration
+        print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
         
-        // Try common device naming patterns
-        let possibleDevices = [
-            "/dev/disk0", "/dev/disk1", "/dev/disk2", "/dev/disk3", "/dev/disk4",
-            "/dev/disk5", "/dev/disk6", "/dev/disk7", "/dev/disk8", "/dev/disk9"
-        ]
+        // If the mount point is already a device path (e.g., /dev/disk4), return it as-is
+        if mountPoint.hasPrefix("/dev/disk") {
+            print("✅ [DEBUG] Mount point is already a device path: \(mountPoint)")
+            return mountPoint
+        }
         
-        for devicePath in possibleDevices {
-            if FileManager.default.fileExists(atPath: devicePath) {
-                // Check if this device is mounted at our mount point
-                // This is a simplified check - in production you'd use proper device enumeration
-                if isDeviceMountedAt(devicePath, mountPoint: mountPoint) {
-                    return devicePath
+        // If it's a volume mount point (e.g., /Volumes/USB_DRIVE), we need to find the device
+        if mountPoint.hasPrefix("/Volumes/") {
+            print("🔍 [DEBUG] Mount point is a volume, need to find device...")
+            
+            // Use diskutil to find the device for this mount point
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+            process.arguments = ["info", mountPoint]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            
+            do {
+                try process.run()
+                process.waitUntilExit()
+                
+                if process.terminationStatus == 0 {
+                    let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                    
+                    // Parse the output to find the device identifier
+                    // Look for "Device / Media Name:" line
+                    let lines = output.components(separatedBy: .newlines)
+                    for line in lines {
+                        if line.contains("Device / Media Name:") {
+                            let parts = line.components(separatedBy: ":")
+                            if parts.count >= 2 {
+                                let deviceName = parts[1].trimmingCharacters(in: .whitespaces)
+                                let devicePath = "/dev/\(deviceName)"
+                                print("✅ [DEBUG] Found device path: \(devicePath)")
+                                return devicePath
+                            }
+                        }
+                    }
                 }
+            } catch {
+                print("❌ [DEBUG] Failed to get device info: \(error)")
             }
         }
         
+        print("❌ [DEBUG] Could not determine raw device path for: \(mountPoint)")
         return nil
-    }
-    
-    private func isDeviceMountedAt(_ devicePath: String, mountPoint: String) -> Bool {
-        // Simplified check - in production you'd use proper device enumeration
-        // For now, we'll assume the device exists and is accessible
-        return FileManager.default.fileExists(atPath: devicePath)
     }
     
     private func readBytesFromDevice(_ devicePath: String, offset: UInt64, length: Int) throws -> Data {
