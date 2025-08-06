@@ -77,7 +77,7 @@ class ImageFlashService {
         
         do {
             // Perform flash process with progress updates
-            try await performFlash(image: image, device: device, rawDevicePath: rawDevicePath)
+            try await performFlash(image: image, deviceMountPoint: device.mountPoint, rawDevicePath: rawDevicePath)
             flashState = .completed
         } catch {
             let flashError = error as? FlashError ?? .flashFailed("\(error)")
@@ -205,11 +205,10 @@ class ImageFlashService {
         try fileHandle.synchronize() // Ensure data is written to device
     }
     
-    private func performFlash(image: ImageFile, device: Drive, rawDevicePath: String) async throws {
+    private func performFlash(image: ImageFile, deviceMountPoint: String, rawDevicePath: String) async throws {
         print("🚀 [DEBUG] Starting flash process")
         print("   - Image: \(image.displayName) (\(image.formattedSize))")
-        print("   - Device: \(device.displayName) (\(device.formattedSize))")
-        print("   - Device Path: \(device.mountPoint)")
+        print("   - Device Mount Point: \(deviceMountPoint)")
         print("   - Raw Device Path: \(rawDevicePath)")
         
         // Check sudo availability first
@@ -218,13 +217,13 @@ class ImageFlashService {
         print("✅ [DEBUG] Sudo is available")
         
         // Step 1: Check if device is mounted
-        let isMounted = isDeviceMounted(device)
+        let isMounted = isDeviceMounted(deviceMountPoint)
         print("📋 [DEBUG] Device mounted: \(isMounted)")
         
         // Step 2: Unmount if necessary
         if isMounted {
             print("🔽 [DEBUG] Unmounting device...")
-            try await unmountDevice(device)
+            try await unmountDevice(deviceMountPoint)
             print("✅ [DEBUG] Device unmounted successfully")
         }
         
@@ -263,25 +262,25 @@ class ImageFlashService {
         // Step 6: Remount device if it was originally mounted
         if isMounted {
             print("🔼 [DEBUG] Remounting device...")
-            try await mountDevice(device)
+            try await mountDevice(rawDevicePath)
             print("✅ [DEBUG] Device remounted successfully")
         }
         
         print("✅ [DEBUG] Flash completed successfully")
     }
     
-    private func isDeviceMounted(_ device: Drive) -> Bool {
+    private func isDeviceMounted(_ mountPoint: String) -> Bool {
         // Check if the mount point exists and is accessible
-        return FileManager.default.fileExists(atPath: device.mountPoint)
+        return FileManager.default.fileExists(atPath: mountPoint)
     }
     
-    private func unmountDevice(_ device: Drive) async throws {
-        print("   - Unmounting: \(device.mountPoint)")
+    private func unmountDevice(_ mountPoint: String) async throws {
+        print("   - Unmounting: \(mountPoint)")
         
         // Use diskutil to unmount the device
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["unmount", device.mountPoint]
+        process.arguments = ["unmount", mountPoint]
         
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -302,12 +301,7 @@ class ImageFlashService {
         }
     }
     
-    private func mountDevice(_ device: Drive) async throws {
-        // Get the raw device path for mounting
-        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
-            throw FlashError.flashFailed("Could not determine raw device path for mounting")
-        }
-        
+    private func mountDevice(_ rawDevicePath: String) async throws {
         print("   - Mounting: \(rawDevicePath)")
         
         // Use diskutil to mount the device
