@@ -240,8 +240,8 @@ class ImageFlashService {
         }
         
         // Safety check: reject partition paths (e.g., /dev/disk4s1)
-        let lastComponent = (mountPoint as NSString).lastPathComponent
-        if lastComponent.range(of: "s\\d+$", options: .regularExpression) != nil {
+        let lastComponent = URL(fileURLWithPath: mountPoint).lastPathComponent
+        if let _ = try? Regex("s\\d+$").firstMatch(in: lastComponent) {
             print("❌ [DEBUG] Partition path detected - rejecting: \(mountPoint)")
             return nil
         }
