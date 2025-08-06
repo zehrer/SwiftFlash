@@ -239,6 +239,13 @@ class ImageFlashService {
             return nil
         }
         
+        // Safety check: reject partition paths (e.g., /dev/disk4s1)
+        let lastComponent = (mountPoint as NSString).lastPathComponent
+        if lastComponent.range(of: "s\\d+$", options: .regularExpression) != nil {
+            print("❌ [DEBUG] Partition path detected - rejecting: \(mountPoint)")
+            return nil
+        }
+        
         // Convert device path to raw device (e.g., /dev/disk4 → /dev/rdisk4)
         if mountPoint.hasPrefix("/dev/disk") {
             let rawDevicePath = mountPoint.replacingOccurrences(of: "/dev/disk", with: "/dev/rdisk")
