@@ -248,9 +248,9 @@ class ImageFlashService {
         }
         //print("   - Raw Device Path: \(rawDevicePath)")
         
-        // Check sudo availability first
+        // Check sudo availability first and get its path
         print("🔐 [DEBUG] Checking sudo availability...")
-        try await checkSudoAvailability()
+        let sudoPath = try await checkSudoAvailability()
         print("✅ [DEBUG] Sudo is available")
         
         // Step 1: Check if device is mounted
@@ -288,12 +288,12 @@ class ImageFlashService {
         
         // Step 4: Perform the actual flash operation
         print("✏️ [DEBUG] Writing image to device...")
-        try await writeImageToDevice(image: image, devicePath: rawDevicePath)
+        try await writeImageToDevice(image: image, devicePath: rawDevicePath, sudoPath: sudoPath)
         print("✅ [DEBUG] Image written successfully")
         
         // Step 5: Verify the flash operation
         print("🔍 [DEBUG] Verifying flash operation...")
-        try await verifyFlashOperation(image: image, devicePath: rawDevicePath)
+        try await verifyFlashOperation(image: image, devicePath: rawDevicePath, sudoPath: sudoPath)
         print("✅ [DEBUG] Flash verification successful")
         
         // Step 6: Remount device if it was originally mounted
@@ -392,9 +392,10 @@ class ImageFlashService {
     /// - Parameters:
     ///   - image: The `ImageFile` to write to the device
     ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
+    ///   - sudoPath: The path to the sudo binary
     /// - Throws: `FlashError.flashFailed` if the write operation fails
     /// - Note: This method requires sudo privileges and uses 1MB block size for optimal performance
-    private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
+    private func writeImageToDevice(image: ImageFile, devicePath: String, sudoPath: String) async throws {
         print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
         
         // Get secure URL for the image file
@@ -406,7 +407,7 @@ class ImageFlashService {
         
         // Create dd command with sudo
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        process.executableURL = URL(fileURLWithPath: sudoPath)
         process.arguments = [
             "/bin/dd",
             "if=\(imageURL.path)",
@@ -498,9 +499,10 @@ class ImageFlashService {
     /// - Parameters:
     ///   - image: The original `ImageFile` to compare against
     ///   - devicePath: The raw device path to verify (e.g., `/dev/rdisk4`)
+    ///   - sudoPath: The path to the sudo binary
     /// - Throws: `FlashError.flashFailed` if verification fails or samples don't match
     /// - Note: This method requires sudo privileges for device access and creates temporary files
-    private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
+    private func verifyFlashOperation(image: ImageFile, devicePath: String, sudoPath: String) async throws {
         print("   - Verifying flash operation using dd...")
         
         // Create temporary files for comparison
@@ -538,7 +540,7 @@ class ImageFlashService {
         
         // Extract first 1MB from device using dd with sudo
         let deviceProcess = Process()
-        deviceProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        deviceProcess.executableURL = URL(fileURLWithPath: sudoPath)
         deviceProcess.arguments = [
             "/bin/dd",
             "if=\(devicePath)",
@@ -576,23 +578,47 @@ class ImageFlashService {
     
     // MARK: - Utility Methods
     
-    /// Checks if sudo is available on the system.
+    /// Checks if sudo is available on the system and returns its path.
     /// 
-    /// This method tests sudo availability by checking if the sudo binary exists:
-    /// - Tests if sudo is available on the system
+    /// This method uses `which sudo` to find sudo in the system PATH:
+    /// - Tests if sudo is available anywhere in the PATH
+    /// - Returns the actual path to sudo for use in subsequent commands
     /// - Does not test if user has sudo privileges (will be tested during actual flash)
     /// - Provides informational logging about sudo requirements
     ///
+    /// - Returns: The path to the sudo binary
+    /// - Throws: `FlashError.insufficientPermissions` if sudo is not found
     /// - Note: This is a basic availability check. The actual sudo prompt will occur during flash operations.
-    private func checkSudoAvailability() async throws {
-        // Check if sudo binary exists
-        guard FileManager.default.fileExists(atPath: "/usr/bin/sudo") else {
-            print("❌ [DEBUG] Sudo not found on system")
+    private func checkSudoAvailability() async throws -> String {
+        // Use 'which sudo' to find sudo in PATH
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        process.arguments = ["sudo"]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus == 0 {
+                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                let sudoPath = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if !sudoPath.isEmpty {
+                    print("✅ [DEBUG] Sudo found at: \(sudoPath)")
+                    return sudoPath
+                }
+            }
+            
+            print("❌ [DEBUG] Sudo not found in PATH")
+            throw FlashError.insufficientPermissions
+        } catch {
+            print("❌ [DEBUG] Failed to check sudo availability: \(error.localizedDescription)")
             throw FlashError.insufficientPermissions
         }
-        
-        print("✅ [DEBUG] Sudo is available on system")
-        print("ℹ️ [DEBUG] User will be prompted for password during flash operation")
     }
     
     // MARK: - SHA256 Checksum Methods
