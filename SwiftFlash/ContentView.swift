@@ -326,6 +326,9 @@ struct ContentView: View {
         .onAppear {
             setupDriveService()
             driveService.refreshDrives()
+            
+            // Validate all bookmarks in history
+            imageHistoryService.validateAllBookmarks()
         }
     }
     

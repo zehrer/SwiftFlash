@@ -99,7 +99,7 @@ struct ImageHistoryRowView: View {
             // File Icon
             Image(systemName: fileTypeIcon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(item.isValid ? .blue : .red)
                 .frame(width: 32)
             
             // File Info
@@ -108,19 +108,30 @@ struct ImageHistoryRowView: View {
                     .font(.body)
                     .fontWeight(.medium)
                     .lineLimit(1)
+                    .foregroundColor(item.isValid ? .primary : .red)
                 
                 HStack(spacing: 8) {
                     Text(item.formattedSize)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(item.isValid ? .secondary : .red.opacity(0.7))
                     
                     Text("•")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(item.isValid ? .secondary : .red.opacity(0.7))
                     
                     Text(item.formattedLastUsed)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(item.isValid ? .secondary : .red.opacity(0.7))
+                    
+                    if !item.isValid {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.red.opacity(0.7))
+                        
+                        Text("File not found")
+                            .font(.caption)
+                            .foregroundColor(.red.opacity(0.7))
+                    }
                 }
             }
             
