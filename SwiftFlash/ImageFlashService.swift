@@ -175,20 +175,13 @@ class ImageFlashService {
             throw FlashError.deviceNotFound
         }
         
-        // Check if device mount point exists
-        guard FileManager.default.fileExists(atPath: device.mountPoint) else {
-            print("❌ [DEBUG] Validation failed: Device mount point does not exist: \(device.mountPoint)")
-            throw FlashError.deviceNotFound
-        }
+//        // Check if device mount point exists
+//        guard FileManager.default.fileExists(atPath: device.mountPoint) else {
+//            print("❌ [DEBUG] Validation failed: Device mount point does not exist: \(device.mountPoint)")
+//            throw FlashError.deviceNotFound
+//        }
         
-        print("✅ [DEBUG] Device mount point validated: \(device.mountPoint)")
-        print("✅ [DEBUG] All flash preconditions validated successfully")
     }
-    
-    
-
-    
-    
     
     /// Converts a device mount point to its corresponding raw device path.
     /// 
@@ -253,7 +246,7 @@ class ImageFlashService {
         guard let rawDevicePath = getRawDevicePath(from: deviceMountPoint) else {
             throw FlashError.flashFailed("Could not determine raw device path for: \(deviceMountPoint)")
         }
-        print("   - Raw Device Path: \(rawDevicePath)")
+        //print("   - Raw Device Path: \(rawDevicePath)")
         
         // Check sudo availability first
         print("🔐 [DEBUG] Checking sudo availability...")
@@ -583,30 +576,23 @@ class ImageFlashService {
     
     // MARK: - Utility Methods
     
-    /// Checks if sudo is available and the user has sudo privileges.
+    /// Checks if sudo is available on the system.
     /// 
-    /// This method tests sudo availability by running `sudo -n true` which:
-    /// - Tests if sudo is available without requiring a password prompt
-    /// - Verifies that the user has sudo privileges configured
-    /// - Fails if sudo is not available or user lacks privileges
+    /// This method tests sudo availability by checking if the sudo binary exists:
+    /// - Tests if sudo is available on the system
+    /// - Does not test if user has sudo privileges (will be tested during actual flash)
+    /// - Provides informational logging about sudo requirements
     ///
-    /// - Throws: `FlashError.insufficientPermissions` if sudo is not available or user lacks privileges
-    /// - Note: This check is performed before any flash operations that require sudo
+    /// - Note: This is a basic availability check. The actual sudo prompt will occur during flash operations.
     private func checkSudoAvailability() async throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        process.arguments = ["-n", "true"]
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus != 0 {
-                throw FlashError.insufficientPermissions
-            }
-        } catch {
+        // Check if sudo binary exists
+        guard FileManager.default.fileExists(atPath: "/usr/bin/sudo") else {
+            print("❌ [DEBUG] Sudo not found on system")
             throw FlashError.insufficientPermissions
         }
+        
+        print("✅ [DEBUG] Sudo is available on system")
+        print("ℹ️ [DEBUG] User will be prompted for password during flash operation")
     }
     
     // MARK: - SHA256 Checksum Methods
