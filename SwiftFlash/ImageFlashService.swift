@@ -231,10 +231,11 @@ class ImageFlashService {
     private func getRawDevicePath(from mountPoint: String) -> String? {
         print("🔍 [DEBUG] Getting raw device path from mount point: \(mountPoint)")
         
-        // If the mount point is already a device path (e.g., /dev/disk4), return it as-is
+        // If the mount point is already a device path (e.g., /dev/disk4), convert to raw device
         if mountPoint.hasPrefix("/dev/disk") {
-            print("✅ [DEBUG] Mount point is already a device path: \(mountPoint)")
-            return mountPoint
+            let rawDevicePath = mountPoint.replacingOccurrences(of: "/dev/disk", with: "/dev/rdisk")
+            print("✅ [DEBUG] Converting device path to raw: \(mountPoint) → \(rawDevicePath)")
+            return rawDevicePath
         }
         
         // If it's a volume mount point (e.g., /Volumes/USB_DRIVE), we need to find the device
