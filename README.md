@@ -21,8 +21,7 @@
 
 - **macOS**: 15.6 or later
 - **Architecture**: Apple Silicon (ARM64) or Intel (x86_64)
-- **Memory**: 512MB RAM minimum
-- **Storage**: 100MB free space
+
 
 ## Installation
 

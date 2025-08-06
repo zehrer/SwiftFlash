@@ -59,5 +59,29 @@ struct Drive: Identifiable, Hashable {
     static func == (lhs: Drive, rhs: Drive) -> Bool {
         return lhs.mountPoint == rhs.mountPoint
     }
+    
+    @discardableResult
+    func unmountDevice() -> Bool {
+        let task = Process()
+        task.launchPath = "/usr/sbin/diskutil"
+        task.arguments = ["unmountDisk", mountPoint]
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = pipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            print("📤 diskutil output:\n\(output)")
+
+            return task.terminationStatus == 0
+        } catch {
+            print("❌ Failed to run diskutil: \(error)")
+            return false
+        }
+    }
 }
 // END: CRITICAL DATA MODEL 
