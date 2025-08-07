@@ -1,0 +1,63 @@
+# Xcode and Swift
+.DS_Store
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+!default.pbxuser
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.resolved
+
+# Temporary files
+*~
+*.tmp
+*.temp
+.#*
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+*.app
+*.framework
+
+# Logs and debugging
+*.log
+crash_*
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+
+# Backup files
+*.backup
+*.bak
+*_backup.*
+
+# Test artifacts
+*.gcov
+*.profdata
+
+# Documentation build
+docs/build/
+
+# Ignore sensitive or temporary development files
+secrets.plist
+test_images/
+temp_mounts/
