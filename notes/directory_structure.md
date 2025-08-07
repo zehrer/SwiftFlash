@@ -5,7 +5,7 @@
 ```
 SwiftFlash/
 ├── .cursorrules                     # AI interaction rules and protocols
-├── .notes/                          # Project documentation and context
+├── notes/                           # Project documentation and context
 │   ├── project_overview.md          # High-level project description and architecture
 │   ├── task_list.md                 # Current tasks and development priorities
 │   ├── CLAUDE.md                    # AI-specific instructions and guidelines

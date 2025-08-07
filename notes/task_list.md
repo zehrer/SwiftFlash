@@ -8,7 +8,7 @@
   - **Assigned To**: Claude
   - **Notes**: Created comprehensive technical requirements document with SMART criteria
   - **Priority**: High
-  - **Files**: `.notes/requirements_specification.md`
+  - **Files**: `notes/requirements_specification.md`
 
 ### Core Functionality Maintenance
 - [ ] **Monitor Protected Code Sections**

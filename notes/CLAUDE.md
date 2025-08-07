@@ -8,7 +8,7 @@ SwiftFlash is a basic macOS utility for the flashing of external drives as e.g. 
 ### Interaction Protocol
 
 #### Always Start With:
-1. **Read Context Files**: Always check `project_overview.md` and `task_list.md` first
+1. **Read Context Files**: Always check `notes/project_overview.md` and `notes/task_list.md` first
 2. **Protection Awareness**: Scan for protection markers before any code analysis
 3. **Safety First**: Understand that this app deals with disk operations - mistakes can cause data loss
 

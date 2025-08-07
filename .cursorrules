@@ -3,9 +3,9 @@
         "context_initialization": {
             "description": "Starting point for each interaction",
             "steps": [
-                "ALWAYS read `.notes/project_overview.md` and `.notes/task_list.md` first",
-                "ALWAYS read `.notes/CLAUDE.md` for SwiftFlash-specific instructions",
-                "ALWAYS check `.notes/requirements_specification.md` for SMART technical requirements",
+                "ALWAYS read `notes/project_overview.md` and `notes/task_list.md` first",
+                "ALWAYS read `notes/CLAUDE.md` for SwiftFlash-specific instructions",
+                "ALWAYS check `notes/requirements_specification.md` for SMART technical requirements",
                 "Check protection markers before ANY code modifications"
             ]
         },
@@ -35,7 +35,7 @@
         ],
         "priorities": [
             {
-                "source": ".notes/",
+                "source": "notes/",
                 "weight": 1.0,
                 "description": "Project documentation and guidelines"
             },
