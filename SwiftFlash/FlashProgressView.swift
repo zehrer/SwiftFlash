@@ -122,6 +122,8 @@ struct FlashProgressView: View {
         switch flashState {
         case .idle, .preparing:
             return "bolt.fill"
+        case .authenticating:
+            return "touchid"
         case .calculatingChecksum:
             return "checkmark.shield.fill"
         case .flashing:
@@ -137,6 +139,8 @@ struct FlashProgressView: View {
         switch flashState {
         case .idle, .preparing:
             return .blue
+        case .authenticating:
+            return .orange
         case .calculatingChecksum:
             return .green
         case .flashing:
@@ -152,6 +156,8 @@ struct FlashProgressView: View {
         switch flashState {
         case .idle, .preparing:
             return "Preparing to Flash"
+        case .authenticating:
+            return "Touch ID Authentication"
         case .calculatingChecksum:
             return "Calculating Checksum"
         case .flashing:
@@ -169,6 +175,8 @@ struct FlashProgressView: View {
             return "Ready to start"
         case .preparing:
             return "Preparing device and validating image..."
+        case .authenticating:
+            return "Please authenticate with Touch ID to continue..."
         case .calculatingChecksum:
             return "Verifying image integrity..."
         case .flashing:
@@ -184,6 +192,8 @@ struct FlashProgressView: View {
         switch flashState {
         case .idle, .preparing:
             return .primary
+        case .authenticating:
+            return .orange
         case .calculatingChecksum:
             return .green
         case .flashing:
@@ -200,6 +210,8 @@ struct FlashProgressView: View {
         case .idle:
             return 0.0
         case .preparing:
+            return 0.0
+        case .authenticating:
             return 0.0
         case .calculatingChecksum(let progress):
             return progress

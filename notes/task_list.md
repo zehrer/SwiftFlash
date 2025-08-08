@@ -1,5 +1,23 @@
 # SwiftFlash Task List
 
+## TODO
+
+- IOMediaWhole for detaction of device vs partion
+- Store partion informationin DeviceInfo (List of partion info as far as avaible )
+- support `.img` - Raw disk images (TODO testing)
+- Other raw disk image formats (TODO testing)
+- Image Repository 
+    - local folder storing all images
+    - list of external repositories 
+    - list of URLs for each repositories public images for download
+    - check new publications of images 
+    - search from images
+    - AI support to search for images (MacOS 26)
+- write Unit tests and HMI test cases :)
+- change build number based on tagged releases (git describe --tags --long)
+- use Disk Arbitration Framework for mount and unmount
+-  
+
 ## High Priority Tasks
 
 ### Active Development

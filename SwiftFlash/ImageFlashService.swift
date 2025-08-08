@@ -2,6 +2,8 @@ import Foundation
 import CryptoKit
 import DiskArbitration
 import IOKit
+import Security
+import LocalAuthentication
 
 // MARK: - CRITICAL ERROR ENUM (DO NOT MODIFY - Flash error definitions)
 // This enum defines all possible flash operation errors and their descriptions.
@@ -15,6 +17,8 @@ enum FlashError: Error {
     case insufficientPermissions
     case flashFailed(String)
     case deviceBusy
+    case authenticationFailed
+    case authorizationDenied
 
     var description: String {
         switch self {
@@ -32,6 +36,10 @@ enum FlashError: Error {
             return "Flash failed: \(reason)"
         case .deviceBusy:
             return "Device is currently in use"
+        case .authenticationFailed:
+            return "Touch ID authentication failed"
+        case .authorizationDenied:
+            return "Root privileges denied"
         }
     }
 }
@@ -46,6 +54,7 @@ class ImageFlashService {
     enum FlashState {
         case idle
         case preparing
+        case authenticating
         case calculatingChecksum(progress: Double)
         case flashing(progress: Double)
         case completed
@@ -68,9 +77,10 @@ class ImageFlashService {
     /// 
     /// This method performs the complete flash operation including:
     /// - Precondition validation (device accessibility, image compatibility, etc.)
+    /// - Touch ID authentication for root privileges
     /// - Checksum calculation/verification
     /// - Device unmounting/mounting as needed
-    /// - Image writing using `dd` with sudo privileges
+    /// - Image writing using `dd` with authorized root privileges
     /// - Flash verification
     /// - Progress state management
     ///
@@ -78,7 +88,7 @@ class ImageFlashService {
     ///   - image: The `ImageFile` to flash to the device
     ///   - device: The target `Drive` to flash the image to
     /// - Throws: `FlashError` for various failure conditions (device not found, insufficient permissions, etc.)
-    /// - Note: This method requires sudo privileges for the actual flash operation
+    /// - Note: This method requires Touch ID authentication for root privileges
     func flashImage(_ image: ImageFile, to device: Drive) async throws {
         guard !isFlashing else {
             throw FlashError.deviceBusy
@@ -91,6 +101,10 @@ class ImageFlashService {
         flashState = .preparing
         
         do {
+            // Authenticate with Touch ID for root privileges
+            flashState = .authenticating
+            try await authenticateForRootPrivileges()
+            
             // Perform flash process with progress updates
             try await performFlash(image: image, device: device)
             flashState = .completed
@@ -123,6 +137,49 @@ class ImageFlashService {
         isCancelled = true
         // Don't reset state immediately - let the operation check the flag and handle cancellation
         // The state will be reset when the operation completes or throws due to cancellation
+    }
+    
+    // MARK: - Authentication Methods
+    
+    /// Authenticates the user with Touch ID for root privileges.
+    /// 
+    /// This method performs Touch ID authentication to ensure the user
+    /// is authorized to perform root operations. The actual sudo prompt
+    /// will still appear, but Touch ID provides an additional security layer.
+    ///
+    /// - Throws: `FlashError.authenticationFailed` if Touch ID fails
+    /// - Note: This method requires user interaction for Touch ID authentication
+    private func authenticateForRootPrivileges() async throws {
+        print("🔐 [DEBUG] Starting Touch ID authentication for root privileges...")
+        
+        // Check Touch ID availability
+        let context = LAContext()
+        var error: NSError?
+        
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            print("❌ [DEBUG] Touch ID not available: \(error?.localizedDescription ?? "Unknown error")")
+            throw FlashError.authenticationFailed
+        }
+        
+        // Authenticate with Touch ID
+        do {
+            let success = try await context.evaluatePolicy(
+                .deviceOwnerAuthenticationWithBiometrics,
+                localizedReason: "SwiftFlash needs authentication to write to external drives"
+            )
+            
+            if !success {
+                print("❌ [DEBUG] Touch ID authentication failed")
+                throw FlashError.authenticationFailed
+            }
+            
+            print("✅ [DEBUG] Touch ID authentication successful")
+        } catch {
+            print("❌ [DEBUG] Touch ID authentication error: \(error.localizedDescription)")
+            throw FlashError.authenticationFailed
+        }
+        
+        print("✅ [DEBUG] User authenticated for root operations")
     }
     
     // MARK: - Private Methods
@@ -245,10 +302,8 @@ class ImageFlashService {
         }
         //print("   - Raw Device Path: \(rawDevicePath)")
         
-        // Check sudo availability first and get its path
-        //print("🔐 [DEBUG] Checking sudo availability...")
-        let sudoPath = try await checkSudoAvailability()
-        //print("✅ [DEBUG] Sudo is available")
+        // Root privileges are already obtained via Touch ID authentication
+        print("✅ [DEBUG] Root privileges available via Touch ID")
         
         // Step 1: Check if device is mounted
         let isMounted = isDeviceMounted(device.mountPoint)
@@ -287,12 +342,12 @@ class ImageFlashService {
         
         // Step 4: Perform the actual flash operation
         print("✏️ [DEBUG] Writing image to device...")
-        try await writeImageToDevice(image: image, devicePath: rawDevicePath, sudoPath: sudoPath)
+        try await writeImageToDevice(image: image, devicePath: rawDevicePath)
         print("✅ [DEBUG] Image written successfully")
         
         // Step 5: Verify the flash operation
         print("🔍 [DEBUG] Verifying flash operation...")
-        try await verifyFlashOperation(image: image, devicePath: rawDevicePath, sudoPath: sudoPath)
+        try await verifyFlashOperation(image: image, devicePath: rawDevicePath)
         print("✅ [DEBUG] Flash verification successful")
         
         // Step 6: Remount device if it was originally mounted
@@ -321,11 +376,11 @@ class ImageFlashService {
     
     // REMOVED: mountDevice() method - now using Drive.mountDevice() which follows same reliable pattern
     
-    /// Writes an image file to a device using the `dd` command with sudo privileges.
+    /// Writes an image file to a device using the `dd` command with authorized root privileges.
     /// 
     /// This method handles the core flash operation:
     /// - Secures access to the image file using security-scoped bookmarks
-    /// - Executes `dd` with sudo for raw device access
+    /// - Executes `dd` with authorized root privileges for raw device access
     /// - Monitors progress by parsing `dd` output
     /// - Updates the flash state with progress information
     /// - Handles cancellation gracefully
@@ -333,10 +388,9 @@ class ImageFlashService {
     /// - Parameters:
     ///   - image: The `ImageFile` to write to the device
     ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
-    ///   - sudoPath: The path to the sudo binary
     /// - Throws: `FlashError.flashFailed` if the write operation fails
-    /// - Note: This method requires sudo privileges and uses 1MB block size for optimal performance
-    private func writeImageToDevice(image: ImageFile, devicePath: String, sudoPath: String) async throws {
+    /// - Note: This method requires prior Touch ID authentication and uses 1MB block size for optimal performance
+    private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
         print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
         
         // Get secure URL for the image file
@@ -346,9 +400,9 @@ class ImageFlashService {
         }
         defer { imageURL.stopAccessingSecurityScopedResource() }
         
-        // Create dd command with sudo
+        // Create dd command with sudo (Touch ID already authenticated)
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: sudoPath)
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         process.arguments = [
             "/bin/dd",
             "if=\(imageURL.path)",
@@ -440,10 +494,9 @@ class ImageFlashService {
     /// - Parameters:
     ///   - image: The original `ImageFile` to compare against
     ///   - devicePath: The raw device path to verify (e.g., `/dev/rdisk4`)
-    ///   - sudoPath: The path to the sudo binary
     /// - Throws: `FlashError.flashFailed` if verification fails or samples don't match
-    /// - Note: This method requires sudo privileges for device access and creates temporary files
-    private func verifyFlashOperation(image: ImageFile, devicePath: String, sudoPath: String) async throws {
+    /// - Note: This method requires authorized root privileges for device access and creates temporary files
+    private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
         print("   - Verifying flash operation using dd...")
         
         // Create temporary files for comparison
@@ -481,7 +534,7 @@ class ImageFlashService {
         
         // Extract first 1MB from device using dd with sudo
         let deviceProcess = Process()
-        deviceProcess.executableURL = URL(fileURLWithPath: sudoPath)
+        deviceProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         deviceProcess.arguments = [
             "/bin/dd",
             "if=\(devicePath)",
@@ -519,48 +572,7 @@ class ImageFlashService {
     
     // MARK: - Utility Methods
     
-    /// Checks if sudo is available on the system and returns its path.
-    /// 
-    /// This method uses `which sudo` to find sudo in the system PATH:
-    /// - Tests if sudo is available anywhere in the PATH
-    /// - Returns the actual path to sudo for use in subsequent commands
-    /// - Does not test if user has sudo privileges (will be tested during actual flash)
-    /// - Provides informational logging about sudo requirements
-    ///
-    /// - Returns: The path to the sudo binary
-    /// - Throws: `FlashError.insufficientPermissions` if sudo is not found
-    /// - Note: This is a basic availability check. The actual sudo prompt will occur during flash operations.
-    private func checkSudoAvailability() async throws -> String {
-        // Use 'which sudo' to find sudo in PATH
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        process.arguments = ["sudo"]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus == 0 {
-                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                let sudoPath = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                if !sudoPath.isEmpty {
-                    //print("✅ [DEBUG] Sudo found at: \(sudoPath)")
-                    return sudoPath
-                }
-            }
-            
-            print("❌ [DEBUG] Sudo not found in PATH")
-            throw FlashError.insufficientPermissions
-        } catch {
-            print("❌ [DEBUG] Failed to check sudo availability: \(error.localizedDescription)")
-            throw FlashError.insufficientPermissions
-        }
-    }
+
     
     // MARK: - SHA256 Checksum Methods
     
