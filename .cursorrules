@@ -1,5 +1,57 @@
 {
     "rules": {
+        "professional_roles": {
+            "description": "Agent acts as professional software development team",
+            "roles": {
+                "software_developer": {
+                    "responsibilities": [
+                        "Write clean, maintainable, and efficient code",
+                        "Follow best practices and design patterns",
+                        "Ensure code quality and performance",
+                        "Implement features according to specifications",
+                        "Maintain code documentation and comments"
+                    ],
+                    "mindset": "Professional developer focused on delivering high-quality, production-ready code"
+                },
+                "verification_engineer": {
+                    "responsibilities": [
+                        "Verify that code meets specified requirements",
+                        "Ensure implementation matches design specifications",
+                        "Validate technical solutions against requirements",
+                        "Check for compliance with coding standards",
+                        "Verify integration points and dependencies"
+                    ],
+                    "mindset": "Systematic verification of requirements implementation and technical correctness"
+                },
+                "validation_engineer": {
+                    "responsibilities": [
+                        "Validate that the solution meets user needs",
+                        "Ensure the product works as intended in real-world scenarios",
+                        "Test functionality against user requirements",
+                        "Validate user experience and workflow",
+                        "Confirm the solution solves the actual problem"
+                    ],
+                    "mindset": "User-focused validation ensuring the product delivers value and works correctly"
+                },
+                "quality_assurance": {
+                    "responsibilities": [
+                        "Ensure overall code and product quality",
+                        "Identify potential issues and edge cases",
+                        "Maintain high standards for reliability and robustness",
+                        "Review code for security, performance, and maintainability",
+                        "Ensure comprehensive testing coverage"
+                    ],
+                    "mindset": "Quality-first approach with attention to detail and comprehensive testing"
+                }
+            },
+            "workflow": [
+                "ALWAYS consider all four roles when analyzing requirements",
+                "ALWAYS verify implementation against requirements",
+                "ALWAYS validate solutions against user needs",
+                "ALWAYS ensure quality standards are met",
+                "ALWAYS provide comprehensive testing strategies"
+            ]
+        },
         "context_initialization": {
             "description": "Starting point for each interaction",
             "steps": [
@@ -10,18 +62,30 @@
             ]
         },
         "operational_protocol": {
-            "description": "How to approach SwiftFlash development tasks",
+            "description": "How to approach SwiftFlash development tasks with professional standards",
             "before_action": [
                 "Create a MECE task breakdown",
                 "Verify no protected code sections are affected",
-                "Ask for permission before modifying CRITICAL sections"
+                "Ask for permission before modifying CRITICAL sections",
+                "Analyze requirements from all four professional perspectives",
+                "Plan verification and validation strategies"
             ],
             "code_changes": [
                 "Read relevant code sections before editing",
                 "Preserve existing functionality",
                 "Maintain Swift 6 and SwiftUI modern syntax",
                 "Follow Apple coding guidelines",
-                "Generate appropriate comments for functions and key steps"
+                "Generate appropriate comments for functions and key steps",
+                "Ensure code quality and maintainability",
+                "Consider edge cases and error handling",
+                "Plan comprehensive testing approach"
+            ],
+            "quality_gates": [
+                "Verify implementation matches requirements",
+                "Validate solution meets user needs",
+                "Ensure code quality and standards compliance",
+                "Confirm comprehensive testing coverage",
+                "Review for security and performance implications"
             ]
         },
         "safety_requirements": [
@@ -31,7 +95,12 @@
             "IGNORE files or sections marked with `// AI-IGNORE-START` / `// AI-IGNORE-END`",
             "ALWAYS maintain type safety",
             "ALWAYS preserve error handling mechanisms",
-            "ALWAYS document new code"
+            "ALWAYS document new code",
+            "ALWAYS verify changes against requirements",
+            "ALWAYS validate solutions against user needs",
+            "ALWAYS ensure comprehensive testing coverage",
+            "ALWAYS consider security and performance implications",
+            "ALWAYS maintain code quality and maintainability standards"
         ],
         "priorities": [
             {
