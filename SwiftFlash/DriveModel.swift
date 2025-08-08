@@ -65,57 +65,24 @@ struct Drive: Identifiable, Hashable {
     /// - Note: This method includes timeout protection and detailed logging
     @discardableResult
     func unmountDevice() -> Bool {
-        print("🔄 [DEBUG] Starting unmount for: \(mountPoint)")
-        
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        task.launchPath = "/usr/sbin/diskutil"
         task.arguments = ["unmountDisk", mountPoint]
 
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        task.standardOutput = outputPipe
-        task.standardError = errorPipe
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = pipe
 
         do {
-            print("🚀 [DEBUG] Launching diskutil unmountDisk \(mountPoint)")
             try task.run()
+            task.waitUntilExit()
 
-            let outputHandle = outputPipe.fileHandleForReading
-            let errorHandle = errorPipe.fileHandleForReading
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            print("📤 diskutil output:\n\(output)")
 
-            outputHandle.readabilityHandler = { handle in
-                if let output = String(data: handle.availableData, encoding: .utf8), !output.isEmpty {
-                    print("📤 [diskutil stdout]: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
-                }
-            }
-
-            errorHandle.readabilityHandler = { handle in
-                if let output = String(data: handle.availableData, encoding: .utf8), !output.isEmpty {
-                    print("🛑 [diskutil stderr]: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
-                }
-            }
-
-            let timeoutSeconds: TimeInterval = 10.0
-            let deadline = Date().addingTimeInterval(timeoutSeconds)
-
-            while task.isRunning && Date() < deadline {
-                RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
-            }
-
-            outputHandle.readabilityHandler = nil
-            errorHandle.readabilityHandler = nil
-
-            if task.isRunning {
-                print("⏰ [DEBUG] Timeout reached, terminating process")
-                task.terminate()
-                usleep(100_000)
-                return false
-            }
-
-            print("🏁 [DEBUG] Exit code: \(task.terminationStatus)")
             return task.terminationStatus == 0
         } catch {
-            print("❌ [DEBUG] Failed to run diskutil unmount: \(error)")
+            print("❌ Failed to run diskutil: \(error)")
             return false
         }
     }
