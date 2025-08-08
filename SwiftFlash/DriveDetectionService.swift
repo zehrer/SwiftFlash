@@ -144,6 +144,12 @@ class DriveDetectionService: ObservableObject {
                 continue
             }
             
+            // Check if this is a disk image (mounted .dmg file)
+            if isDiskImage(deviceInfo: deviceInfo) {
+                print("⚠️ [DEBUG] Device \(deviceInfo.name) is a disk image - excluding")
+                continue
+            }
+            
             print("✅ [DEBUG] Found external drive: \(deviceInfo.name)")
             
             // Get device type from inventory if available, otherwise determine automatically
@@ -700,6 +706,21 @@ extension DriveDetectionService {
         }
         
         return isMain
+    }
+    
+    /// Checks if a device is a disk image (mounted .dmg file)
+    private func isDiskImage(deviceInfo: DeviceInfo) -> Bool {
+        // Check if the media name is "Disk Image" (which indicates a mounted .dmg file)
+        if let mediaName = deviceInfo.mediaName, mediaName == "Disk Image" {
+            return true
+        }
+        
+        // Also check if the device name contains "Disk Image"
+        if deviceInfo.name == "Disk Image" {
+            return true
+        }
+        
+        return false
     }
     
     /// Gets the system boot device path to exclude it from the list
