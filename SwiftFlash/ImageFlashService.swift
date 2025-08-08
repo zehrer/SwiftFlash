@@ -92,7 +92,7 @@ class ImageFlashService {
         
         do {
             // Perform flash process with progress updates
-            try await performFlash(image: image, deviceMountPoint: device.mountPoint)
+            try await performFlash(image: image, device: device)
             flashState = .completed
         } catch {
             let flashError = error as? FlashError ?? .flashFailed("\(error)")
@@ -234,17 +234,14 @@ class ImageFlashService {
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to flash
-    ///   - deviceMountPoint: The device mount point (e.g., `/dev/disk4` or `/Volumes/USB_DRIVE`)
+    ///   - device: The `Drive` object representing the target device
     /// - Throws: `FlashError` for any operation failure
     /// - Note: This method requires sudo privileges and handles device mounting automatically
-    private func performFlash(image: ImageFile, deviceMountPoint: String) async throws {
-        print("🚀 [DEBUG] Starting flash process")
-        print("   - Image: \(image.displayName) (\(image.formattedSize))")
-        print("   - Device Mount Point: \(deviceMountPoint)")
+    private func performFlash(image: ImageFile, device: Drive) async throws {
         
         // Get raw device path for flash operations
-        guard let rawDevicePath = getRawDevicePath(from: deviceMountPoint) else {
-            throw FlashError.flashFailed("Could not determine raw device path for: \(deviceMountPoint)")
+        guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
+            throw FlashError.flashFailed("Could not determine raw device path for: \(device.mountPoint)")
         }
         //print("   - Raw Device Path: \(rawDevicePath)")
         
@@ -254,14 +251,16 @@ class ImageFlashService {
         //print("✅ [DEBUG] Sudo is available")
         
         // Step 1: Check if device is mounted
-        let isMounted = isDeviceMounted(deviceMountPoint)
-        print("📋 [DEBUG] Device mounted: \(isMounted)")
+        let isMounted = isDeviceMounted(device.mountPoint)
+        //print("📋 [DEBUG] Device mounted: \(isMounted)")
         
         // Step 2: Unmount if necessary
         if isMounted {
-            print("🔽 [DEBUG] Unmounting device...")
-            try await unmountDevice(deviceMountPoint)
-            print("✅ [DEBUG] Device unmounted successfully")
+            //print("🔽 [DEBUG] Unmounting device using Drive.unmountDevice()...")
+            guard device.unmountDevice() else {
+                throw FlashError.flashFailed("Failed to unmount device: \(device.mountPoint)")
+            }
+            print("✅ [DEBUG] Device \(device.mountPoint) successfully unmounted")
         }
         
         // Step 3: Calculate or verify image checksum
@@ -298,9 +297,11 @@ class ImageFlashService {
         
         // Step 6: Remount device if it was originally mounted
         if isMounted {
-            print("🔼 [DEBUG] Remounting device...")
-            try await mountDevice(rawDevicePath)
-            print("✅ [DEBUG] Device remounted successfully")
+            print("🔼 [DEBUG] Remounting device using Drive.mountDevice()...")
+            guard device.mountDevice() else {
+                throw FlashError.flashFailed("Failed to remount device: \(device.mountPoint)")
+            }
+            print("✅ [DEBUG] Device remounted successfully using Drive method")
         }
         
         print("✅ [DEBUG] Flash completed successfully")
@@ -316,69 +317,9 @@ class ImageFlashService {
         return FileManager.default.fileExists(atPath: mountPoint)
     }
     
-    /// Unmounts a device using the `diskutil` command-line tool.
-    /// 
-    /// - Parameter mountPoint: The mount point to unmount (e.g., `/dev/disk4`)
-    /// - Throws: `FlashError.flashFailed` if the unmount operation fails
-    /// - Note: This method uses `diskutil unmountDisk` which handles both mounted volumes and devices with partitioning schemes
-    private func unmountDevice(_ mountPoint: String) async throws {
-        print("   - Unmounting: \(mountPoint)")
-        
-        // Use diskutil unmountDisk to handle both mounted volumes and devices with partitioning schemes
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["unmountDisk", mountPoint]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus != 0 {
-                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
-                throw FlashError.flashFailed("Failed to unmount device: \(output)")
-            }
-            
-            print("   - Unmount successful")
-        } catch {
-            throw FlashError.flashFailed("Failed to unmount device: \(error.localizedDescription)")
-        }
-    }
+    // REMOVED: unmountDevice() method - now using Drive.unmountDevice() which is tested and working
     
-    /// Mounts a device using the `diskutil` command-line tool.
-    /// 
-    /// - Parameter rawDevicePath: The raw device path to mount (e.g., `/dev/rdisk4`)
-    /// - Throws: `FlashError.flashFailed` if the mount operation fails
-    /// - Note: This method uses `diskutil mount` which is the standard macOS way to mount devices
-    private func mountDevice(_ rawDevicePath: String) async throws {
-        print("   - Mounting: \(rawDevicePath)")
-        
-        // Use diskutil to mount the device
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-        process.arguments = ["mount", rawDevicePath]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus != 0 {
-                let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Unknown error"
-                throw FlashError.flashFailed("Failed to mount device: \(output)")
-            }
-            
-            print("   - Mount successful")
-        } catch {
-            throw FlashError.flashFailed("Failed to mount device: \(error.localizedDescription)")
-        }
-    }
+    // REMOVED: mountDevice() method - now using Drive.mountDevice() which follows same reliable pattern
     
     /// Writes an image file to a device using the `dd` command with sudo privileges.
     /// 

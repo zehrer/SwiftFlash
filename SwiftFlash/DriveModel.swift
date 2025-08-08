@@ -60,26 +60,134 @@ struct Drive: Identifiable, Hashable {
         return lhs.mountPoint == rhs.mountPoint
     }
     
+    /// Unmount the device using diskutil unmountDisk command with timeout protection
+    /// - Returns: Bool indicating success (true) or failure (false)
+    /// - Note: This method includes timeout protection and detailed logging
     @discardableResult
     func unmountDevice() -> Bool {
+        print("🔄 [DEBUG] Starting unmount for: \(mountPoint)")
+        
         let task = Process()
-        task.launchPath = "/usr/sbin/diskutil"
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
         task.arguments = ["unmountDisk", mountPoint]
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
+        // Don't use pipes - they can cause blocking
+        task.standardOutput = nil
+        task.standardError = nil
 
         do {
+            print("🚀 [DEBUG] Launching diskutil unmountDisk \(mountPoint)")
             try task.run()
-            task.waitUntilExit()
-
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            print("📤 diskutil output:\n\(output)")
+            
+            // Create a timeout mechanism
+            let timeoutSeconds: TimeInterval = 10.0
+            let startTime = Date()
+            
+            // Check if process is still running with timeout
+            var lastOutputCheck = Date()
+            let outputCheckInterval: TimeInterval = 0.5 // Check output every 0.5 seconds
+            
+            while task.isRunning {
+                if Date().timeIntervalSince(startTime) > timeoutSeconds {
+                    print("⏰ [DEBUG] Timeout reached (\(timeoutSeconds)s), terminating process")
+                    task.terminate()
+                    
+                    // Give it a moment to clean up
+                    usleep(100000) // 0.1 seconds
+                    
+                    if task.isRunning {
+                        print("🔪 [DEBUG] Process still running after terminate, waiting...")
+                        // Process.kill() doesn't exist in Swift, terminate() should be sufficient
+                    }
+                    
+                    print("❌ [DEBUG] unmountDevice timed out for \(mountPoint)")
+                    return false
+                }
+                
+                // Show progress indicator periodically
+                let now = Date()
+                if now.timeIntervalSince(lastOutputCheck) >= outputCheckInterval {
+                    let elapsed = now.timeIntervalSince(startTime)
+                    print("⏳ [DEBUG] Process running for \(String(format: "%.1f", elapsed))s...")
+                    lastOutputCheck = now
+                }
+                
+                // Small sleep to prevent busy waiting
+                usleep(50000) // 0.05 seconds
+            }
+            
+            print("✅ [DEBUG] Process completed")
+            print("🏁 [DEBUG] Exit code: \(task.terminationStatus)")
 
             return task.terminationStatus == 0
         } catch {
-            print("❌ Failed to run diskutil: \(error)")
+            print("❌ [DEBUG] Failed to run diskutil unmount: \(error)")
+            return false
+        }
+    }
+    
+    /// Mount the device using diskutil mount command with timeout protection
+    /// - Returns: Bool indicating success (true) or failure (false)
+    /// - Note: Uses same reliable pattern as unmountDevice() with timeout protection
+    @discardableResult
+    func mountDevice() -> Bool {
+        print("🔄 [DEBUG] Starting mount for: \(mountPoint)")
+        
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        task.arguments = ["mount", mountPoint]
+
+        // Don't use pipes - they can cause blocking
+        task.standardOutput = nil
+        task.standardError = nil
+
+        do {
+            print("🚀 [DEBUG] Launching diskutil mount \(mountPoint)")
+            try task.run()
+            
+            // Create a timeout mechanism
+            let timeoutSeconds: TimeInterval = 10.0
+            let startTime = Date()
+            
+            // Check if process is still running with timeout
+            var lastOutputCheck = Date()
+            let outputCheckInterval: TimeInterval = 0.5 // Check output every 0.5 seconds
+            
+            while task.isRunning {
+                if Date().timeIntervalSince(startTime) > timeoutSeconds {
+                    print("⏰ [DEBUG] Timeout reached (\(timeoutSeconds)s), terminating process")
+                    task.terminate()
+                    
+                    // Give it a moment to clean up
+                    usleep(100000) // 0.1 seconds
+                    
+                    if task.isRunning {
+                        print("🔪 [DEBUG] Process still running after terminate, waiting...")
+                        // Process.kill() doesn't exist in Swift, terminate() should be sufficient
+                    }
+                    
+                    print("❌ [DEBUG] mountDevice timed out for \(mountPoint)")
+                    return false
+                }
+                
+                // Show progress indicator periodically
+                let now = Date()
+                if now.timeIntervalSince(lastOutputCheck) >= outputCheckInterval {
+                    let elapsed = now.timeIntervalSince(startTime)
+                    print("⏳ [DEBUG] Process running for \(String(format: "%.1f", elapsed))s...")
+                    lastOutputCheck = now
+                }
+                
+                // Small sleep to prevent busy waiting
+                usleep(50000) // 0.05 seconds
+            }
+            
+            print("✅ [DEBUG] Process completed")
+            print("🏁 [DEBUG] Exit code: \(task.terminationStatus)")
+
+            return task.terminationStatus == 0
+        } catch {
+            print("❌ [DEBUG] Failed to run diskutil mount: \(error)")
             return false
         }
     }

@@ -21,17 +21,17 @@ This document defines SMART (Specific, Measurable, Achievable, Relevant, Time-bo
 **Requirement**: Drive struct MUST contain all required properties for external drive representation
 - **Properties Required**:
   - `id: UUID` - Unique identifier (auto-generated)
-  - `name: String` - Display name from system
+  - `name: String` - Display name from system (currently called customName)
   - `mountPoint: String` - File system mount path
   - `size: Int64` - Total capacity in bytes
   - `isRemovable: Bool` - System removable flag
   - `isSystemDrive: Bool` - Internal drive protection flag
   - `isReadOnly: Bool` - Write protection status
-  - `mediaUUID: String?` - Hardware UUID for tracking
-  - `mediaName: String?` - DAMediaName from Disk Arbitration
+  - `mediaUUID: String?` - Hardware UUID for tracking  (custom identifyer TODO improve: risk for duplicates )
+  - `mediaName: String?` - DAMediaName from Disk Arbitration 
   - `vendor: String?` - Device manufacturer
   - `revision: String?` - Firmware/hardware revision
-  - `deviceType: DeviceType` - Classification (USB, SD, etc.)
+  - `deviceType: DeviceType` - Classification (USB, SD, etc.)  (see DeviceType Enum)
   - `partitionScheme: PartitionScheme` - MBR/GPT detection
 
 #### DATA-002: Drive Computed Properties

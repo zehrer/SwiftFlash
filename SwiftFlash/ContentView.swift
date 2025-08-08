@@ -416,7 +416,7 @@ struct ContentView: View {
     private var driveSelectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Step 2: Select USB Drive")
+                Text("Step 2: Select External Drive")
                     .font(.title2)
                     .fontWeight(.semibold)
                 Spacer()

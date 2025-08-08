@@ -40,8 +40,8 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var id = UUID()
     let mediaUUID: String
     let size: Int64
-    let originalName: String
-    var customName: String?
+    let mediaName: String
+    var name: String?
     let firstSeen: Date
     var lastSeen: Date
     var deviceType: DeviceType = .unknown
@@ -49,7 +49,7 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var revision: String?
     
     var displayName: String {
-        return customName ?? originalName
+        return name ?? mediaName
     }
     
     var formattedSize: String {
@@ -110,8 +110,8 @@ class DeviceInventory: ObservableObject {
             let newDevice = DeviceInventoryItem(
                 mediaUUID: mediaUUID,
                 size: size,
-                originalName: originalName,
-                customName: nil,
+                mediaName: originalName,
+                name: nil,
                 firstSeen: now,
                 lastSeen: now,
                 deviceType: deviceType,
@@ -130,14 +130,14 @@ class DeviceInventory: ObservableObject {
         print("🔧 [DEBUG] DeviceInventory.setCustomName called with UUID: \(mediaUUID), name: \(customName ?? "nil")")
         if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
             print("🔧 [DEBUG] Found device at index \(index), updating custom name")
-            devices[index].customName = customName
+            devices[index].name = customName
             saveInventory()
             print("✏️ [INVENTORY] Custom name set: \(customName ?? "nil")")
         } else {
             print("❌ [DEBUG] Device with UUID \(mediaUUID) not found in inventory")
             print("🔧 [DEBUG] Available devices in inventory:")
             for device in devices {
-                print("   - \(device.originalName) (UUID: \(device.mediaUUID))")
+                print("   - \(device.mediaName) (UUID: \(device.mediaUUID))")
             }
         }
     }

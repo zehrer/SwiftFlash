@@ -418,7 +418,7 @@ struct EditDeviceNameView: View {
     init(device: DeviceInventoryItem, inventory: DeviceInventory) {
         self.device = device
         self.inventory = inventory
-        self._customName = State(initialValue: device.customName ?? "")
+        self._customName = State(initialValue: device.name ?? "")
         self._selectedDeviceType = State(initialValue: device.deviceType)
     }
     
@@ -441,7 +441,7 @@ struct EditDeviceNameView: View {
                 Text("Media Name:")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text(device.originalName)
+                Text(device.mediaName)
                     .font(.body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -500,7 +500,7 @@ struct EditDeviceNameView: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(customName == device.customName && 
+                .disabled(customName == device.name && 
                          selectedDeviceType == device.deviceType)
             }
         }

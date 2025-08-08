@@ -6,7 +6,23 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		D42D6F942E45CF66000543F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D49EB23C2E36597F004B9F0A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D49EB2432E36597F004B9F0A;
+			remoteInfo = SwiftFlash;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		D42D6F822E44FECD000543F4 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		D42D6F832E44FECD000543F4 /* directory_structure.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = directory_structure.md; sourceTree = "<group>"; };
+		D42D6F842E44FECD000543F4 /* project_overview.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = project_overview.md; sourceTree = "<group>"; };
+		D42D6F852E44FECD000543F4 /* requirements_specification.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = requirements_specification.md; sourceTree = "<group>"; };
+		D42D6F862E44FECD000543F4 /* task_list.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = task_list.md; sourceTree = "<group>"; };
+		D42D6F902E45CF66000543F4 /* SwiftFlashTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SwiftFlashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D47213772E424D98005F3821 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D49EB2442E36597F004B9F0A /* SwiftFlash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftFlash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -24,6 +40,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		D42D6F912E45CF66000543F4 /* SwiftFlashTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SwiftFlashTests;
+			sourceTree = "<group>";
+		};
 		D49EB2462E36597F004B9F0A /* SwiftFlash */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -35,6 +56,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D42D6F8D2E45CF66000543F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D49EB2412E36597F004B9F0A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -45,10 +73,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D42D6F872E44FECD000543F4 /* notes */ = {
+			isa = PBXGroup;
+			children = (
+				D42D6F822E44FECD000543F4 /* CLAUDE.md */,
+				D42D6F832E44FECD000543F4 /* directory_structure.md */,
+				D42D6F842E44FECD000543F4 /* project_overview.md */,
+				D42D6F852E44FECD000543F4 /* requirements_specification.md */,
+				D42D6F862E44FECD000543F4 /* task_list.md */,
+			);
+			path = notes;
+			sourceTree = "<group>";
+		};
 		D49EB23B2E36597F004B9F0A = {
 			isa = PBXGroup;
 			children = (
+				D42D6F872E44FECD000543F4 /* notes */,
 				D49EB2462E36597F004B9F0A /* SwiftFlash */,
+				D42D6F912E45CF66000543F4 /* SwiftFlashTests */,
 				D49EB2452E36597F004B9F0A /* Products */,
 				D47213772E424D98005F3821 /* README.md */,
 			);
@@ -58,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				D49EB2442E36597F004B9F0A /* SwiftFlash.app */,
+				D42D6F902E45CF66000543F4 /* SwiftFlashTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -65,6 +108,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D42D6F8F2E45CF66000543F4 /* SwiftFlashTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D42D6F962E45CF67000543F4 /* Build configuration list for PBXNativeTarget "SwiftFlashTests" */;
+			buildPhases = (
+				D42D6F8C2E45CF66000543F4 /* Sources */,
+				D42D6F8D2E45CF66000543F4 /* Frameworks */,
+				D42D6F8E2E45CF66000543F4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D42D6F952E45CF66000543F4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D42D6F912E45CF66000543F4 /* SwiftFlashTests */,
+			);
+			name = SwiftFlashTests;
+			packageProductDependencies = (
+			);
+			productName = SwiftFlashTests;
+			productReference = D42D6F902E45CF66000543F4 /* SwiftFlashTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		D49EB2432E36597F004B9F0A /* SwiftFlash */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D49EB24F2E365980004B9F0A /* Build configuration list for PBXNativeTarget "SwiftFlash" */;
@@ -98,6 +164,10 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					D42D6F8F2E45CF66000543F4 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = D49EB2432E36597F004B9F0A;
+					};
 					D49EB2432E36597F004B9F0A = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -118,11 +188,19 @@
 			projectRoot = "";
 			targets = (
 				D49EB2432E36597F004B9F0A /* SwiftFlash */,
+				D42D6F8F2E45CF66000543F4 /* SwiftFlashTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		D42D6F8E2E45CF66000543F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D49EB2422E36597F004B9F0A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -155,6 +233,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D42D6F8C2E45CF66000543F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D49EB2402E36597F004B9F0A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -164,7 +249,59 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		D42D6F952E45CF66000543F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D49EB2432E36597F004B9F0A /* SwiftFlash */;
+			targetProxy = D42D6F942E45CF66000543F4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		D42D6F972E45CF67000543F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NV9LC295QZ;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.zehrer.SwiftFlashTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SwiftFlash.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SwiftFlash";
+			};
+			name = Debug;
+		};
+		D42D6F982E45CF67000543F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NV9LC295QZ;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.zehrer.SwiftFlashTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SwiftFlash.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SwiftFlash";
+			};
+			name = Release;
+		};
 		D49EB24D2E365980004B9F0A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -388,6 +525,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D42D6F962E45CF67000543F4 /* Build configuration list for PBXNativeTarget "SwiftFlashTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D42D6F972E45CF67000543F4 /* Debug */,
+				D42D6F982E45CF67000543F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		D49EB23F2E36597F004B9F0A /* Build configuration list for PBXProject "SwiftFlash" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
