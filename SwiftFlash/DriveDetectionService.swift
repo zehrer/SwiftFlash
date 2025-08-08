@@ -709,7 +709,7 @@ extension DriveDetectionService {
     }
     
     /// Checks if a device is a disk image (mounted .dmg file)
-    private func isDiskImage(deviceInfo: DeviceInfo) -> Bool {
+    internal func isDiskImage(deviceInfo: DeviceInfo) -> Bool {
         // Check if the media name is "Disk Image" (which indicates a mounted .dmg file)
         if let mediaName = deviceInfo.mediaName, mediaName == "Disk Image" {
             return true

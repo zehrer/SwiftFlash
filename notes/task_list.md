@@ -15,8 +15,9 @@
     - AI support to search for images (MacOS 26)
 - write Unit tests and HMI test cases :)
 - change build number based on tagged releases (git describe --tags --long)
-- use Disk Arbitration Framework for mount and unmount
--  
+- improve usage of Disk Arbitration Framework 
+    - use it for mount and unmount
+    - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey")
 
 ## High Priority Tasks
 
