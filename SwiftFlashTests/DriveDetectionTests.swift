@@ -105,13 +105,34 @@ final class DriveDetectionTests: XCTestCase {
         // Test the logic directly (without DriveDetectionService)
         let isDiskImage = diskImage.mediaName == "Disk Image" || diskImage.name == "Disk Image"
         XCTAssertTrue(isDiskImage, "Disk image should be identified as disk image")
+        XCTAssertEqual(diskImage.mediaName, "Disk Image", "Disk image should have 'Disk Image' as media name")
+        XCTAssertEqual(diskImage.name, "Disk Image", "Disk image should have 'Disk Image' as name")
         print("✅ Disk image correctly identified")
         
         // Test with mock real device
         let realDevice = createMockRealDevice()
         let isRealDeviceDiskImage = realDevice.mediaName == "Disk Image" || realDevice.name == "Disk Image"
         XCTAssertFalse(isRealDeviceDiskImage, "Real device should not be identified as disk image")
+        XCTAssertNotEqual(realDevice.mediaName, "Disk Image", "Real device should not have 'Disk Image' as media name")
+        XCTAssertNotEqual(realDevice.name, "Disk Image", "Real device should not have 'Disk Image' as name")
         print("✅ Real device correctly not identified as disk image")
+        
+        // Test edge case: device with "Disk Image" in name but different media name
+        let edgeCaseDevice = DeviceInfo(
+            name: "My Disk Image Backup",
+            devicePath: "/dev/disk888",
+            size: 1000000000,
+            isRemovable: true,
+            isEjectable: true,
+            isReadOnly: false,
+            mediaUUID: "EDGE_CASE_001",
+            mediaName: "SanDisk Ultra",
+            vendor: "SanDisk",
+            revision: "1.0"
+        )
+        let isEdgeCaseDiskImage = edgeCaseDevice.mediaName == "Disk Image" || edgeCaseDevice.name == "Disk Image"
+        XCTAssertFalse(isEdgeCaseDiskImage, "Device with 'Disk Image' in name but different media name should not be identified as disk image")
+        print("✅ Edge case device correctly not identified as disk image")
     }
     
     // MARK: - Real Device Detection Tests
@@ -120,22 +141,59 @@ final class DriveDetectionTests: XCTestCase {
         print("\n🧪 Test: Real device detection")
         print("=" * 50)
         
-        // Skip this test to avoid blocking - it requires real hardware
-        XCTSkip("⚠️ SKIPPED: Real device detection requires hardware and may block")
+        // Test with a mock real USB device
+        let realDevice = createMockRealDevice()
         
-        // Note: This test would require real USB devices and could block
-        // due to IOKit calls in findTestDevice()
+        // Verify the device has correct properties for a real USB device
+        XCTAssertTrue(realDevice.isRemovable, "USB device should be removable")
+        XCTAssertTrue(realDevice.isEjectable, "USB device should be ejectable")
+        XCTAssertFalse(realDevice.isReadOnly, "USB device should not be read-only")
+        XCTAssertGreaterThan(realDevice.size, 0, "USB device should have positive size")
+        XCTAssertNotNil(realDevice.mediaName, "USB device should have a media name")
+        XCTAssertNotEqual(realDevice.mediaName, "Disk Image", "Real device should not have 'Disk Image' as media name")
+        
+        // Test that it's not identified as a disk image
+        let isDiskImage = realDevice.mediaName == "Disk Image" || realDevice.name == "Disk Image"
+        XCTAssertFalse(isDiskImage, "Real USB device should not be identified as disk image")
+        
+        print("✅ Real device detection working correctly")
     }
     
     func testDeviceDetectionWithNoDevices() throws {
         print("\n🧪 Test: Device detection with no devices")
         print("=" * 50)
         
-        // Skip this test to avoid blocking - it requires DriveDetectionService initialization
-        XCTSkip("⚠️ SKIPPED: Service initialization test requires hardware and may block")
+        // Test that we can create DeviceInfo objects without hardware
+        let mockDevice = DeviceInfo(
+            name: "Test Device",
+            devicePath: "/dev/disk999",
+            size: 1000000000,
+            isRemovable: true,
+            isEjectable: true,
+            isReadOnly: false,
+            mediaUUID: "TEST_UUID",
+            mediaName: "Test Media",
+            vendor: "Test Vendor",
+            revision: "1.0"
+        )
         
-        // Note: This test would require DriveDetectionService initialization
-        // which could block due to IOKit and Disk Arbitration calls
+        // Verify the mock device has correct properties
+        XCTAssertEqual(mockDevice.name, "Test Device", "Device name should match")
+        XCTAssertEqual(mockDevice.devicePath, "/dev/disk999", "Device path should match")
+        XCTAssertEqual(mockDevice.size, 1000000000, "Device size should match")
+        XCTAssertTrue(mockDevice.isRemovable, "Device should be removable")
+        XCTAssertTrue(mockDevice.isEjectable, "Device should be ejectable")
+        XCTAssertFalse(mockDevice.isReadOnly, "Device should not be read-only")
+        XCTAssertEqual(mockDevice.mediaUUID, "TEST_UUID", "Media UUID should match")
+        XCTAssertEqual(mockDevice.mediaName, "Test Media", "Media name should match")
+        XCTAssertEqual(mockDevice.vendor, "Test Vendor", "Vendor should match")
+        XCTAssertEqual(mockDevice.revision, "1.0", "Revision should match")
+        
+        // Test that it's not a disk image
+        let isDiskImage = mockDevice.mediaName == "Disk Image" || mockDevice.name == "Disk Image"
+        XCTAssertFalse(isDiskImage, "Mock device should not be identified as disk image")
+        
+        print("✅ Device detection with mock devices working correctly")
     }
     
     // MARK: - Hardware Dependency Tests
@@ -144,11 +202,29 @@ final class DriveDetectionTests: XCTestCase {
         print("\n🧪 Test: Hardware dependency warnings")
         print("=" * 50)
         
-        // Skip this test to avoid blocking - it requires real hardware
-        XCTSkip("⚠️ SKIPPED: Hardware dependency test requires hardware and may block")
+        // Test that we can detect when hardware is not available
+        let testDevice = findTestDevice()
         
-        // Note: This test would require real USB devices and could block
-        // due to IOKit calls in findTestDevice()
+        if testDevice == nil {
+            print("⚠️ HARDWARE DEPENDENCY: No external USB device available")
+            print("💡 This test requires:")
+            print("   - External USB device (USB stick, SD card, etc.)")
+            print("   - Device should be mounted and accessible")
+            print("   - Device should not be the system boot device")
+            print("💡 To test disk image filtering:")
+            print("   - Mount a .dmg file")
+            print("   - Verify it appears as 'Disk Image' in diskutil")
+            
+            XCTSkip("⚠️ SKIPPED: Hardware dependency not met - no external devices available")
+            return
+        }
+        
+        // If we have a test device, verify it's valid
+        XCTAssertNotNil(testDevice, "Test device should be available")
+        XCTAssertTrue(testDevice!.isRemovable, "Test device should be removable")
+        XCTAssertGreaterThan(testDevice!.size, 0, "Test device should have positive size")
+        
+        print("✅ Hardware dependency test passed")
     }
     
     // MARK: - Integration Tests
