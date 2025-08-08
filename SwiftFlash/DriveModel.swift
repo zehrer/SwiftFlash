@@ -71,54 +71,48 @@ struct Drive: Identifiable, Hashable {
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
         task.arguments = ["unmountDisk", mountPoint]
 
-        // Don't use pipes - they can cause blocking
-        task.standardOutput = nil
-        task.standardError = nil
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
 
         do {
             print("🚀 [DEBUG] Launching diskutil unmountDisk \(mountPoint)")
             try task.run()
-            
-            // Create a timeout mechanism
-            let timeoutSeconds: TimeInterval = 10.0
-            let startTime = Date()
-            
-            // Check if process is still running with timeout
-            var lastOutputCheck = Date()
-            let outputCheckInterval: TimeInterval = 0.5 // Check output every 0.5 seconds
-            
-            while task.isRunning {
-                if Date().timeIntervalSince(startTime) > timeoutSeconds {
-                    print("⏰ [DEBUG] Timeout reached (\(timeoutSeconds)s), terminating process")
-                    task.terminate()
-                    
-                    // Give it a moment to clean up
-                    usleep(100000) // 0.1 seconds
-                    
-                    if task.isRunning {
-                        print("🔪 [DEBUG] Process still running after terminate, waiting...")
-                        // Process.kill() doesn't exist in Swift, terminate() should be sufficient
-                    }
-                    
-                    print("❌ [DEBUG] unmountDevice timed out for \(mountPoint)")
-                    return false
-                }
-                
-                // Show progress indicator periodically
-                let now = Date()
-                if now.timeIntervalSince(lastOutputCheck) >= outputCheckInterval {
-                    let elapsed = now.timeIntervalSince(startTime)
-                    print("⏳ [DEBUG] Process running for \(String(format: "%.1f", elapsed))s...")
-                    lastOutputCheck = now
-                }
-                
-                // Small sleep to prevent busy waiting
-                usleep(50000) // 0.05 seconds
-            }
-            
-            print("✅ [DEBUG] Process completed")
-            print("🏁 [DEBUG] Exit code: \(task.terminationStatus)")
 
+            let outputHandle = outputPipe.fileHandleForReading
+            let errorHandle = errorPipe.fileHandleForReading
+
+            outputHandle.readabilityHandler = { handle in
+                if let output = String(data: handle.availableData, encoding: .utf8), !output.isEmpty {
+                    print("📤 [diskutil stdout]: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+                }
+            }
+
+            errorHandle.readabilityHandler = { handle in
+                if let output = String(data: handle.availableData, encoding: .utf8), !output.isEmpty {
+                    print("🛑 [diskutil stderr]: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+                }
+            }
+
+            let timeoutSeconds: TimeInterval = 10.0
+            let deadline = Date().addingTimeInterval(timeoutSeconds)
+
+            while task.isRunning && Date() < deadline {
+                RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+            }
+
+            outputHandle.readabilityHandler = nil
+            errorHandle.readabilityHandler = nil
+
+            if task.isRunning {
+                print("⏰ [DEBUG] Timeout reached, terminating process")
+                task.terminate()
+                usleep(100_000)
+                return false
+            }
+
+            print("🏁 [DEBUG] Exit code: \(task.terminationStatus)")
             return task.terminationStatus == 0
         } catch {
             print("❌ [DEBUG] Failed to run diskutil unmount: \(error)")
