@@ -18,7 +18,7 @@ extension Notification.Name {
 // Any modifications require testing of app startup and window behavior.
 @main
 struct SwiftFlashApp: App {
-    @StateObject private var deviceInventory = DeviceInventory()
+    @StateObject private var appModel = AppModel()
     @State private var showAboutDialog = false
     @AppStorage("showStatusBar") private var showStatusBar = true
     
@@ -40,7 +40,7 @@ struct SwiftFlashApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(deviceInventory)
+                .environmentObject(appModel)
                 .sheet(isPresented: $showAboutDialog) {
                     AboutView()
                 }
@@ -71,9 +71,9 @@ struct SwiftFlashApp: App {
         
         #if os(macOS)
         // Adds a native macOS Settings window accessible via the menu bar.
-        Settings {
-            SettingsView(inventory: deviceInventory)
-        }
+            Settings {
+                SettingsView(inventory: appModel.deviceInventory)
+            }
         #endif // os(macOS)
     }
 }

@@ -1,21 +1,20 @@
 # SwiftFlash
 
-**SwiftFlash** is a lightweight, native macOS application for flashing `.img` and `.iso` files to USB drives. Built with SwiftUI and Swift 6, SwiftFlash aims to be a minimal, safe, and open-source alternative to bulky tools like balenaEtcher or Raspberry Pi Imager.
+**SwiftFlash** is a lightweight, native macOS application for flashing `.iso` file to a external drive . Built with SwiftUI and Swift 6, SwiftFlash aims to be a minimal, safe, and open-source alternative to tools like balenaEtcher or Raspberry Pi Imager.
 
 ⚡️ **Simple. Safe. Swift.**
 
-## Features
+## KEy Features
 
-- 🖥️ **Native macOS Interface** - Built with SwiftUI for seamless integration with very small size (just around 4MB)
+- 🖥️ **Native macOS Interface** - Built with SwiftUI for seamless integration and a very small app size (just around 4MB)
 - 📁 **Drag & Drop Support** - Simply drag your image file onto the app
-- 💾 **Device Inventory** - Tracks and remembers your devices
-- 🔒 **SHA256 Checksum Verification** - Generate and verify file integrity checksums
+- 💾 **Device Inventory** - Tracks and remembers your external drives (e.g. USB sticks, SD Cards ...)
+- 🔒 **SHA256 Checksum** - Generate and store integrity checksums
 
 
 ## Supported File Formats
 
 - `.iso` - ISO disk images
-
 
 ## System Requirements
 
@@ -37,50 +36,19 @@ xcodebuild -project SwiftFlash/SwiftFlash.xcodeproj -scheme SwiftFlash -configur
 
 ## Usage
 
-1. **Launch SwiftFlash**
-2. **Select Image File** - Drag and drop your `.img` or `.iso` file, or use the file picker
-3. **Choose Target Drive** - Select the USB drive from the list of available drives
-4. **Review Settings** - Verify the selected image and target drive
-5. **Start Flashing** - Click "Flash" and wait for completion
+1. **Select Image File** - Drag and drop your image file, or use the file picker 
+3. **Choose Target Drive** - Select the external drive from the list of available drives
+5. **Start Flashing** - Click "Flash", confirm  and wait for completion 
 
-⚠️ **Warning**: Flashing will erase all data on the target drive. Make sure to backup any important files.
+⚠️ **Warning**: Flashing will erase all data on the target drive, therefore this requires root rights. 
 
 ## SHA256 Checksum Verification
 
 SwiftFlash includes built-in SHA256 checksum functionality to ensure file integrity and verify downloaded images.
 
-### Generating Checksums
-
-1. **Select an Image File** - Choose any `.img` or `.iso` file
-2. **Click the Checksum Button** - Use the checksum button in the toolbar (🔒 icon)
-3. **View Results** - The checksum appears in the inspector panel
-4. **Compare with Official Checksums** - Verify against official download checksums
-
-### Features
-
-- **🔒 SHA256 Algorithm** - Industry-standard cryptographic hashing
-- **📁 Network Share Support** - Works with local files and SMB network shares
-- **💾 Automatic Storage** - Checksums are saved in the image history
-- **🔍 Integrity Verification** - Verify file integrity before flashing
-- **📊 Progress Tracking** - Real-time progress for large files
-
-### Supported Locations
-
-- **Local Files** - Any accessible file on your Mac
-- **Network Shares** - SMB, AFP, and other network file systems
-- **External Drives** - USB drives, external SSDs, etc.
-- **Cloud Storage** - Files synced from iCloud, Dropbox, etc.
-
-### Verification Process
-
-The checksum feature automatically verifies image integrity during the flashing process:
-
-1. **Pre-flash Verification** - Checksum is verified before writing to device
-2. **Integrity Confirmation** - Ensures the image hasn't been corrupted
-3. **Safety Enhancement** - Adds an extra layer of verification
-
 ## Safety Features
 
+- **Sandboxing**: Sandboxing is for the moment disabled as the access to flash drive require root rights. 
 - **Drive Validation** - Only removable drives are shown as targets
 - **System Drive Protection** - System drives are automatically excluded
 - **Confirmation Dialogs** - Multiple confirmation steps before flashing
@@ -100,67 +68,14 @@ The checksum feature automatically verifies image integrity during the flashing 
 
 ### Project Structure
 
-```
-SwiftFlash/
-├── SwiftFlash/
-│   ├── SwiftFlashApp.swift          # Main app entry point
-│   ├── ContentView.swift            # Main UI view
-│   ├── DriveDetectionService.swift  # Disk Arbitration integration
-│   ├── DriveModel.swift             # Drive data model
-│   ├── DriveInspectorView.swift     # Drive details inspector
-│   ├── DropZoneView.swift           # Drag & drop interface
-│   ├── ImageFileModel.swift         # Image file handling
-│   ├── ImageFileService.swift       # Image file operations
-│   ├── ImageFlashService.swift      # Flash operations and checksums
-│   ├── ImageHistoryService.swift    # Image history and metadata
-│   ├── ImageInspectorView.swift     # Image details and checksum display
-│   ├── ToolbarButtons.swift         # Reusable toolbar components
-│   ├── ToolbarConfigurationService.swift # Toolbar layout management
-│   ├── DeviceInventory.swift        # Device tracking
-│   ├── SwiftFlash.entitlements      # App sandbox permissions
-│   └── Resources/                   # App resources and assets
-│       ├── logo.swift               # SwiftUI vector logo (converted from SVG)
-│       ├── logo.svg                 # Original SVG source file
-│       ├── logo.png                 # PNG version for reference
-│       └── logo.jpeg                # JPEG version for reference
-```
-
-### Logo Implementation
-
-The app uses a **vector-based logo** approach for optimal performance and quality:
-
-- **Source**: Original SVG file (`logo.svg`) converted to SwiftUI using [SVG to SwiftUI Converter](https://svg-to-swiftui.quassum.com)
-- **Implementation**: Pure SwiftUI vector paths in `logo.swift` (9 KB)
-- **Benefits**: 
-  - Perfect scalability at any size
-  - Minimal file size (no image assets)
-  - Native SwiftUI rendering
-  - No external dependencies
-- **Source Files**: Original SVG, PNG, and JPEG files are kept in Resources for reference and future use
+see [Structure](notes/directory_structure.md)
 
 ### Versioning
 
-SwiftFlash uses a **date-based versioning scheme** with automated build number management:
+SwiftFlash uses a **date-based versioning scheme** with automated build number generation based on git.  
 
-#### Version Format
-- **Marketing Version**: `YYYY.M` (Year.Month format)
-- **Build Number**: Incremental counter (resets with each release)
-- **Example**: `2025.8 (1)`, `2025.8 beta 1 (2)`, `2025.9 (1)`
+see [Versioning](notes/Versioning.md) for more.  
 
-#### Release Workflow
-```
-Development: 2025.8 (1) → 2025.8 (2) → 2025.8 (3)
-Beta 1:     2025.8 beta 1 (1) → 2025.8 beta 1 (2) → 2025.8 beta 1 (3)
-Beta 2:     2025.8 beta 2 (1) → 2025.8 beta 2 (2) → 2025.8 beta 2 (3)
-Release:    2025.8 (1) → 2025.8 (2) → 2025.8 (3)
-Next Month: 2025.9 (1) → 2025.9 (2) → 2025.9 (3)
-```
-
-#### Version Management
-- **Automated**: Uses Apple's `agvtool` for version management
-- **Build Numbers**: Automatically incremented during development
-- **Release Reset**: Build numbers reset to 1 for each new release
-- **Beta Releases**: Clear distinction with "beta" suffix in marketing version
 
 ### Key Technologies
 
@@ -170,9 +85,6 @@ Next Month: 2025.9 (1) → 2025.9 (2) → 2025.9 (3)
 - **Combine** - Reactive programming for data flow
 - **CryptoKit** - SHA256 checksum generation and verification
 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ### Development Setup
 
@@ -183,7 +95,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) (LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -197,20 +109,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **SwiftFlash** - Making disk flashing simple and safe on macOS.
 
-
-## TODO
-
-- IOMediaWhole for detaction of device vs partion
-- Store partion informationin DeviceInfo (List of partion info as far as avaible )
-- support `.img` - Raw disk images (TODO testing
-- Other raw disk image formats (TODO testing)
-- Image Repository 
-    - local folder storing all images
-    - list of external repositories 
-    - list of URLs for each repositories public images for download
-    - check new publications of images 
-    - search from images
-    - AI support to search for images (MacOS 26)
-- write Unit tests and HMI test cases :)
-- change build number based on tagged releases (git describe --tags --long)
-- move SUDO check to App startup

@@ -5,15 +5,11 @@ struct ContentView: View {
     @State private var imageHistoryService = ImageHistoryService()
     @State private var flashService: ImageFlashService
     @State private var toolbarConfig = ToolbarConfigurationService()
-    @EnvironmentObject var deviceInventory: DeviceInventory
-    @StateObject private var driveService: DriveDetectionService
+    @EnvironmentObject var appModel: AppModel
     @State private var selectedDrive: Drive?
     @State private var selectedImage: ImageFile?
     
     init() {
-        let driveService = DriveDetectionService()
-        self._driveService = StateObject(wrappedValue: driveService)
-        
         let imageHistoryService = ImageHistoryService()
         let flashService = ImageFlashService(imageHistoryService: imageHistoryService)
         self._imageHistoryService = State(wrappedValue: imageHistoryService)
@@ -21,7 +17,8 @@ struct ContentView: View {
     }
     
     private func setupDriveService() {
-        driveService.inventory = deviceInventory
+        // Intentionally left empty to decouple service from model.
+        // Inventory is managed by the model layer (DeviceInventory) directly.
     }
     @State private var isDropTargeted = false
     @State private var showInspector = false  // Hidden by default
@@ -63,10 +60,11 @@ struct ContentView: View {
             }
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-            .onReceive(driveService.$drives) { drives in
+            .onReceive(appModel.driveService.$drives) { drives in
                 print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
+                updateInventory(for: drives)
             }
-            .onReceive(driveService.$isScanning) { isScanning in
+            .onReceive(appModel.driveService.$isScanning) { isScanning in
                 print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
             }
             // END: MAIN CONTENT AREA
@@ -81,7 +79,7 @@ struct ContentView: View {
                     }
                 } else if let selectedDrive = selectedDrive {
                     ScrollView {
-                        DriveInspectorView(drive: selectedDrive, deviceInventory: deviceInventory)
+                        DriveInspectorView(drive: selectedDrive, deviceInventory: appModel.deviceInventory)
                             .frame(minWidth: 250, idealWidth: 300)
                     }
                 } else {
@@ -114,8 +112,8 @@ struct ContentView: View {
                     Spacer()
                     
                     // Drive count
-                    if !driveService.drives.isEmpty {
-                        Text("\(driveService.drives.count) drive\(driveService.drives.count == 1 ? "" : "s") detected")
+                    if !appModel.driveService.drives.isEmpty {
+                        Text("\(appModel.driveService.drives.count) drive\(appModel.driveService.drives.count == 1 ? "" : "s") detected")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -140,7 +138,7 @@ struct ContentView: View {
             Group {
                 if toolbarConfig.toolbarItems.contains("refresh") {
                     ToolbarItem(id: "refresh", placement: .automatic) {
-                        refreshButton(driveService: driveService)
+                        refreshButton(driveService: appModel.driveService)
                     }
                 }
                 
@@ -267,7 +265,9 @@ struct ContentView: View {
                     print("🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.displayName)'")
                     if let mediaUUID = getMediaUUIDForDrive(drive) {
                         print("🔧 [DEBUG] Found media UUID: \(mediaUUID)")
-                        driveService.setCustomName(for: mediaUUID, customName: customNameText)
+                        // Update model directly, then refresh detection service
+                        appModel.deviceInventory.setCustomName(for: mediaUUID, customName: customNameText)
+                        appModel.driveService.refreshDrives()
                     } else {
                         print("❌ [DEBUG] Could not find media UUID for drive: \(drive.displayName)")
                     }
@@ -325,7 +325,7 @@ struct ContentView: View {
         }
         .onAppear {
             setupDriveService()
-            driveService.refreshDrives()
+            appModel.driveService.refreshDrives()
             
             // Validate all bookmarks in history
             imageHistoryService.validateAllBookmarks()
@@ -422,7 +422,7 @@ struct ContentView: View {
                 Spacer()
             }
             
-            if driveService.isScanning {
+            if appModel.driveService.isScanning {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.2)
@@ -433,7 +433,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, minHeight: 120)
                 .background(Color(.controlBackgroundColor))
                 .cornerRadius(8)
-            } else if driveService.drives.isEmpty {
+            } else if appModel.driveService.drives.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "externaldrive")
                         .font(.system(size: 48))
@@ -451,9 +451,9 @@ struct ContentView: View {
                 .cornerRadius(8)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(driveService.drives) { drive in
+                    ForEach(appModel.driveService.drives) { drive in
                         DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
-                            .environmentObject(deviceInventory)
+                            .environmentObject(appModel.deviceInventory)
                             .onTapGesture {
                                 selectedDrive = drive
                                 selectedImage = nil
@@ -467,7 +467,7 @@ struct ContentView: View {
                     }
                 }
                 .onAppear {
-                    for (index, drive) in driveService.drives.enumerated() {
+                    for (index, drive) in appModel.driveService.drives.enumerated() {
                         print("🔍 [DEBUG] UI: Drive \(index): \(drive.displayName)")
                     }
                 }
@@ -505,6 +505,22 @@ struct ContentView: View {
         print("   - Device Type: \(drive.deviceType.rawValue)")
         print("   - Is Read Only: \(drive.isReadOnly)")
         print("   - Is Removable: \(drive.isRemovable)")
+    }
+
+    // MARK: - Inventory Coordination
+
+    private func updateInventory(for drives: [Drive]) {
+        for drive in drives {
+            guard let mediaUUID = drive.mediaUUID else { continue }
+            appModel.deviceInventory.addOrUpdateDevice(
+                mediaUUID: mediaUUID,
+                size: drive.size,
+                originalName: drive.mediaName ?? drive.name,
+                deviceType: drive.deviceType,
+                vendor: drive.vendor,
+                revision: drive.revision
+            )
+        }
     }
 }
 
