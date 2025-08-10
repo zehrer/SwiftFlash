@@ -21,7 +21,6 @@ class DriveDetectionService: ObservableObject {
     @Published var isScanning = false
     
     private var diskArbitrationSession: DASession?
-    var inventory: DeviceInventory?
     
     init() {
         setupDiskArbitration()
@@ -50,11 +49,6 @@ class DriveDetectionService: ObservableObject {
             self.isScanning = false
             print("🔍 [DEBUG] DriveDetectionService: Updated drives array - count: \(self.drives.count)")
         }
-    }
-    
-    /// Gets the current inventory of devices
-    var deviceInventory: [DeviceInventoryItem] {
-        return inventory?.devices ?? []
     }
     
     /// Debug function to print all Disk Arbitration information for a drive
@@ -86,19 +80,6 @@ class DriveDetectionService: ObservableObject {
         }
         
         print("🔍 [DEBUG] === End Disk Arbitration Info ===")
-    }
-    
-    /// Sets a custom name for a device
-    func setCustomName(for mediaUUID: String, customName: String) {
-        print("🔧 [DEBUG] DriveDetectionService.setCustomName called with UUID: \(mediaUUID), name: \(customName)")
-        inventory?.setCustomName(for: mediaUUID, customName: customName)
-        // Refresh drives to update the display
-        refreshDrives()
-    }
-    
-    /// Removes a device from inventory
-    func removeFromInventory(mediaUUID: String) {
-        inventory?.removeDevice(with: mediaUUID)
     }
     
     /// Sets up Disk Arbitration session for device monitoring
@@ -145,21 +126,15 @@ class DriveDetectionService: ObservableObject {
             }
             
             // Check if this is a disk image (mounted .dmg file)
-            if isDiskImage(deviceInfo: deviceInfo) {
+            if deviceInfo.isDiskImage {
                 print("⚠️ [DEBUG] Device \(deviceInfo.name) is a disk image - excluding")
                 continue
             }
             
             print("✅ [DEBUG] Found external drive: \(deviceInfo.name)")
             
-            // Get device type from inventory if available, otherwise determine automatically
-            let deviceType: DeviceType
-            if let mediaUUID = deviceInfo.mediaUUID,
-               let inventoryDevice = inventory?.devices.first(where: { $0.mediaUUID == mediaUUID }) {
-                deviceType = inventoryDevice.deviceType
-            } else {
-                deviceType = determineDeviceType(originalName: deviceInfo.name, devicePath: deviceInfo.devicePath)
-            }
+            // Determine device type automatically from detected properties
+            let deviceType: DeviceType = deviceInfo.inferredDeviceType
             
             let drive = Drive(
                 name: deviceInfo.name,
@@ -189,21 +164,6 @@ class DriveDetectionService: ObservableObject {
         
         return drives
     }
-}
-
-// MARK: - Device Info Structure
-
-struct DeviceInfo {
-    let name: String
-    let devicePath: String
-    let size: Int64
-    let isRemovable: Bool
-    let isEjectable: Bool
-    let isReadOnly: Bool
-    let mediaUUID: String?
-    let mediaName: String?
-    let vendor: String?
-    let revision: String?
 }
 
 // MARK: - IOKit Device Detection Functions
@@ -252,7 +212,7 @@ extension DriveDetectionService {
             // Only include main devices (not partitions)
             if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
                 //print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
-                if isMainDevice(deviceInfo: deviceInfo) {
+                if deviceInfo.isMainDevice {
                     //print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
                     devices.append(deviceInfo)
                 } else {
@@ -290,7 +250,7 @@ extension DriveDetectionService {
         let isEjectable = props["Ejectable"] as? Bool ?? false
         let isReadOnly = props["Writable"] as? Bool == false
         
-        // Get media UUID and update inventory
+        // Get media UUID
         let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
         //print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
         
@@ -298,29 +258,8 @@ extension DriveDetectionService {
         let vendor = getVendorFromDiskArbitration(devicePath: devicePath)
         let revision = getRevisionFromDiskArbitration(devicePath: devicePath)
         
-        let name: String
-        if let uuid = mediaUUID {
-            //TODO: really adding devic? seems this is printed all the time
-            //print("🔧 [DEBUG] Adding device to inventory: \(originalName) with UUID: \(uuid)")
-            // Determine device type based on original name or other characteristics
-            let deviceType = determineDeviceType(originalName: originalName, devicePath: devicePath)
-            
-            inventory?.addOrUpdateDevice(
-                mediaUUID: uuid,
-                size: size,
-                originalName: originalName,
-                deviceType: deviceType,
-                vendor: vendor,
-                revision: revision
-            )
-            
-            // Use custom name from inventory if available, otherwise use original name
-            name = inventory?.getDisplayName(for: uuid) ?? originalName
-            //print("🔧 [DEBUG] Final display name: \(name)")
-        } else {
-            print("❌ [DEBUG] No media UUID found for device: \(originalName)")
-            name = originalName
-        }
+        // Always use original name from system; higher-level model may overlay custom names
+        let name: String = originalName
         
         let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
         
@@ -338,38 +277,7 @@ extension DriveDetectionService {
         )
     }
     
-    /// Determines the device type based on the original name and device path
-    private func determineDeviceType(originalName: String, devicePath: String) -> DeviceType {
-        let lowercasedName = originalName.lowercased()
-        
-        // Check for microSD card indicators
-        if lowercasedName.contains("microsd") || lowercasedName.contains("micro sd") {
-            return .microSDCard
-        }
-        
-        // Check for SD card indicators
-        if lowercasedName.contains("sd") || lowercasedName.contains("transce") {
-            return .sdCard
-        }
-        
-        // Check for USB stick indicators
-        if lowercasedName.contains("udisk") || lowercasedName.contains("mass") || lowercasedName.contains("generic") {
-            return .usbStick
-        }
-        
-        // Check for external SSD indicators
-        if lowercasedName.contains("ssd") || lowercasedName.contains("solid state") {
-            return .externalSSD
-        }
-        
-        // Check for external HDD indicators
-        if lowercasedName.contains("external") || lowercasedName.contains("drive") || lowercasedName.contains("hard disk") {
-            return .externalHDD
-        }
-        
-        // Default to unknown if we can't determine
-        return .unknown
-    }
+    // moved: device type inference is now a derived property on DeviceInfo
     
     /// Gets the specific DAMediaName from Disk Arbitration framework
     private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {

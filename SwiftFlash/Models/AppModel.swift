@@ -12,6 +12,9 @@ import Combine
 final class AppModel: ObservableObject {
     @Published var deviceInventory: DeviceInventory
     @Published var driveService: DriveDetectionService
+    // Mirror service state for SwiftUI reactivity
+    @Published var drives: [Drive] = []
+    @Published var isScanning: Bool = false
 
     init() {
         let inventory = DeviceInventory()
@@ -20,9 +23,14 @@ final class AppModel: ObservableObject {
         self.deviceInventory = inventory
         self.driveService = driveService
 
-        // Inject inventory reference for name/type resolution during detection
-        // while keeping ownership centralized here.
-        self.driveService.inventory = inventory
+        // Bridge service state into AppModel so SwiftUI updates when drives change
+        self.driveService.$drives
+            .receive(on: RunLoop.main)
+            .assign(to: &self.$drives)
+
+        self.driveService.$isScanning
+            .receive(on: RunLoop.main)
+            .assign(to: &self.$isScanning)
     }
 }
 

@@ -60,11 +60,11 @@ struct ContentView: View {
             }
             .frame(minWidth: 400, idealWidth: 500)
             .background(Color.white)
-            .onReceive(appModel.driveService.$drives) { drives in
+            .onReceive(appModel.$drives) { drives in
                 print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
                 updateInventory(for: drives)
             }
-            .onReceive(appModel.driveService.$isScanning) { isScanning in
+            .onReceive(appModel.$isScanning) { isScanning in
                 print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
             }
             // END: MAIN CONTENT AREA
@@ -112,8 +112,8 @@ struct ContentView: View {
                     Spacer()
                     
                     // Drive count
-                    if !appModel.driveService.drives.isEmpty {
-                        Text("\(appModel.driveService.drives.count) drive\(appModel.driveService.drives.count == 1 ? "" : "s") detected")
+                    if !appModel.drives.isEmpty {
+                        Text("\(appModel.drives.count) drive\(appModel.drives.count == 1 ? "" : "s") detected")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -422,7 +422,7 @@ struct ContentView: View {
                 Spacer()
             }
             
-            if appModel.driveService.isScanning {
+            if appModel.isScanning {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.2)
@@ -433,7 +433,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, minHeight: 120)
                 .background(Color(.controlBackgroundColor))
                 .cornerRadius(8)
-            } else if appModel.driveService.drives.isEmpty {
+            } else if appModel.drives.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "externaldrive")
                         .font(.system(size: 48))
@@ -451,7 +451,7 @@ struct ContentView: View {
                 .cornerRadius(8)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(appModel.driveService.drives) { drive in
+                    ForEach(appModel.drives) { drive in
                         DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
                             .environmentObject(appModel.deviceInventory)
                             .onTapGesture {
@@ -467,7 +467,7 @@ struct ContentView: View {
                     }
                 }
                 .onAppear {
-                    for (index, drive) in appModel.driveService.drives.enumerated() {
+                    for (index, drive) in appModel.drives.enumerated() {
                         print("🔍 [DEBUG] UI: Drive \(index): \(drive.displayName)")
                     }
                 }
