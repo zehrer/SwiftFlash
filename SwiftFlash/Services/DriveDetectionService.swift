@@ -147,10 +147,6 @@ class DriveDetectionService: ObservableObject {
             driveWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
             
-                    // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from captured description
-        if let proto = daDesc?[kDADiskDescriptionDeviceProtocolKey as String] as? String, !proto.isEmpty {
-            print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(proto)")
-        }
 
 #if DEBUG
             // Dump full Disk Arbitration description for this relevant detected device
@@ -172,12 +168,7 @@ class DriveDetectionService: ObservableObject {
 extension DriveDetectionService {
     /// Converts an absolute device node path (e.g. "/dev/disk3") to its BSD name (e.g. "disk3").
     ///
-    /// Framework: none (string utility)
-    /// - Parameter devicePath: Absolute device path such as "/dev/disk4".
-    /// - Returns: BSD name suitable for Disk Arbitration APIs (e.g. "disk4").
-    private func toBSDName(_ devicePath: String) -> String {
-        return devicePath.replacingOccurrences(of: "/dev/", with: "")
-    }
+
     
     /// IOKit: Enumerates removable/ejectable media and builds `DeviceInfo` records.
     ///
@@ -317,7 +308,7 @@ extension DriveDetectionService {
     
     /// Disk Arbitration: Returns the `DADeviceVendor` for a device, if present.
     ///
-    /// Common related keys: `DADeviceVendor`, `DADeviceProduct`.
+    /// Common related keys: `DADeviceVendor`
     /// - Parameter devicePath: Absolute device path.
     /// - Returns: Vendor string or `nil`.
     private func getVendorFromDiskArbitration(devicePath: String) -> String? {
@@ -350,7 +341,7 @@ extension DriveDetectionService {
     /// Disk Arbitration: Attempts to derive a human-friendly device name.
     ///
     /// Tries, in order: `DAVolumeName`, `DAMediaName`, `DADeviceModel`, `DADeviceProtocol`,
-    /// and finally a concatenation of `DADeviceVendor + DADeviceProduct`.
+    /// and finally a concatenation of `DADeviceVendor .
     /// - Parameter devicePath: Absolute device path.
     /// - Returns: Name string or `nil` if none found.
     private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
@@ -393,7 +384,7 @@ extension DriveDetectionService {
     /// Disk Arbitration: Provides the description dictionary for a given device.
     ///
     /// Common keys seen include:
-    /// - `DADeviceVendor`, `DADeviceProduct`, `DADeviceRevision`, `DADeviceModel`
+    /// - `DADeviceVendor`, `DADeviceRevision`, `DADeviceModel`
     /// - `DADeviceProtocol` (kDADiskDescriptionDeviceProtocolKey)
     /// - `DAMediaName`, `DAMediaSize`
     /// - `DAVolumeName`
@@ -401,11 +392,7 @@ extension DriveDetectionService {
     /// - Parameter devicePath: Absolute device path.
     /// - Returns: Dictionary of description keys or `nil`.
     private func diskDescription(for devicePath: String) -> [String: Any]? {
-        guard let session = diskArbitrationSession else { return nil }
-        let bsdName = toBSDName(devicePath)
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else { return nil }
-        guard let description = DADiskCopyDescription(disk) as? [String: Any] else { return nil }
-        return description
+        return DiskArbitrationUtils.getDiskDescription(for: devicePath, session: diskArbitrationSession)
     }
 
     /// Disk Arbitration: Enumerates partitions (slices) for a given main device.
@@ -416,7 +403,7 @@ extension DriveDetectionService {
     /// we read DA description to enrich with names and mount points.
     private func getPartitionsForDevice(devicePath: String) -> [PartitionInfo] {
         var results: [PartitionInfo] = []
-        let parentBSD = toBSDName(devicePath)
+        let parentBSD = DiskArbitrationUtils.toBSDName(devicePath)
 
         // Build IOKit matcher for IOMedia children with matching BSD prefix
         let matching = IOServiceMatching(kIOMediaClass) as NSMutableDictionary

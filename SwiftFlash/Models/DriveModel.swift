@@ -160,8 +160,13 @@ struct Drive: Identifiable, Hashable {
 
 extension Drive {
     private func daString(_ key: String) -> String? {
-        guard let value = diskDescription?[key] as? String, !value.isEmpty else { return nil }
-        return value
+        // First try to get from stored diskDescription (if available)
+        if let value = diskDescription?[key] as? String, !value.isEmpty {
+            return value
+        }
+        
+        // Fallback to live Disk Arbitration lookup
+        return DiskArbitrationUtils.getStringValue(for: mountPoint, key: key)
     }
 
     /// DADeviceProtocol (e.g., "USB", "SATA")
@@ -177,13 +182,19 @@ extension Drive {
     var daVolumeName: String? { daString(kDADiskDescriptionVolumeNameKey as String) ?? daString(kDADiskDescriptionMediaNameKey as String) ?? mediaName }
 
     /// Volume/filesystem kind, if available (e.g. "apfs", "msdos").
-    var daVolumeKind: String? { daString("DAVolumeKind") ?? daString("DAMediaKind") }
+    var daVolumeKind: String? { daString(kDADiskDescriptionVolumeKindKey as String) ?? daString(kDADiskDescriptionMediaKindKey as String) }
 
     /// Volume mount path as string, if available.
     var daVolumePath: String? {
-        if let url = diskDescription?["DAVolumePath"] as? URL { return url.path }
-        if let path = diskDescription?["DAVolumePath"] as? String { return path }
-        return nil
+        // First try to get from stored diskDescription (if available)
+        if let url = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? URL { return url.path }
+        if let path = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? String { return path }
+        
+        // Fallback to live Disk Arbitration lookup
+        if let url: URL = DiskArbitrationUtils.getValue(for: mountPoint, key: kDADiskDescriptionVolumePathKey as String) {
+            return url.path
+        }
+        return DiskArbitrationUtils.getStringValue(for: mountPoint, key: kDADiskDescriptionVolumePathKey as String)
     }
 }
 
