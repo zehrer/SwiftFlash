@@ -65,39 +65,68 @@ final class DriveDetectionTests: XCTestCase {
         )
     }
     
-    // MARK: - Disk Image Filtering Tests
+    // MARK: - DeviceInfo derived logic
+
+    func testDeviceInfoDiskImageDetection() throws {
+        let diskImage = createMockDiskImage()
+        XCTAssertTrue(diskImage.isDiskImage)
+
+        let realDevice = createMockRealDevice()
+        XCTAssertFalse(realDevice.isDiskImage)
+
+        let unknown = DeviceInfo(
+            name: "Unknown Device",
+            devicePath: "/dev/disk777",
+            size: 0,
+            isRemovable: false,
+            isEjectable: false,
+            isReadOnly: false,
+            mediaUUID: nil,
+            mediaName: nil,
+            vendor: nil,
+            revision: nil
+        )
+        XCTAssertFalse(unknown.isDiskImage)
+    }
+
+    func testDeviceInfoMainDeviceDetection() throws {
+        let main = DeviceInfo(name: "disk3", devicePath: "/dev/disk3", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+        XCTAssertTrue(main.isMainDevice)
+
+        let partition = DeviceInfo(name: "disk3s1", devicePath: "/dev/disk3s1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+        XCTAssertFalse(partition.isMainDevice)
+
+        let nested = DeviceInfo(name: "disk3s1s1", devicePath: "/dev/disk3s1s1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+        XCTAssertFalse(nested.isMainDevice)
+    }
+
+    func testDeviceInfoInferredDeviceType() throws {
+        XCTAssertEqual(DeviceInfo(name: "microSD Adapter", devicePath: "/dev/disk1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .microSDCard)
+        XCTAssertEqual(DeviceInfo(name: "SD Transcend", devicePath: "/dev/disk2", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .sdCard)
+        XCTAssertEqual(DeviceInfo(name: "Udisk Mass Storage", devicePath: "/dev/disk3", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .usbStick)
+        XCTAssertEqual(DeviceInfo(name: "Portable SSD", devicePath: "/dev/disk4", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .externalSSD)
+        XCTAssertEqual(DeviceInfo(name: "External Drive", devicePath: "/dev/disk5", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .externalHDD)
+        XCTAssertEqual(DeviceInfo(name: "Unknown Gadget", devicePath: "/dev/disk6", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .unknown)
+    }
     
-    func testDiskImageFiltering() throws {
-        print("\n🧪 Test: Disk image filtering")
-        print("=" * 50)
-        
-        // Test the actual isDiskImage method from DriveDetectionService
+    // MARK: - Real device filtering (hardware dependent)
+
+    func testDetectDrivesExcludesDiskImages() async throws {
+        // Opt-in only: avoid blocking CI/local runs by default
+        guard ProcessInfo.processInfo.environment["SWIFTFLASH_HW_TESTS"] == "1" else {
+            throw XCTSkip("Hardware-dependent tests are disabled. Set SWIFTFLASH_HW_TESTS=1 to enable.")
+        }
         driveDetectionService = DriveDetectionService()
-        guard let driveDetectionService else {
+        guard let service = driveDetectionService else {
             XCTFail("DriveDetectionService could not be created")
             return
         }
-        let diskImage = createMockDiskImage()
-        let isDiskImage = driveDetectionService.isDiskImage(deviceInfo: diskImage)
-        XCTAssertTrue(isDiskImage, "DriveDetectionService.isDiskImage should identify disk image correctly")
-        print("✅ DriveDetectionService.isDiskImage correctly identified disk image")
-        
-        // Test with mock real device
-        let realDevice = createMockRealDevice()
-        let isRealDeviceDiskImage = driveDetectionService.isDiskImage(deviceInfo: realDevice)
-        XCTAssertFalse(isRealDeviceDiskImage, "DriveDetectionService.isDiskImage should not identify real device as disk image")
-        print("✅ DriveDetectionService.isDiskImage correctly did not identify real device as disk image")
-        
+        let drives = await service.detectDrives()
+        if drives.isEmpty {
+            throw XCTSkip("No external drives detected on this machine – skipping hardware-dependent assertion")
+        }
+        XCTAssertTrue(drives.allSatisfy { $0.name != "Disk Image" }, "Disk image devices should be filtered out by detection")
     }
-    
-    // MARK: - Real Device Detection Tests
-    
-//    func testRealDeviceDetection() throws {
-//        print("\n🧪 Test: Real device detection")
-//        print("=" * 50)
-//        
-//        throw XCTSkip("⚠️ SKIPPED: Requires non-blocking test-mode in DriveDetectionService (needs approval to modify CRITICAL service)")
-//    }
     
 //    func testDeviceDetectionWithNoDevices() throws {
 //        print("\n🧪 Test: Device detection with no devices")
