@@ -42,6 +42,8 @@ struct DeviceInfo {
     let vendor: String?
     /// Revision string from Disk Arbitration if available (persisted)
     let revision: String?
+    /// Discovered partitions/slices of this device (runtime-only)
+    let partitions: [PartitionInfo]
 }
 
 // MARK: - Derived properties

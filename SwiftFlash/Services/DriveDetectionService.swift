@@ -131,7 +131,7 @@ class DriveDetectionService: ObservableObject {
             //print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
             //print("   🔄 Removable: \(deviceInfo.isRemovable)")
             //print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
-            print("   📝 Read-only: \(deviceInfo.isReadOnly)")
+            //print("   📝 Read-only: \(deviceInfo.isReadOnly)")
             
             // Check if this is the system boot device
             let isSystemDrive = deviceInfo.devicePath == systemBootDevice
@@ -275,7 +275,7 @@ extension DriveDetectionService {
         
         // Check if this is a main device (not a partition) BEFORE processing further
         // Use DeviceInfo-style predicate to keep a single source of truth
-        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).isMainDevice {
+        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil, partitions: []).isMainDevice {
             // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
         }
@@ -299,6 +299,9 @@ extension DriveDetectionService {
         
         let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
         
+        // Collect partitions (Disk Arbitration) for this main device
+        let partitions = getPartitionsForDevice(devicePath: devicePath)
+
         return DeviceInfo(
             name: name,
             devicePath: devicePath,
@@ -309,7 +312,8 @@ extension DriveDetectionService {
             mediaUUID: mediaUUID,
             mediaName: mediaName,
             vendor: vendor,
-            revision: revision
+            revision: revision,
+            partitions: partitions
         )
     }
     
@@ -408,6 +412,74 @@ extension DriveDetectionService {
         guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else { return nil }
         guard let description = DADiskCopyDescription(disk) as? [String: Any] else { return nil }
         return description
+    }
+
+    /// Disk Arbitration: Enumerates partitions (slices) for a given main device.
+    ///
+    /// Implementation note: Disk Arbitration does not directly list children by API;
+    /// we obtain the whole-disk's bsd name, then use IOKit to match child IOMedia entries
+    /// whose BSD Name starts with the parent (e.g. disk4s1, disk4s2). For each slice,
+    /// we read DA description to enrich with names and mount points.
+    private func getPartitionsForDevice(devicePath: String) -> [PartitionInfo] {
+        var results: [PartitionInfo] = []
+        let parentBSD = toBSDName(devicePath)
+
+        // Build IOKit matcher for IOMedia children with matching BSD prefix
+        let matching = IOServiceMatching(kIOMediaClass) as NSMutableDictionary
+        // Child partitions are not whole; don't require Removable/Ejectable
+        var iterator: io_iterator_t = 0
+        let kr = IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator)
+        guard kr == kIOReturnSuccess else { return results }
+        defer { IOObjectRelease(iterator) }
+
+        var service: io_object_t = IOIteratorNext(iterator)
+        while service != 0 {
+            defer {
+                IOObjectRelease(service)
+                service = IOIteratorNext(iterator)
+            }
+
+            var propsUnmanaged: Unmanaged<CFMutableDictionary>?
+            let ok = IORegistryEntryCreateCFProperties(service, &propsUnmanaged, kCFAllocatorDefault, 0)
+            guard ok == kIOReturnSuccess, let props = propsUnmanaged?.takeRetainedValue() as? [String: Any] else { continue }
+
+            guard let bsdName = props["BSD Name"] as? String, bsdName.hasPrefix(parentBSD + "s") else { continue }
+
+            let path = "/dev/" + bsdName
+            let size = (props["Media Size"] as? Int64)
+                ?? (props["Size"] as? Int64)
+                ?? (props["Total Size"] as? Int64)
+                ?? (props["Capacity"] as? Int64)
+                ?? 0
+
+            // Enrich with Disk Arbitration details
+            let desc = diskDescription(for: path)
+            let volumeName = (desc?["DAVolumeName"] as? String) ?? (desc?["DAMediaName"] as? String)
+            let fs = (desc?["DAVolumeKind"] as? String) ?? (desc?["DAMediaKind"] as? String)
+            let mountPoint = desc?["DAVolumePath"] as? String
+            let writable: Bool? = (desc?["DADeviceWritable"] as? Bool)
+
+            results.append(
+                PartitionInfo(
+                    bsdName: bsdName,
+                    devicePath: path,
+                    size: size,
+                    volumeName: volumeName,
+                    fileSystem: fs,
+                    mountPoint: mountPoint,
+                    isWritable: writable
+                )
+            )
+        }
+
+        // Sort partitions by numeric suffix (s1, s2, ...)
+        results.sort { a, b in
+            let anum = Int(a.bsdName.split(separator: "s").last ?? "") ?? 0
+            let bnum = Int(b.bsdName.split(separator: "s").last ?? "") ?? 0
+            return anum < bnum
+        }
+
+        return results
     }
     
     /// Generates a consistent device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize

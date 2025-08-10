@@ -113,7 +113,7 @@ class ImageFileService: ObservableObject {
             let fd = open(devicePath, O_RDONLY)
             guard fd != -1 else {
                 let errString = String(cString: strerror(errno))
-                print("❌ Cannot open device at \(devicePath): \(errString) (\(errno))")
+                print("❌ [ERROR] PartitionSchemeDetector cannot open the device \(devicePath): \(errString) (\(errno))")
                 return .unknown
             }
             defer { close(fd) }
