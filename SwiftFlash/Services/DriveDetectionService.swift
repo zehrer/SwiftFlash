@@ -123,9 +123,9 @@ class DriveDetectionService: ObservableObject {
             // Determine device type automatically from detected properties
             let deviceType: DeviceType = deviceInfo.inferredDeviceType
             
-            // Capture a single DA description to avoid repeated lookups later
-            let daDesc = diskDescription(for: deviceInfo.devicePath)
-
+            // Capture Disk Arbitration description for Drive struct (used in Drive initializer below)
+            _ = diskDescription(for: deviceInfo.devicePath)
+            
             let drive = Drive(
                 name: deviceInfo.name,
                 mountPoint: deviceInfo.devicePath,
@@ -133,12 +133,7 @@ class DriveDetectionService: ObservableObject {
                 isRemovable: true,
                 isSystemDrive: false,
                 isReadOnly: deviceInfo.isReadOnly,
-                mediaUUID: deviceInfo.mediaUUID,
-                mediaName: deviceInfo.mediaName,
-                vendor: deviceInfo.vendor,
-                revision: deviceInfo.revision,
-                deviceModel: deviceInfo.daDeviceModel,
-                diskDescription: daDesc,
+                diskDescription: diskDescription(for: deviceInfo.devicePath),
                 deviceType: deviceType
             )
             
@@ -259,27 +254,25 @@ extension DriveDetectionService {
             return nil
         }
         
-        let originalName = getDeviceNameFromDiskArbitration(devicePath: devicePath) ?? getDeviceNameFromParent(service: service) ?? getDeviceName(from: props) ?? "Unknown Device"
+        // Get device name from IOKit properties first, then fallback to parent lookup
+        let originalName = getDeviceName(from: props) ?? getDeviceNameFromParent(service: service) ?? "Unknown Device"
         let size = getDeviceSize(from: props)
         let isRemovable = props["Removable"] as? Bool ?? false
         let isEjectable = props["Ejectable"] as? Bool ?? false
         let isReadOnly = props["Writable"] as? Bool == false
         
-        // Get media UUID
-        let mediaUUID = getMediaUUIDFromDiskArbitration(devicePath: devicePath)
-        //print("🔧 [DEBUG] getMediaUUIDFromDiskArbitration returned: \(mediaUUID ?? "nil") for device: \(devicePath)")
+        // Get raw Disk Arbitration description and extract individual values
+        let daDesc = diskDescription(for: devicePath)
         
-        // Extract vendor and revision early
-        let vendor = getVendorFromDiskArbitration(devicePath: devicePath)
-        let revision = getRevisionFromDiskArbitration(devicePath: devicePath)
+        // Extract individual Disk Arbitration values for DeviceInfo
+        let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String
+        let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String
+        let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
+        let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
+        let daDeviceModel = daDesc?[kDADiskDescriptionDeviceModelKey as String] as? String
         
         // Always use original name from system; higher-level model may overlay custom names
         let name: String = originalName
-        
-        let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
-        
-        // Get device model for disk image detection
-        let daDeviceModel = getDeviceModelFromDiskArbitration(devicePath: devicePath)
         
         // Collect partitions (Disk Arbitration) for this main device
         let partitions = getPartitionsForDevice(devicePath: devicePath)
@@ -300,92 +293,10 @@ extension DriveDetectionService {
         )
     }
     
-    // moved: device type inference is now a derived property on DeviceInfo
-    
-    /// Disk Arbitration: Returns the `DAMediaName` for a device, if present.
-    ///
-    /// Common related keys: `DAVolumeName`, `DAMediaName`.
-    /// - Parameter devicePath: Absolute device path (e.g. "/dev/disk4").
-    /// - Returns: Media name string or `nil`.
-    private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let mediaName = diskDescription[kDADiskDescriptionMediaNameKey as String] as? String, !mediaName.isEmpty { return mediaName }
-        print("⚠️ [DEBUG] No DAMediaName found for device: \(devicePath)")
-        return nil
-    }
-    
-    /// Disk Arbitration: Returns the `DADeviceVendor` for a device, if present.
-    ///
-    /// Common related keys: `DADeviceVendor`
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Vendor string or `nil`.
-    private func getVendorFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let vendor = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String, !vendor.isEmpty { return vendor }
-        print("⚠️ [DEBUG] No DADeviceVendor found for device: \(devicePath)")
-        return nil
-    }
-    
-    /// Disk Arbitration: Returns the `DADeviceRevision` for a device, if present.
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Revision string or `nil`.
-    private func getRevisionFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let revision = diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String, !revision.isEmpty { return revision }
-        print("⚠️ [DEBUG] No DADeviceRevision found for device: \(devicePath)")
-        return nil
-    }
-    
-    /// Disk Arbitration: Returns the `DADeviceModel` for a device, if present.
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Device model string or `nil`.
-    private func getDeviceModelFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let model = diskDescription[kDADiskDescriptionDeviceModelKey as String] as? String, !model.isEmpty { return model }
-        print("⚠️ [DEBUG] No DADeviceModel found for device: \(devicePath)")
-        return nil
-    }
-    
-    /// Disk Arbitration: Attempts to derive a human-friendly device name.
-    ///
-    /// Tries, in order: `DAVolumeName`, `DAMediaName`, `DADeviceModel`, `DADeviceProtocol`,
-    /// and finally a concatenation of `DADeviceVendor .
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Name string or `nil` if none found.
-    private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let mediaUUID = diskDescription[kDADiskDescriptionMediaUUIDKey as String] as? String { print("🔑 [DEBUG] Media UUID: \(mediaUUID)") }
-        if let name = diskDescription[kDADiskDescriptionVolumeNameKey as String] as? String, !name.isEmpty { return name }
-        if let name = diskDescription[kDADiskDescriptionMediaNameKey as String] as? String, !name.isEmpty { return name }
-        if let name = diskDescription[kDADiskDescriptionDeviceModelKey as String] as? String, !name.isEmpty { return name }
-        if let name = diskDescription[kDADiskDescriptionDeviceProtocolKey as String] as? String, !name.isEmpty { return name }
-        if let vendorName = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String,
-                        let productName = diskDescription["DADeviceProduct"] as? String { return "\(vendorName) \(productName)" }
-        return nil
-    }
-    
-    /// Disk Arbitration: Returns a generated stable identifier based on DA keys.
-    ///
-    /// Note: This is not a literal UUID from the OS. It is synthesized from
-    /// `DADeviceVendor`, `DADeviceRevision`, and a short prefix of `DAMediaSize` to
-    /// provide a stable identifier across runs for inventory correlation.
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Generated identifier string or `nil`.
-    private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
-        print("🔧 [DEBUG] Analyse device: \(devicePath)")
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        let deviceID = generateDeviceID(from: diskDescription)
-        return deviceID
-    }
+    // Note: Individual Disk Arbitration value extraction is now handled by Drive computed properties
+    // The raw diskDescription is captured and passed to Drive struct for on-demand access
 
-    /// Disk Arbitration: Returns `DADeviceProtocol` (kDADiskDescriptionDeviceProtocolKey).
-    /// - Parameter devicePath: Absolute device path.
-    /// - Returns: Protocol string (e.g. "USB", "SATA") or `nil`.
-    private func getDeviceProtocolFromDiskArbitration(devicePath: String) -> String? {
-        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let proto = diskDescription[kDADiskDescriptionDeviceProtocolKey as String] as? String, !proto.isEmpty { return proto }
-        return nil
-    }
+
 
     /// Shared helper: returns Disk Arbitration description dictionary for a given device path.
     /// Centralizes session/bsd name handling to avoid code duplication across DA helpers.

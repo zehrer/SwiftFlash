@@ -18,11 +18,6 @@ struct Drive: Identifiable, Hashable {
     let isRemovable: Bool
     let isSystemDrive: Bool
     let isReadOnly: Bool
-    let mediaUUID: String? // Added for inventory tracking
-    let mediaName: String? // Specific DAMediaName from Disk Arbitration
-    let vendor: String? // DADeviceVendor from Disk Arbitration
-    let revision: String? // DADeviceRevision from Disk Arbitration
-    let deviceModel: String? // DADeviceModel from Disk Arbitration
     /// Raw Disk Arbitration description dictionary for this disk (not persisted).
     /// Provides on-demand access to additional DA attributes without repeated lookups.
     let diskDescription: [String: Any]?
@@ -168,17 +163,20 @@ extension Drive {
     /// DADeviceProtocol (e.g., "USB", "SATA")
     var daDeviceProtocol: String? { daString(kDADiskDescriptionDeviceProtocolKey as String) }
 
-    /// Device model from Disk Arbitration. Falls back to stored `deviceModel` property.
-    var daDeviceModel: String? { deviceModel ?? daString(kDADiskDescriptionDeviceModelKey as String) }
+    /// Device model from Disk Arbitration.
+    var daDeviceModel: String? { daString(kDADiskDescriptionDeviceModelKey as String) }
 
-    /// Vendor from Disk Arbitration. Falls back to stored `vendor` property.
-    var daVendor: String? { vendor ?? daString(kDADiskDescriptionDeviceVendorKey as String) }
+    /// Vendor from Disk Arbitration.
+    var daVendor: String? { daString(kDADiskDescriptionDeviceVendorKey as String) }
 
-    /// Revision from Disk Arbitration. Falls back to stored `revision` property.
-    var daRevision: String? { revision ?? daString(kDADiskDescriptionDeviceRevisionKey as String) }
+    /// Revision from Disk Arbitration.
+    var daRevision: String? { daString(kDADiskDescriptionDeviceRevisionKey as String) }
 
-    /// Volume name from Disk Arbitration. Falls back to stored `mediaName` property.
-    var daVolumeName: String? { daString(kDADiskDescriptionVolumeNameKey as String) ?? daString(kDADiskDescriptionMediaNameKey as String) ?? mediaName }
+    /// Media name from Disk Arbitration.
+    var daMediaName: String? { daString(kDADiskDescriptionMediaNameKey as String) }
+
+    /// Volume name from Disk Arbitration.
+    var daVolumeName: String? { daString(kDADiskDescriptionVolumeNameKey as String) ?? daString(kDADiskDescriptionMediaNameKey as String) }
 
     /// Volume/filesystem kind, if available (e.g. "apfs", "msdos").
     var daVolumeKind: String? { daString(kDADiskDescriptionVolumeKindKey as String) ?? daString(kDADiskDescriptionMediaKindKey as String) }
@@ -187,6 +185,28 @@ extension Drive {
     var daVolumePath: String? {
         if let url = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? URL { return url.path }
         if let path = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? String { return path }
+        return nil
+    }
+
+    /// Media UUID from Disk Arbitration.
+    var daMediaUUID: String? { daString(kDADiskDescriptionMediaUUIDKey as String) }
+
+    /// Device name derived from Disk Arbitration with fallback chain.
+    /// Tries: DAVolumeName → DAMediaName → DADeviceModel → DADeviceProtocol → Vendor+Product
+    var daDeviceName: String? {
+        // Try volume name first
+        if let volumeName = daString(kDADiskDescriptionVolumeNameKey as String) { return volumeName }
+        // Try media name
+        if let mediaName = daString(kDADiskDescriptionMediaNameKey as String) { return mediaName }
+        // Try device model
+        if let deviceModel = daString(kDADiskDescriptionDeviceModelKey as String) { return deviceModel }
+        // Try device protocol
+        if let deviceProtocol = daString(kDADiskDescriptionDeviceProtocolKey as String) { return deviceProtocol }
+        // Try vendor + product combination
+        if let vendor = daString(kDADiskDescriptionDeviceVendorKey as String),
+           let product = diskDescription?["DADeviceProduct"] as? String { 
+            return "\(vendor) \(product)" 
+        }
         return nil
     }
 }

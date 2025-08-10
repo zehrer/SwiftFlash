@@ -491,7 +491,7 @@ struct ContentView: View {
     }
     
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
-        return drive.mediaUUID
+        return drive.daMediaUUID
     }
     
 
@@ -500,14 +500,14 @@ struct ContentView: View {
 
     private func updateInventory(for drives: [Drive]) {
         for drive in drives {
-            guard let mediaUUID = drive.mediaUUID else { continue }
+            guard let mediaUUID = drive.daMediaUUID else { continue }
             appModel.deviceInventory.addOrUpdateDevice(
                 mediaUUID: mediaUUID,
                 size: drive.size,
-                originalName: drive.mediaName ?? drive.name,
+                originalName: drive.daMediaName ?? drive.name,
                 deviceType: drive.deviceType,
-                vendor: drive.vendor,
-                revision: drive.revision
+                vendor: drive.daVendor,
+                revision: drive.daRevision
             )
         }
     }
@@ -521,7 +521,7 @@ struct DriveRowView: View {
     @EnvironmentObject var deviceInventory: DeviceInventory
     
     var deviceType: DeviceType {
-        if let mediaUUID = drive.mediaUUID,
+        if let mediaUUID = drive.daMediaUUID,
            let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
             return inventoryDevice.deviceType
         }
@@ -548,13 +548,13 @@ struct DriveRowView: View {
                         .font(.caption)
                         .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     
-                    if let vendor = drive.vendor {
+                    if let vendor = drive.daVendor {
                         Text("• \(vendor)")
                             .font(.caption)
                             .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
                     
-                    if let revision = drive.revision {
+                    if let revision = drive.daRevision {
                         Text("• \(revision)")
                             .font(.caption)
                             .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)

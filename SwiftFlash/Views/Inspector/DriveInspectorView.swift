@@ -68,7 +68,7 @@ struct DriveInspectorView: View {
                     placeholder: "Enter device name"
                 )
                 .onChange(of: editableName) { _, newValue in
-                    if let mediaUUID = drive.mediaUUID {
+                    if let mediaUUID = drive.daMediaUUID {
                         if newValue.isEmpty {
                             deviceInventory.setCustomName(for: mediaUUID, customName: nil)
                         } else {
@@ -83,7 +83,7 @@ struct DriveInspectorView: View {
                     selection: $selectedDeviceType
                 )
                 .onChange(of: selectedDeviceType) { _, newValue in
-                    if let mediaUUID = drive.mediaUUID {
+                    if let mediaUUID = drive.daMediaUUID {
                         deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
                     }
                 }
@@ -121,32 +121,32 @@ struct DriveInspectorView: View {
                 // Media Name
                 LabelAndText(
                     label: "Media Name",
-                    value: drive.mediaName ?? "No media name"
+                    value: drive.daMediaName ?? "No media name"
                 )
                 
                 // Vendor
                 LabelAndText(
                     label: "Vendor",
-                    value: drive.vendor ?? "Unknown"
+                    value: drive.daVendor ?? "Unknown"
                 )
                 
                 // Revision
                 LabelAndText(
                     label: "Revision",
-                    value: drive.revision ?? "Unknown"
+                    value: drive.daRevision ?? "Unknown"
                 )
                 
                 // UUID
                 LabelAndText(
                     label: "UUID",
-                    value: drive.mediaUUID ?? "Unknown"
+                    value: drive.daMediaUUID ?? "Unknown"
                 )
             }
             
             // History Section
             InspectorSectionView(title: "History") {
                 // First Seen
-                if let mediaUUID = drive.mediaUUID,
+                if let mediaUUID = drive.daMediaUUID,
                    let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
                     LabelAndText(
                         label: "First Seen",
@@ -185,11 +185,6 @@ struct DriveInspectorView: View {
             isRemovable: true,
             isSystemDrive: false,
             isReadOnly: true,
-            mediaUUID: "TS-RDF5_TS37_3191",
-            mediaName: "TS-RDF5 SD Transcend Media",
-            vendor: "TS-RDF5",
-            revision: "TS37",
-            deviceModel: "TS-RDF5 SD Transcend",
             diskDescription: nil,
             deviceType: .microSDCard
         ),

@@ -34,15 +34,15 @@ struct DeviceInfo {
     let isEjectable: Bool
     /// Whether the media is read-only (runtime, not persisted)
     let isReadOnly: Bool
-    /// Stable media identifier we derive from Disk Arbitration (persisted)
+    /// Media UUID from Disk Arbitration (persisted to inventory)
     let mediaUUID: String?
-    /// Specific DAMediaName if available (persisted)
+    /// Media name from Disk Arbitration (persisted to inventory)
     let mediaName: String?
-    /// Vendor string from Disk Arbitration if available (persisted)
+    /// Vendor from Disk Arbitration (persisted to inventory)
     let vendor: String?
-    /// Revision string from Disk Arbitration if available (persisted)
+    /// Revision from Disk Arbitration (persisted to inventory)
     let revision: String?
-    /// Device model from Disk Arbitration if available (runtime-only, used for disk image detection)
+    /// Device model from Disk Arbitration (runtime-only)
     let daDeviceModel: String?
     /// Discovered partitions/slices of this device (runtime-only)
     let partitions: [PartitionInfo]

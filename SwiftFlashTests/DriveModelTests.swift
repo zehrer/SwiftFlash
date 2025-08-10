@@ -41,11 +41,6 @@ final class DriveModelTests: XCTestCase {
                     isRemovable: true,
                     isSystemDrive: false,
                     isReadOnly: false,
-                    mediaUUID: nil,
-                    mediaName: "TEST_DEVICE",
-                    vendor: "Test",
-                    revision: "1.0",
-                    deviceModel: "Test Model",
                     diskDescription: nil
                 )
                 
