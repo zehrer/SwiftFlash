@@ -190,21 +190,24 @@ class DriveDetectionService: ObservableObject {
 // MARK: - IOKit Device Detection Functions
 
 extension DriveDetectionService {
-    /// Converts a device path like "/dev/disk3" to BSD name "disk3"
+    /// Converts an absolute device node path (e.g. "/dev/disk3") to its BSD name (e.g. "disk3").
+    ///
+    /// Framework: none (string utility)
+    /// - Parameter devicePath: Absolute device path such as "/dev/disk4".
+    /// - Returns: BSD name suitable for Disk Arbitration APIs (e.g. "disk4").
     private func toBSDName(_ devicePath: String) -> String {
         return devicePath.replacingOccurrences(of: "/dev/", with: "")
     }
     
-    /// Scans the IOKit registry for external storage devices that are removable and ejectable.
+    /// IOKit: Enumerates removable/ejectable media and builds `DeviceInfo` records.
     ///
-    /// This method uses IOKit to find all media devices that are both marked as `Removable` and `Ejectable`,
-    /// which typically includes USB sticks, SD cards, and other flash media. It filters out partition entries
-    /// and only includes the main device entries (e.g., `/dev/disk2` but not `/dev/disk2s1`).
+    /// - Uses IORegistry (kIOMediaClass) to find candidates with properties `Removable == true` and
+    ///   `Ejectable == true`.
+    /// - Filters out partition/slice nodes; includes only main devices (e.g. `/dev/disk2`, not `/dev/disk2s1`).
+    /// - Enriches with Disk Arbitration metadata (vendor, revision, media name) via helper lookups.
+    /// - Returns transient `DeviceInfo` models; persistence is handled by higher-level model logic.
     ///
-    /// Devices are further examined using IOKit and Disk Arbitration to extract metadata such as name,
-    /// UUID, vendor, and revision. Devices that pass all checks are returned as `DeviceInfo` instances.
-    ///
-    /// - Returns: An array of `DeviceInfo` objects representing external flashable devices.
+    /// - Returns: Array of discovered `DeviceInfo`.
     private func getExternalStorageDevices() -> [DeviceInfo] {
         var devices: [DeviceInfo] = []
         
@@ -249,7 +252,14 @@ extension DriveDetectionService {
         return devices
     }
     
-    /// Gets detailed information about a specific IOKit device
+    /// IOKit: Builds `DeviceInfo` for a given IORegistry service node.
+    ///
+    /// - Reads IORegistry properties (BSD Name → device path, size, writable, etc.).
+    /// - Consults Disk Arbitration for media name, vendor, revision, and a derived stable identifier.
+    /// - Skips nodes that represent partitions/slices.
+    ///
+    /// - Parameter service: IORegistry object of class kIOMedia.
+    /// - Returns: `DeviceInfo` or `nil` if not a main device or properties unavailable.
     private func getDeviceInfoFromIOKit(service: io_object_t) -> DeviceInfo? {
         // Get device properties
         var properties: Unmanaged<CFMutableDictionary>?
@@ -305,7 +315,11 @@ extension DriveDetectionService {
     
     // moved: device type inference is now a derived property on DeviceInfo
     
-    /// Gets the specific DAMediaName from Disk Arbitration framework
+    /// Disk Arbitration: Returns the `DAMediaName` for a device, if present.
+    ///
+    /// Common related keys: `DAVolumeName`, `DAMediaName`.
+    /// - Parameter devicePath: Absolute device path (e.g. "/dev/disk4").
+    /// - Returns: Media name string or `nil`.
     private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty { return mediaName }
@@ -313,7 +327,11 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Gets the DADeviceVendor from Disk Arbitration framework
+    /// Disk Arbitration: Returns the `DADeviceVendor` for a device, if present.
+    ///
+    /// Common related keys: `DADeviceVendor`, `DADeviceProduct`.
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Vendor string or `nil`.
     private func getVendorFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty { return vendor }
@@ -321,7 +339,9 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Gets the DADeviceRevision from Disk Arbitration framework
+    /// Disk Arbitration: Returns the `DADeviceRevision` for a device, if present.
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Revision string or `nil`.
     private func getRevisionFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty { return revision }
@@ -329,7 +349,12 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Gets device name using Disk Arbitration framework
+    /// Disk Arbitration: Attempts to derive a human-friendly device name.
+    ///
+    /// Tries, in order: `DAVolumeName`, `DAMediaName`, `DADeviceModel`, `DADeviceProtocol`,
+    /// and finally a concatenation of `DADeviceVendor + DADeviceProduct`.
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Name string or `nil` if none found.
     private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String { print("🔑 [DEBUG] Media UUID: \(mediaUUID)") }
@@ -342,7 +367,13 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Gets the media UUID from Disk Arbitration
+    /// Disk Arbitration: Returns a generated stable identifier based on DA keys.
+    ///
+    /// Note: This is not a literal UUID from the OS. It is synthesized from
+    /// `DADeviceVendor`, `DADeviceRevision`, and a short prefix of `DAMediaSize` to
+    /// provide a stable identifier across runs for inventory correlation.
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Generated identifier string or `nil`.
     private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
         print("🔧 [DEBUG] Analyse device: \(devicePath)")
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
@@ -350,7 +381,9 @@ extension DriveDetectionService {
         return deviceID
     }
 
-    /// Gets DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from Disk Arbitration
+    /// Disk Arbitration: Returns `DADeviceProtocol` (kDADiskDescriptionDeviceProtocolKey).
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Protocol string (e.g. "USB", "SATA") or `nil`.
     private func getDeviceProtocolFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let proto = diskDescription["DADeviceProtocol"] as? String, !proto.isEmpty { return proto }
@@ -359,6 +392,16 @@ extension DriveDetectionService {
 
     /// Shared helper: returns Disk Arbitration description dictionary for a given device path.
     /// Centralizes session/bsd name handling to avoid code duplication across DA helpers.
+    /// Disk Arbitration: Provides the description dictionary for a given device.
+    ///
+    /// Common keys seen include:
+    /// - `DADeviceVendor`, `DADeviceProduct`, `DADeviceRevision`, `DADeviceModel`
+    /// - `DADeviceProtocol` (kDADiskDescriptionDeviceProtocolKey)
+    /// - `DAMediaName`, `DAMediaSize`
+    /// - `DAVolumeName`
+    ///
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Dictionary of description keys or `nil`.
     private func diskDescription(for devicePath: String) -> [String: Any]? {
         guard let session = diskArbitrationSession else { return nil }
         let bsdName = toBSDName(devicePath)
@@ -387,7 +430,9 @@ extension DriveDetectionService {
         return deviceID
     }
     
-    /// Gets the device type from IOKit properties
+    /// IOKit: Attempts to read a content type hint from IORegistry properties.
+    /// - Parameter props: IORegistry property dictionary.
+    /// - Returns: Raw content type string or "Unknown".
     private func getDeviceType(from props: [String: Any]) -> String {
         if let content = props["Content"] as? String {
             return content
@@ -398,7 +443,12 @@ extension DriveDetectionService {
         return "Unknown"
     }
     
-    /// Gets device name by traversing up the device tree to find USB device properties
+    /// IOKit: Walks up the IOServicePlane to find a plausible product/device name.
+    ///
+    /// Used when Disk Arbitration does not provide a satisfactory name. Looks for
+    /// well-known IORegistry string properties on parent nodes (USB device levels).
+    /// - Parameter service: Starting IORegistry node.
+    /// - Returns: Found name or `nil`.
     private func getDeviceNameFromParent(service: io_object_t) -> String? {
         var currentService = service
         var level = 0
@@ -442,7 +492,12 @@ extension DriveDetectionService {
                     return nil
     }
     
-    /// Extracts device name from IOKit properties
+    /// IOKit: Extracts a human-friendly name from IORegistry properties.
+    ///
+    /// Tries multiple candidate keys (e.g., "Media Name", "Product Name", "Device Name",
+    /// "USB Product Name", vendor/product IDs) and returns the first non-empty string.
+    /// - Parameter props: IORegistry property dictionary.
+    /// - Returns: Name string or `nil`.
     private func getDeviceName(from props: [String: Any]) -> String? {
         // Try different property keys for device name in order of preference
         let nameKeys = [
@@ -477,7 +532,11 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Extracts device path from IOKit properties
+    /// IOKit: Extracts the absolute device path from IORegistry properties.
+    ///
+    /// Reads the `BSD Name` property and formats it as "/dev/<bsd>".
+    /// - Parameter props: IORegistry property dictionary.
+    /// - Returns: Absolute device path or `nil`.
     private func getDevicePath(from props: [String: Any]) -> String? {
         // Get the BSD device name
         if let bsdName = props["BSD Name"] as? String {
@@ -486,7 +545,11 @@ extension DriveDetectionService {
         return nil
     }
     
-    /// Extracts device size from IOKit properties
+    /// IOKit: Extracts the media size in bytes from IORegistry properties.
+    ///
+    /// Tries common size-related keys (e.g., "Media Size", "Size", "Total Size", "Capacity").
+    /// - Parameter props: IORegistry property dictionary.
+    /// - Returns: Size in bytes (0 if missing).
     private func getDeviceSize(from props: [String: Any]) -> Int64 {
         // Try different property keys for device size
         if let size = props["Media Size"] as? Int64 {
@@ -507,7 +570,10 @@ extension DriveDetectionService {
     /// (Deprecated) helpers replaced by DeviceInfo derived properties.
     /// Keeping empty stubs here would risk accidental use; removing them fully to avoid duplication.
     
-    /// Gets the system boot device path to exclude it from the list
+    /// Utility: Returns the system boot device node by parsing `diskutil info /`.
+    ///
+    /// - Returns: Absolute device path of the boot volume (e.g. "/dev/disk3") or empty string on failure.
+    /// - Warning: Synchronous subprocess; keep off hot paths.
     private func getSystemBootDevice() -> String {
         // Use diskutil to get the system boot device
         let process = Process()
