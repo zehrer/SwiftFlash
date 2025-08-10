@@ -137,6 +137,7 @@ class DriveDetectionService: ObservableObject {
                 mediaName: deviceInfo.mediaName,
                 vendor: deviceInfo.vendor,
                 revision: deviceInfo.revision,
+                deviceModel: deviceInfo.daDeviceModel,
                 diskDescription: daDesc,
                 deviceType: deviceType
             )
@@ -168,6 +169,13 @@ class DriveDetectionService: ObservableObject {
 extension DriveDetectionService {
     /// Converts an absolute device node path (e.g. "/dev/disk3") to its BSD name (e.g. "disk3").
     ///
+    /// Framework: none (string utility)
+    /// - Parameter devicePath: Absolute device path such as "/dev/disk4".
+    /// - Returns: BSD name suitable for Disk Arbitration APIs (e.g. "disk4").
+    private func toBSDName(_ devicePath: String) -> String {
+        return devicePath.replacingOccurrences(of: "/dev/", with: "")
+    }
+    
 
     
     /// IOKit: Enumerates removable/ejectable media and builds `DeviceInfo` records.
@@ -386,13 +394,17 @@ extension DriveDetectionService {
     /// Common keys seen include:
     /// - `DADeviceVendor`, `DADeviceRevision`, `DADeviceModel`
     /// - `DADeviceProtocol` (kDADiskDescriptionDeviceProtocolKey)
-    /// - `DAMediaName`, `DAMediaSize`
+    /// - `DAMediaSize`
     /// - `DAVolumeName`
     ///
     /// - Parameter devicePath: Absolute device path.
     /// - Returns: Dictionary of description keys or `nil`.
     private func diskDescription(for devicePath: String) -> [String: Any]? {
-        return DiskArbitrationUtils.getDiskDescription(for: devicePath, session: diskArbitrationSession)
+        guard let session = diskArbitrationSession else { return nil }
+        let bsdName = toBSDName(devicePath)
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else { return nil }
+        guard let description = DADiskCopyDescription(disk) as? [String: Any] else { return nil }
+        return description
     }
 
     /// Disk Arbitration: Enumerates partitions (slices) for a given main device.
@@ -403,7 +415,7 @@ extension DriveDetectionService {
     /// we read DA description to enrich with names and mount points.
     private func getPartitionsForDevice(devicePath: String) -> [PartitionInfo] {
         var results: [PartitionInfo] = []
-        let parentBSD = DiskArbitrationUtils.toBSDName(devicePath)
+        let parentBSD = toBSDName(devicePath)
 
         // Build IOKit matcher for IOMedia children with matching BSD prefix
         let matching = IOServiceMatching(kIOMediaClass) as NSMutableDictionary

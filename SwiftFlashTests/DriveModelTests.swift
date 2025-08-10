@@ -45,6 +45,7 @@ final class DriveModelTests: XCTestCase {
                     mediaName: "TEST_DEVICE",
                     vendor: "Test",
                     revision: "1.0",
+                    deviceModel: "Test Model",
                     diskDescription: nil
                 )
                 

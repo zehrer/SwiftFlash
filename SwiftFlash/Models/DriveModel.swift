@@ -22,6 +22,7 @@ struct Drive: Identifiable, Hashable {
     let mediaName: String? // Specific DAMediaName from Disk Arbitration
     let vendor: String? // DADeviceVendor from Disk Arbitration
     let revision: String? // DADeviceRevision from Disk Arbitration
+    let deviceModel: String? // DADeviceModel from Disk Arbitration
     /// Raw Disk Arbitration description dictionary for this disk (not persisted).
     /// Provides on-demand access to additional DA attributes without repeated lookups.
     let diskDescription: [String: Any]?
@@ -160,17 +161,15 @@ struct Drive: Identifiable, Hashable {
 
 extension Drive {
     private func daString(_ key: String) -> String? {
-        // First try to get from stored diskDescription (if available)
-        if let value = diskDescription?[key] as? String, !value.isEmpty {
-            return value
-        }
-        
-        // Fallback to live Disk Arbitration lookup
-        return DiskArbitrationUtils.getStringValue(for: mountPoint, key: key)
+        guard let value = diskDescription?[key] as? String, !value.isEmpty else { return nil }
+        return value
     }
 
     /// DADeviceProtocol (e.g., "USB", "SATA")
     var daDeviceProtocol: String? { daString(kDADiskDescriptionDeviceProtocolKey as String) }
+
+    /// Device model from Disk Arbitration. Falls back to stored `deviceModel` property.
+    var daDeviceModel: String? { deviceModel ?? daString(kDADiskDescriptionDeviceModelKey as String) }
 
     /// Vendor from Disk Arbitration. Falls back to stored `vendor` property.
     var daVendor: String? { vendor ?? daString(kDADiskDescriptionDeviceVendorKey as String) }
@@ -186,15 +185,9 @@ extension Drive {
 
     /// Volume mount path as string, if available.
     var daVolumePath: String? {
-        // First try to get from stored diskDescription (if available)
         if let url = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? URL { return url.path }
         if let path = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? String { return path }
-        
-        // Fallback to live Disk Arbitration lookup
-        if let url: URL = DiskArbitrationUtils.getValue(for: mountPoint, key: kDADiskDescriptionVolumePathKey as String) {
-            return url.path
-        }
-        return DiskArbitrationUtils.getStringValue(for: mountPoint, key: kDADiskDescriptionVolumePathKey as String)
+        return nil
     }
 }
 

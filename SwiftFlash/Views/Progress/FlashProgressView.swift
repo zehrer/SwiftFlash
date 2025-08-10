@@ -239,6 +239,7 @@ struct FlashProgressView: View {
             mediaName: "SanDisk Ultra USB 3.0",
             vendor: "SanDisk",
             revision: "1.0",
+            deviceModel: "Ultra USB 3.0",
             diskDescription: nil,
             deviceType: .usbStick
         ),
@@ -261,6 +262,7 @@ struct FlashProgressView: View {
             mediaName: "SanDisk Ultra USB 3.0",
             vendor: "SanDisk",
             revision: "1.0",
+            deviceModel: "Ultra USB 3.0",
             diskDescription: nil,
             deviceType: .usbStick
         ),
@@ -283,6 +285,7 @@ struct FlashProgressView: View {
             mediaName: "SanDisk Ultra USB 3.0",
             vendor: "SanDisk",
             revision: "1.0",
+            deviceModel: "Ultra USB 3.0",
             diskDescription: nil,
             deviceType: .usbStick
         ),
