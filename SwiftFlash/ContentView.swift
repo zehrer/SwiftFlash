@@ -64,9 +64,9 @@ struct ContentView: View {
                 print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
                 updateInventory(for: drives)
             }
-            .onReceive(appModel.$isScanning) { isScanning in
-                print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
-            }
+//            .onReceive(appModel.$isScanning) { isScanning in
+//                print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
+//            }
             // END: MAIN CONTENT AREA
             
             // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)

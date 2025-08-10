@@ -18,6 +18,7 @@
 - improve usage of Disk Arbitration Framework 
     - use it for mount and unmount
     - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey")
+- add log view within the app itself (include related log leven / menu / icon / filter ...)
 
 ## High Priority Tasks
 

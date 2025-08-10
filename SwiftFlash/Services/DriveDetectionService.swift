@@ -11,10 +11,26 @@ import IOKit
 import IOKit.storage
 @preconcurrency import DiskArbitration
 
-// MARK: - CRITICAL SERVICE (DO NOT MODIFY - Device detection and monitoring)
-// This service handles device detection, Disk Arbitration integration, and device monitoring.
-// Changes here affect the core functionality of detecting and tracking USB/SD devices.
-// Any modifications require thorough testing of device detection and system integration.
+
+// This service orchestrates device detection and metadata enrichment for external storage.
+//
+// Responsibilities and framework boundaries:
+// - IOKit (IORegistry):
+//   * Enumerate candidate removable/ejectable media (kIOMediaClass)
+//   * Read base properties (BSD Name → /dev/diskN, size, writable, etc.)
+//   * Walk parent chain to infer names when DiskArbitration does not provide one
+// - Disk Arbitration:
+//   * Open a DASession for lookups and (future) notifications
+//   * Enrich devices with DA metadata (vendor, revision, media name, protocol)
+//   * Build a derived, stable identifier from DA keys (see note in
+//     getMediaUUIDFromDiskArbitration)
+//
+// This file keeps those concerns clearly separated: IOKit scanning happens in
+// getExternalStorageDevices/getDeviceInfoFromIOKit; Disk Arbitration lookups are
+// isolated to small helpers that query a shared diskDescription(for:) utility.
+//
+// Any changes must keep the service largely stateless (no persistent ownership
+// of model data) and safe for re-scan at any time.
 @MainActor
 class DriveDetectionService: ObservableObject {
     @Published var drives: [Drive] = []
@@ -52,35 +68,35 @@ class DriveDetectionService: ObservableObject {
     }
     
     /// Debug function to print all Disk Arbitration information for a drive
-    func printDiskArbitrationInfo(for drive: Drive) {
-        print("🔍 [DEBUG] === Disk Arbitration Info for Drive: \(drive.displayName) ===")
-        print("📍 Device Path: \(drive.mountPoint)")
-        
-        guard let session = diskArbitrationSession else {
-            print("❌ [DEBUG] Disk Arbitration session is nil")
-            return
-        }
-        
-        // Extract the BSD name from the mount point (remove /dev/ prefix)
-        let bsdName = drive.mountPoint.replacingOccurrences(of: "/dev/", with: "")
-        
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
-            print("❌ [DEBUG] Failed to create disk object for: \(bsdName)")
-            return
-        }
-        
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            print("❌ [DEBUG] Failed to get disk description for: \(bsdName)")
-            return
-        }
-        
-        print("🔧 [DEBUG] All available Disk Arbitration keys:")
-        for (key, value) in diskDescription.sorted(by: { $0.key < $1.key }) {
-            print("   \(key): \(value)")
-        }
-        
-        print("🔍 [DEBUG] === End Disk Arbitration Info ===")
-    }
+//    func printDiskArbitrationInfo(for drive: Drive) {
+//        print("🔍 [DEBUG] === Disk Arbitration Info for Drive: \(drive.displayName) ===")
+//        print("📍 Device Path: \(drive.mountPoint)")
+//        
+//        guard let session = diskArbitrationSession else {
+//            print("❌ [DEBUG] Disk Arbitration session is nil")
+//            return
+//        }
+//        
+//        // Extract the BSD name from the mount point (remove /dev/ prefix)
+//        let bsdName = drive.mountPoint.replacingOccurrences(of: "/dev/", with: "")
+//        
+//        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
+//            print("❌ [DEBUG] Failed to create disk object for: \(bsdName)")
+//            return
+//        }
+//        
+//        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
+//            print("❌ [DEBUG] Failed to get disk description for: \(bsdName)")
+//            return
+//        }
+//        
+//        print("🔧 [DEBUG] All available Disk Arbitration keys:")
+//        for (key, value) in diskDescription.sorted(by: { $0.key < $1.key }) {
+//            print("   \(key): \(value)")
+//        }
+//        
+//        print("🔍 [DEBUG] === End Disk Arbitration Info ===")
+//    }
     
     /// Sets up Disk Arbitration session for device monitoring
     private func setupDiskArbitration() {
@@ -108,14 +124,14 @@ class DriveDetectionService: ObservableObject {
         let systemBootDevice = getSystemBootDevice()
         //print("🔍 [DEBUG] System boot device: \(systemBootDevice)")
         
-        //TODO better undestand
-        for (_, deviceInfo) in devices.enumerated() {
-            //print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
+        // Iterate with index for clearer logging
+        for (index, deviceInfo) in devices.enumerated() {
+            print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
             //print("   📍 Device path: \(deviceInfo.devicePath)")
             //print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
             //print("   🔄 Removable: \(deviceInfo.isRemovable)")
             //print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
-            //print("   📝 Read-only: \(deviceInfo.isReadOnly)")
+            print("   📝 Read-only: \(deviceInfo.isReadOnly)")
             
             // Check if this is the system boot device
             let isSystemDrive = deviceInfo.devicePath == systemBootDevice
@@ -156,6 +172,11 @@ class DriveDetectionService: ObservableObject {
             driveWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
             
+            // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey)
+            if let deviceProtocol = getDeviceProtocolFromDiskArbitration(devicePath: deviceInfo.devicePath) {
+                print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(deviceProtocol)")
+            }
+            
             drives.append(driveWithPartitionScheme)
             print("✅ [DEBUG] Added drive to array: \(deviceInfo.name) - Total drives: \(drives.count)")
         }
@@ -169,6 +190,10 @@ class DriveDetectionService: ObservableObject {
 // MARK: - IOKit Device Detection Functions
 
 extension DriveDetectionService {
+    /// Converts a device path like "/dev/disk3" to BSD name "disk3"
+    private func toBSDName(_ devicePath: String) -> String {
+        return devicePath.replacingOccurrences(of: "/dev/", with: "")
+    }
     
     /// Scans the IOKit registry for external storage devices that are removable and ejectable.
     ///
@@ -239,7 +264,8 @@ extension DriveDetectionService {
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
         
         // Check if this is a main device (not a partition) BEFORE processing further
-        if !isMainDevicePath(devicePath: devicePath) {
+        // Use DeviceInfo-style predicate to keep a single source of truth
+        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).isMainDevice {
             // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
         }
@@ -281,162 +307,64 @@ extension DriveDetectionService {
     
     /// Gets the specific DAMediaName from Disk Arbitration framework
     private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {
-        guard let session = diskArbitrationSession else {
-            return nil
-        }
-        
-        // Create a URL from the device path (not used but kept for future reference)
-        _ = URL(fileURLWithPath: devicePath)
-        
-        // Get the disk object for this device
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            return nil
-        }
-
-        // Get disk description
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            return nil
-        }
-        
-        // Specifically get the DAMediaName
-        if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty {
-            //print("🔍 [DEBUG] Found DAMediaName: \(mediaName)")
-            return mediaName
-        }
-        
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty { return mediaName }
         print("⚠️ [DEBUG] No DAMediaName found for device: \(devicePath)")
         return nil
     }
     
     /// Gets the DADeviceVendor from Disk Arbitration framework
     private func getVendorFromDiskArbitration(devicePath: String) -> String? {
-        guard let session = diskArbitrationSession else {
-            return nil
-        }
-        
-        // Get the disk object for this device
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            return nil
-        }
-
-        // Get disk description
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            return nil
-        }
-        
-        // Specifically get the DADeviceVendor
-        if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty {
-            //print("🔍 [DEBUG] Found DADeviceVendor: \(vendor)")
-            return vendor
-        }
-        
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty { return vendor }
         print("⚠️ [DEBUG] No DADeviceVendor found for device: \(devicePath)")
         return nil
     }
     
     /// Gets the DADeviceRevision from Disk Arbitration framework
     private func getRevisionFromDiskArbitration(devicePath: String) -> String? {
-        guard let session = diskArbitrationSession else {
-            return nil
-        }
-        
-        // Get the disk object for this device
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            return nil
-        }
-
-        // Get disk description
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            return nil
-        }
-        
-        // Specifically get the DADeviceRevision
-        if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty {
-            //print("🔍 [DEBUG] Found DADeviceRevision: \(revision)")
-            return revision
-        }
-        
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty { return revision }
         print("⚠️ [DEBUG] No DADeviceRevision found for device: \(devicePath)")
         return nil
     }
     
     /// Gets device name using Disk Arbitration framework
     private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
-        guard let session = diskArbitrationSession else {
-            return nil
-        }
-        
-        // Create a URL from the device path (not used but kept for future reference)
-        _ = URL(fileURLWithPath: devicePath)
-        
-                // Get the disk object for this device
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            return nil
-        }
-
-        // Get disk description
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            return nil
-        }
-        
-        // Log the media UUID for inventory purposes
-        if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String {
-            print("🔑 [DEBUG] Media UUID: \(mediaUUID)")
-        }
-        
-        // Try to get the device name from various Disk Arbitration keys
-        if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty {
-            return name
-        }
-        
-        if let name = diskDescription["DAMediaName"] as? String, !name.isEmpty {
-            return name
-        }
-        
-        if let name = diskDescription["DADeviceModel"] as? String, !name.isEmpty {
-            return name
-        }
-        
-        if let name = diskDescription["DADeviceProtocol"] as? String, !name.isEmpty {
-            return name
-        }
-        
-        // Try vendor and product names
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String { print("🔑 [DEBUG] Media UUID: \(mediaUUID)") }
+        if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty { return name }
+        if let name = diskDescription["DAMediaName"] as? String, !name.isEmpty { return name }
+        if let name = diskDescription["DADeviceModel"] as? String, !name.isEmpty { return name }
+        if let name = diskDescription["DADeviceProtocol"] as? String, !name.isEmpty { return name }
         if let vendorName = diskDescription["DADeviceVendor"] as? String,
-           let productName = diskDescription["DADeviceProduct"] as? String {
-            let name = "\(vendorName) \(productName)"
-            return name
-        }
-        
+           let productName = diskDescription["DADeviceProduct"] as? String { return "\(vendorName) \(productName)" }
         return nil
     }
     
     /// Gets the media UUID from Disk Arbitration
     private func getMediaUUIDFromDiskArbitration(devicePath: String) -> String? {
         print("🔧 [DEBUG] Analyse device: \(devicePath)")
-        
-        guard let session = diskArbitrationSession else {
-            print("❌ [DEBUG] Disk Arbitration session is nil")
-            return nil
-        }
-        
-        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, devicePath) else {
-            print("❌ [DEBUG] Failed to create disk object for: \(devicePath)")
-            return nil
-        }
-        
-        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-            print("❌ [DEBUG] Failed to get disk description for: \(devicePath)")
-            return nil
-        }
-        
-        //print("🔧 [DEBUG] Disk description keys available: \(Array(diskDescription.keys))")
-        
-        // Generate device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         let deviceID = generateDeviceID(from: diskDescription)
-        //print("🔧 [DEBUG] Generated device ID: \(deviceID)")
-        
         return deviceID
+    }
+
+    /// Gets DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from Disk Arbitration
+    private func getDeviceProtocolFromDiskArbitration(devicePath: String) -> String? {
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let proto = diskDescription["DADeviceProtocol"] as? String, !proto.isEmpty { return proto }
+        return nil
+    }
+
+    /// Shared helper: returns Disk Arbitration description dictionary for a given device path.
+    /// Centralizes session/bsd name handling to avoid code duplication across DA helpers.
+    private func diskDescription(for devicePath: String) -> [String: Any]? {
+        guard let session = diskArbitrationSession else { return nil }
+        let bsdName = toBSDName(devicePath)
+        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else { return nil }
+        guard let description = DADiskCopyDescription(disk) as? [String: Any] else { return nil }
+        return description
     }
     
     /// Generates a consistent device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
@@ -576,60 +504,8 @@ extension DriveDetectionService {
         return 0
     }
     
-    /// Checks if a device path represents a main device (not a partition)
-    private func isMainDevicePath(devicePath: String) -> Bool {
-        // Check if the device path contains partition indicators
-        // print("🔍 [DEBUG] Checking if device path is main device: \(devicePath)")
-        
-        // Check if it's a partition (ends with 's' followed by numbers)
-        if devicePath.range(of: #"s\d+$"#, options: .regularExpression) != nil {
-            return false
-        }
-        
-        // Check if it's a slice (contains 's' followed by numbers in the middle)
-        let components = devicePath.components(separatedBy: "s")
-        if components.count > 1 {
-            // Check if the last component is a number (indicating a partition)
-            if let lastComponent = components.last, Int(lastComponent) != nil {
-                return false
-            }
-        }
-        
-        // Check if it's a nested partition (contains multiple 's' like disk3s1s1)
-        if devicePath.components(separatedBy: "s").count > 2 {
-            return false
-        }
-        
-        return true
-    }
-    
-    /// Checks if a device is a main device (not a partition)
-    private func isMainDevice(deviceInfo: DeviceInfo) -> Bool {
-        let isMain = isMainDevicePath(devicePath: deviceInfo.devicePath)
-        
-        if isMain {
-            print("✅ [DEBUG] Device \(deviceInfo.devicePath) is a main device - including")
-        } else {
-            print("❌ [DEBUG] Device \(deviceInfo.devicePath) is a partition - excluding")
-        }
-        
-        return isMain
-    }
-    
-    /// Checks if a device is a disk image (mounted .dmg file)
-    internal func isDiskImage(deviceInfo: DeviceInfo) -> Bool {
-        // Check if the media name is "Disk Image" (which indicates a mounted .dmg file)
-        if let mediaName = deviceInfo.mediaName, mediaName == "Disk Image" {
-            return true
-        }
-        
-        // Also check if the device name contains "Disk Image"
-        if deviceInfo.name == "Disk Image" {
-            return true
-        }
-        
-        return false
-    }
+    /// (Deprecated) helpers replaced by DeviceInfo derived properties.
+    /// Keeping empty stubs here would risk accidental use; removing them fully to avoid duplication.
     
     /// Gets the system boot device path to exclude it from the list
     private func getSystemBootDevice() -> String {
