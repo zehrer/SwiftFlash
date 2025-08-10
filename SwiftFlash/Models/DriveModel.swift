@@ -186,4 +186,25 @@ extension Drive {
         return nil
     }
 }
-// END: CRITICAL DATA MODEL 
+
+// MARK: - Debug helpers
+
+#if DEBUG
+extension Drive {
+    /// Prints all available Disk Arbitration description key/values for this drive.
+    ///
+    /// Usage: call `drive.logDiskDescription()` from debug code paths when you
+    /// need to inspect raw DA metadata without re-querying the system. This uses
+    /// the captured `diskDescription` stored on the model.
+    func logDiskDescription() {
+        guard let desc = diskDescription, !desc.isEmpty else {
+            print("[Drive][DA] No diskDescription captured for: \(mountPoint)")
+            return
+        }
+        print("[Drive][DA] Description for \(mountPoint) → \(displayName)")
+        for (key, value) in desc.sorted(by: { $0.key < $1.key }) {
+            print("   \(key): \(value)")
+        }
+    }
+}
+#endif

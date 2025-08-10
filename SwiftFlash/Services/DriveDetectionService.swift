@@ -67,36 +67,7 @@ class DriveDetectionService: ObservableObject {
         }
     }
     
-    /// Debug function to print all Disk Arbitration information for a drive
-//    func printDiskArbitrationInfo(for drive: Drive) {
-//        print("🔍 [DEBUG] === Disk Arbitration Info for Drive: \(drive.displayName) ===")
-//        print("📍 Device Path: \(drive.mountPoint)")
-//        
-//        guard let session = diskArbitrationSession else {
-//            print("❌ [DEBUG] Disk Arbitration session is nil")
-//            return
-//        }
-//        
-//        // Extract the BSD name from the mount point (remove /dev/ prefix)
-//        let bsdName = drive.mountPoint.replacingOccurrences(of: "/dev/", with: "")
-//        
-//        guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
-//            print("❌ [DEBUG] Failed to create disk object for: \(bsdName)")
-//            return
-//        }
-//        
-//        guard let diskDescription = DADiskCopyDescription(disk) as? [String: Any] else {
-//            print("❌ [DEBUG] Failed to get disk description for: \(bsdName)")
-//            return
-//        }
-//        
-//        print("🔧 [DEBUG] All available Disk Arbitration keys:")
-//        for (key, value) in diskDescription.sorted(by: { $0.key < $1.key }) {
-//            print("   \(key): \(value)")
-//        }
-//        
-//        print("🔍 [DEBUG] === End Disk Arbitration Info ===")
-//    }
+
     
     /// Sets up Disk Arbitration session for device monitoring
     private func setupDiskArbitration() {
@@ -180,6 +151,11 @@ class DriveDetectionService: ObservableObject {
             if let proto = daDesc?["DADeviceProtocol"] as? String, !proto.isEmpty {
                 print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(proto)")
             }
+
+#if DEBUG
+            // Dump full Disk Arbitration description for this relevant detected device
+            driveWithPartitionScheme.logDiskDescription()
+#endif
             
             drives.append(driveWithPartitionScheme)
             print("✅ [DEBUG] Added drive to array: \(deviceInfo.name) - Total drives: \(drives.count)")

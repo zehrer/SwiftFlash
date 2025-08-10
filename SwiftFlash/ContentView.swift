@@ -235,7 +235,7 @@ struct ContentView: View {
                     ToolbarItem(id: "debug", placement: .automatic) {
                         debugButton(selectedDrive: selectedDrive) {
                             if let selectedDrive = selectedDrive {
-                                printDiskArbitrationInfo(for: selectedDrive)
+                
                             }
                         }
                     }
@@ -494,18 +494,7 @@ struct ContentView: View {
         return drive.mediaUUID
     }
     
-    private func printDiskArbitrationInfo(for drive: Drive) {
-        print("🔍 [DEBUG] Disk Arbitration Info for: \(drive.displayName)")
-        print("   - Mount Point: \(drive.mountPoint)")
-        print("   - Size: \(drive.formattedSize)")
-        print("   - Media UUID: \(drive.mediaUUID ?? "Unknown")")
-        print("   - Media Name: \(drive.mediaName ?? "Unknown")")
-        print("   - Vendor: \(drive.vendor ?? "Unknown")")
-        print("   - Revision: \(drive.revision ?? "Unknown")")
-        print("   - Device Type: \(drive.deviceType.rawValue)")
-        print("   - Is Read Only: \(drive.isReadOnly)")
-        print("   - Is Removable: \(drive.isRemovable)")
-    }
+
 
     // MARK: - Inventory Coordination
 
