@@ -255,7 +255,7 @@ extension DriveDetectionService {
         
         // Check if this is a main device (not a partition) BEFORE processing further
         // Use DeviceInfo-style predicate to keep a single source of truth
-        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil, partitions: []).isMainDevice {
+        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil, daDeviceModel: nil, partitions: []).isMainDevice {
             // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
         }
@@ -279,6 +279,9 @@ extension DriveDetectionService {
         
         let mediaName = getMediaNameFromDiskArbitration(devicePath: devicePath)
         
+        // Get device model for disk image detection
+        let daDeviceModel = getDeviceModelFromDiskArbitration(devicePath: devicePath)
+        
         // Collect partitions (Disk Arbitration) for this main device
         let partitions = getPartitionsForDevice(devicePath: devicePath)
 
@@ -293,6 +296,7 @@ extension DriveDetectionService {
             mediaName: mediaName,
             vendor: vendor,
             revision: revision,
+            daDeviceModel: daDeviceModel,
             partitions: partitions
         )
     }
@@ -330,6 +334,16 @@ extension DriveDetectionService {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
         if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty { return revision }
         print("⚠️ [DEBUG] No DADeviceRevision found for device: \(devicePath)")
+        return nil
+    }
+    
+    /// Disk Arbitration: Returns the `DADeviceModel` for a device, if present.
+    /// - Parameter devicePath: Absolute device path.
+    /// - Returns: Device model string or `nil`.
+    private func getDeviceModelFromDiskArbitration(devicePath: String) -> String? {
+        guard let diskDescription = diskDescription(for: devicePath) else { return nil }
+        if let model = diskDescription["DADeviceModel"] as? String, !model.isEmpty { return model }
+        print("⚠️ [DEBUG] No DADeviceModel found for device: \(devicePath)")
         return nil
     }
     

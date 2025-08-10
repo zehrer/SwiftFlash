@@ -42,6 +42,8 @@ struct DeviceInfo {
     let vendor: String?
     /// Revision string from Disk Arbitration if available (persisted)
     let revision: String?
+    /// Device model from Disk Arbitration if available (runtime-only, used for disk image detection)
+    let daDeviceModel: String?
     /// Discovered partitions/slices of this device (runtime-only)
     let partitions: [PartitionInfo]
 }
@@ -67,8 +69,13 @@ extension DeviceInfo {
 
     /// Returns true if this device is a mounted disk image
     var isDiskImage: Bool {
+        // Check media name from Disk Arbitration
         if let mediaName, mediaName == "Disk Image" { return true }
-        return name == "Disk Image"
+        // Check device name
+        if name == "Disk Image" { return true }
+        // Check Disk Arbitration device model (most reliable indicator)
+        if let daDeviceModel, daDeviceModel == "Disk Image" { return true }
+        return false
     }
 
     /// Heuristic mapping from detected name/path to a DeviceType
