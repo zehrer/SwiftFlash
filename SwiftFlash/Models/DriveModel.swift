@@ -165,16 +165,16 @@ extension Drive {
     }
 
     /// DADeviceProtocol (e.g., "USB", "SATA")
-    var daDeviceProtocol: String? { daString("DADeviceProtocol") }
+    var daDeviceProtocol: String? { daString(kDADiskDescriptionDeviceProtocolKey as String) }
 
     /// Vendor from Disk Arbitration. Falls back to stored `vendor` property.
-    var daVendor: String? { vendor ?? daString("DADeviceVendor") }
+    var daVendor: String? { vendor ?? daString(kDADiskDescriptionDeviceVendorKey as String) }
 
     /// Revision from Disk Arbitration. Falls back to stored `revision` property.
-    var daRevision: String? { revision ?? daString("DADeviceRevision") }
+    var daRevision: String? { revision ?? daString(kDADiskDescriptionDeviceRevisionKey as String) }
 
     /// Volume name from Disk Arbitration. Falls back to stored `mediaName` property.
-    var daVolumeName: String? { daString("DAVolumeName") ?? daString("DAMediaName") ?? mediaName }
+    var daVolumeName: String? { daString(kDADiskDescriptionVolumeNameKey as String) ?? daString(kDADiskDescriptionMediaNameKey as String) ?? mediaName }
 
     /// Volume/filesystem kind, if available (e.g. "apfs", "msdos").
     var daVolumeKind: String? { daString("DAVolumeKind") ?? daString("DAMediaKind") }

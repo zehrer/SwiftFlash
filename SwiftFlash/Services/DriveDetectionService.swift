@@ -147,14 +147,14 @@ class DriveDetectionService: ObservableObject {
             driveWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
             
-            // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from captured description
-            if let proto = daDesc?["DADeviceProtocol"] as? String, !proto.isEmpty {
-                print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(proto)")
-            }
+                    // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from captured description
+        if let proto = daDesc?[kDADiskDescriptionDeviceProtocolKey as String] as? String, !proto.isEmpty {
+            print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(proto)")
+        }
 
 #if DEBUG
             // Dump full Disk Arbitration description for this relevant detected device
-            driveWithPartitionScheme.logDiskDescription()
+            //driveWithPartitionScheme.logDiskDescription()
 #endif
             
             drives.append(driveWithPartitionScheme)
@@ -310,7 +310,7 @@ extension DriveDetectionService {
     /// - Returns: Media name string or `nil`.
     private func getMediaNameFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let mediaName = diskDescription["DAMediaName"] as? String, !mediaName.isEmpty { return mediaName }
+        if let mediaName = diskDescription[kDADiskDescriptionMediaNameKey as String] as? String, !mediaName.isEmpty { return mediaName }
         print("⚠️ [DEBUG] No DAMediaName found for device: \(devicePath)")
         return nil
     }
@@ -322,7 +322,7 @@ extension DriveDetectionService {
     /// - Returns: Vendor string or `nil`.
     private func getVendorFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let vendor = diskDescription["DADeviceVendor"] as? String, !vendor.isEmpty { return vendor }
+        if let vendor = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String, !vendor.isEmpty { return vendor }
         print("⚠️ [DEBUG] No DADeviceVendor found for device: \(devicePath)")
         return nil
     }
@@ -332,7 +332,7 @@ extension DriveDetectionService {
     /// - Returns: Revision string or `nil`.
     private func getRevisionFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let revision = diskDescription["DADeviceRevision"] as? String, !revision.isEmpty { return revision }
+        if let revision = diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String, !revision.isEmpty { return revision }
         print("⚠️ [DEBUG] No DADeviceRevision found for device: \(devicePath)")
         return nil
     }
@@ -342,7 +342,7 @@ extension DriveDetectionService {
     /// - Returns: Device model string or `nil`.
     private func getDeviceModelFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let model = diskDescription["DADeviceModel"] as? String, !model.isEmpty { return model }
+        if let model = diskDescription[kDADiskDescriptionDeviceModelKey as String] as? String, !model.isEmpty { return model }
         print("⚠️ [DEBUG] No DADeviceModel found for device: \(devicePath)")
         return nil
     }
@@ -355,13 +355,13 @@ extension DriveDetectionService {
     /// - Returns: Name string or `nil` if none found.
     private func getDeviceNameFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let mediaUUID = diskDescription["DADiskDescriptionMediaUUIDKey"] as? String { print("🔑 [DEBUG] Media UUID: \(mediaUUID)") }
-        if let name = diskDescription["DAVolumeName"] as? String, !name.isEmpty { return name }
-        if let name = diskDescription["DAMediaName"] as? String, !name.isEmpty { return name }
-        if let name = diskDescription["DADeviceModel"] as? String, !name.isEmpty { return name }
-        if let name = diskDescription["DADeviceProtocol"] as? String, !name.isEmpty { return name }
-        if let vendorName = diskDescription["DADeviceVendor"] as? String,
-           let productName = diskDescription["DADeviceProduct"] as? String { return "\(vendorName) \(productName)" }
+        if let mediaUUID = diskDescription[kDADiskDescriptionMediaUUIDKey as String] as? String { print("🔑 [DEBUG] Media UUID: \(mediaUUID)") }
+        if let name = diskDescription[kDADiskDescriptionVolumeNameKey as String] as? String, !name.isEmpty { return name }
+        if let name = diskDescription[kDADiskDescriptionMediaNameKey as String] as? String, !name.isEmpty { return name }
+        if let name = diskDescription[kDADiskDescriptionDeviceModelKey as String] as? String, !name.isEmpty { return name }
+        if let name = diskDescription[kDADiskDescriptionDeviceProtocolKey as String] as? String, !name.isEmpty { return name }
+        if let vendorName = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String,
+                        let productName = diskDescription["DADeviceProduct"] as? String { return "\(vendorName) \(productName)" }
         return nil
     }
     
@@ -384,7 +384,7 @@ extension DriveDetectionService {
     /// - Returns: Protocol string (e.g. "USB", "SATA") or `nil`.
     private func getDeviceProtocolFromDiskArbitration(devicePath: String) -> String? {
         guard let diskDescription = diskDescription(for: devicePath) else { return nil }
-        if let proto = diskDescription["DADeviceProtocol"] as? String, !proto.isEmpty { return proto }
+        if let proto = diskDescription[kDADiskDescriptionDeviceProtocolKey as String] as? String, !proto.isEmpty { return proto }
         return nil
     }
 
@@ -448,10 +448,10 @@ extension DriveDetectionService {
 
             // Enrich with Disk Arbitration details
             let desc = diskDescription(for: path)
-            let volumeName = (desc?["DAVolumeName"] as? String) ?? (desc?["DAMediaName"] as? String)
-            let fs = (desc?["DAVolumeKind"] as? String) ?? (desc?["DAMediaKind"] as? String)
-            let mountPoint = desc?["DAVolumePath"] as? String
-            let writable: Bool? = (desc?["DADeviceWritable"] as? Bool)
+            let volumeName = (desc?[kDADiskDescriptionVolumeNameKey as String] as? String) ?? (desc?[kDADiskDescriptionMediaNameKey as String] as? String)
+            let fs = (desc?[kDADiskDescriptionVolumeKindKey as String] as? String) ?? (desc?[kDADiskDescriptionMediaKindKey as String] as? String)
+            let mountPoint = desc?[kDADiskDescriptionVolumePathKey as String] as? String
+            let writable: Bool? = (desc?[kDADiskDescriptionMediaWritableKey as String] as? Bool)
 
             results.append(
                 PartitionInfo(
@@ -478,9 +478,9 @@ extension DriveDetectionService {
     
     /// Generates a consistent device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
     private func generateDeviceID(from diskDescription: [String: Any]) -> String {
-        let deviceVendor = diskDescription["DADeviceVendor"] as? String ?? "Unknown"
-        let deviceRevision = diskDescription["DADeviceRevision"] as? String ?? "Unknown"
-        let mediaSize = diskDescription["DAMediaSize"] as? Int64 ?? 0
+        let deviceVendor = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String ?? "Unknown"
+        let deviceRevision = diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String ?? "Unknown"
+        let mediaSize = diskDescription[kDADiskDescriptionMediaSizeKey as String] as? Int64 ?? 0
         
         // Get first 4 digits of media size (convert to string and take first 4 chars)
         let mediaSizeString = String(mediaSize)
