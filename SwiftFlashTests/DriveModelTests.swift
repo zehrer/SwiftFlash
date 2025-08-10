@@ -44,7 +44,8 @@ final class DriveModelTests: XCTestCase {
                     mediaUUID: nil,
                     mediaName: "TEST_DEVICE",
                     vendor: "Test",
-                    revision: "1.0"
+                    revision: "1.0",
+                    diskDescription: nil
                 )
                 
                 print("📱 Found potential test device: \(devicePath)")

@@ -126,7 +126,7 @@ class DriveDetectionService: ObservableObject {
         
         // Iterate with index for clearer logging
         for (index, deviceInfo) in devices.enumerated() {
-            print("\n🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
+            print("🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
             //print("   📍 Device path: \(deviceInfo.devicePath)")
             //print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
             //print("   🔄 Removable: \(deviceInfo.isRemovable)")
@@ -152,6 +152,9 @@ class DriveDetectionService: ObservableObject {
             // Determine device type automatically from detected properties
             let deviceType: DeviceType = deviceInfo.inferredDeviceType
             
+            // Capture a single DA description to avoid repeated lookups later
+            let daDesc = diskDescription(for: deviceInfo.devicePath)
+
             let drive = Drive(
                 name: deviceInfo.name,
                 mountPoint: deviceInfo.devicePath,
@@ -163,6 +166,7 @@ class DriveDetectionService: ObservableObject {
                 mediaName: deviceInfo.mediaName,
                 vendor: deviceInfo.vendor,
                 revision: deviceInfo.revision,
+                diskDescription: daDesc,
                 deviceType: deviceType
             )
             
@@ -172,9 +176,9 @@ class DriveDetectionService: ObservableObject {
             driveWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
             
-            // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey)
-            if let deviceProtocol = getDeviceProtocolFromDiskArbitration(devicePath: deviceInfo.devicePath) {
-                print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(deviceProtocol)")
+            // Log DADeviceProtocol (kDADiskDescriptionDeviceProtocolKey) from captured description
+            if let proto = daDesc?["DADeviceProtocol"] as? String, !proto.isEmpty {
+                print("🔌 [DEBUG] DADeviceProtocol for \(deviceInfo.name): \(proto)")
             }
             
             drives.append(driveWithPartitionScheme)

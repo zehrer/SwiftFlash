@@ -189,6 +189,7 @@ struct DriveInspectorView: View {
             mediaName: "TS-RDF5 SD Transcend Media",
             vendor: "TS-RDF5",
             revision: "TS37",
+            diskDescription: nil,
             deviceType: .microSDCard
         ),
         deviceInventory: DeviceInventory()

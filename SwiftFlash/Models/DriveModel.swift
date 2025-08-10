@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - CRITICAL DATA MODEL (DO NOT MODIFY - Core data structure)
 // This Drive model is used throughout the application and changes here
 // will affect device detection, UI display, and data persistence.
 // Any modifications require thorough testing of all dependent components.
@@ -23,6 +22,9 @@ struct Drive: Identifiable, Hashable {
     let mediaName: String? // Specific DAMediaName from Disk Arbitration
     let vendor: String? // DADeviceVendor from Disk Arbitration
     let revision: String? // DADeviceRevision from Disk Arbitration
+    /// Raw Disk Arbitration description dictionary for this disk (not persisted).
+    /// Provides on-demand access to additional DA attributes without repeated lookups.
+    let diskDescription: [String: Any]?
     var deviceType: DeviceType = .unknown // Device type for display and settings
     var partitionScheme: ImageFileService.PartitionScheme = .unknown // Cached partition scheme
     
@@ -151,6 +153,37 @@ struct Drive: Identifiable, Hashable {
             print("❌ [DEBUG] Failed to run diskutil mount: \(error)")
             return false
         }
+    }
+}
+
+// MARK: - Disk Arbitration accessors
+
+extension Drive {
+    private func daString(_ key: String) -> String? {
+        guard let value = diskDescription?[key] as? String, !value.isEmpty else { return nil }
+        return value
+    }
+
+    /// DADeviceProtocol (e.g., "USB", "SATA")
+    var daDeviceProtocol: String? { daString("DADeviceProtocol") }
+
+    /// Vendor from Disk Arbitration. Falls back to stored `vendor` property.
+    var daVendor: String? { vendor ?? daString("DADeviceVendor") }
+
+    /// Revision from Disk Arbitration. Falls back to stored `revision` property.
+    var daRevision: String? { revision ?? daString("DADeviceRevision") }
+
+    /// Volume name from Disk Arbitration. Falls back to stored `mediaName` property.
+    var daVolumeName: String? { daString("DAVolumeName") ?? daString("DAMediaName") ?? mediaName }
+
+    /// Volume/filesystem kind, if available (e.g. "apfs", "msdos").
+    var daVolumeKind: String? { daString("DAVolumeKind") ?? daString("DAMediaKind") }
+
+    /// Volume mount path as string, if available.
+    var daVolumePath: String? {
+        if let url = diskDescription?["DAVolumePath"] as? URL { return url.path }
+        if let path = diskDescription?["DAVolumePath"] as? String { return path }
+        return nil
     }
 }
 // END: CRITICAL DATA MODEL 
