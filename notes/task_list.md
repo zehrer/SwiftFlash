@@ -20,6 +20,7 @@
     - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey")
 - add log view within the app itself (include related log leven / menu / icon / filter ...) and build a os.Logger wrapper
 - Add quality code indicators (including test code coverage)
+- Fix / reduce Waning during startup in BookmarkManager
 
 ## High Priority Tasks
 

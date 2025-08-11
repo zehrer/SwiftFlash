@@ -276,7 +276,7 @@ extension DriveDetectionService {
         
         // Collect partitions (Disk Arbitration) for this main device
         let partitions = getPartitionsForDevice(devicePath: devicePath)
-
+        
         return DeviceInfo(
             name: name,
             devicePath: devicePath,

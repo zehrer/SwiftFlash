@@ -30,9 +30,7 @@ enum DeviceType: String, CaseIterable, Codable {
         }
     }
 }
-// END: CRITICAL ENUM
 
-// MARK: - CRITICAL DATA MODEL (DO NOT MODIFY - Device inventory structure)
 // This struct represents devices in the inventory and is used for persistence.
 // Changes here affect device tracking, data storage, and UI display.
 // Any modifications require testing of device inventory functionality.
@@ -59,7 +57,6 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
         return formatter.string(fromByteCount: size)
     }
 }
-// END: CRITICAL DATA MODEL
 
 /// Manages the inventory of recognized devices
 @MainActor
@@ -219,16 +216,14 @@ class DeviceInventory: ObservableObject {
             return 
         }
         
-        //print("📚 [DEBUG] Found inventory data in UserDefaults: \(data.count) bytes")
-        
         do {
             devices = try JSONDecoder().decode([DeviceInventoryItem].self, from: data)
             print("📚 [INVENTORY] Loaded \(devices.count) devices")
             
             // Debug: Show loaded devices
-//            for (index, device) in devices.enumerated() {
-//                print("   📱 [DEBUG] Device \(index + 1): \(device.originalName) (ID: \(device.mediaUUID))")
-//            }
+            for (index, device) in devices.enumerated() {
+                print("   📱 [DEBUG] Device \(index + 1): \(device.name) (ID: \(device.mediaUUID))")
+            }
         } catch {
             print("❌ [INVENTORY] Failed to load inventory: \(error)")
             devices = []

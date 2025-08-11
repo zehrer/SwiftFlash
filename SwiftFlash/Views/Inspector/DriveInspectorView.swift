@@ -68,12 +68,11 @@ struct DriveInspectorView: View {
                     placeholder: "Enter device name"
                 )
                 .onChange(of: editableName) { _, newValue in
-                    if let mediaUUID = drive.daMediaUUID {
-                        if newValue.isEmpty {
-                            deviceInventory.setCustomName(for: mediaUUID, customName: nil)
-                        } else {
-                            deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
-                        }
+                    let mediaUUID = drive.mediaUUID
+                    if newValue.isEmpty {
+                        deviceInventory.setCustomName(for: mediaUUID, customName: nil)
+                    } else {
+                        deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
                     }
                 }
                 
@@ -83,9 +82,8 @@ struct DriveInspectorView: View {
                     selection: $selectedDeviceType
                 )
                 .onChange(of: selectedDeviceType) { _, newValue in
-                    if let mediaUUID = drive.daMediaUUID {
-                        deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
-                    }
+                    let mediaUUID = drive.mediaUUID
+                    deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
                 }
                 
                 // Capacity
@@ -139,15 +137,15 @@ struct DriveInspectorView: View {
                 // UUID
                 LabelAndText(
                     label: "UUID",
-                    value: drive.daMediaUUID ?? "Unknown"
+                    value: drive.mediaUUID
                 )
             }
             
             // History Section
             InspectorSectionView(title: "History") {
                 // First Seen
-                if let mediaUUID = drive.daMediaUUID,
-                   let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+                let mediaUUID = drive.mediaUUID
+                if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
                     LabelAndText(
                         label: "First Seen",
                         value: inventoryDevice.firstSeen.formatted(date: .abbreviated, time: .shortened)

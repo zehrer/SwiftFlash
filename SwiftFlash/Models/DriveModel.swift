@@ -191,6 +191,39 @@ extension Drive {
     /// Media UUID from Disk Arbitration.
     var daMediaUUID: String? { daString(kDADiskDescriptionMediaUUIDKey as String) }
 
+    /// Stable device identifier for inventory correlation.
+    /// Generates a consistent identifier from Disk Arbitration data (vendor, revision, size)
+    /// that remains stable across app restarts, unlike daMediaUUID which may be nil.
+    var mediaUUID: String {
+        // Try to use the raw DA media UUID first if available
+        if let daUUID = daMediaUUID, !daUUID.isEmpty {
+            return daUUID
+        }
+        
+        // Generate a stable identifier from vendor, revision, and size
+        return generateStableDeviceID()
+    }
+    
+    /// Generates a stable device identifier from Disk Arbitration data.
+    /// This provides consistent device identification even when daMediaUUID is nil.
+    private func generateStableDeviceID() -> String {
+        guard let diskDescription = diskDescription else { return "Unknown_Unknown_0000" }
+        
+        let deviceVendor = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String ?? "Unknown"
+        let deviceRevision = diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String ?? "Unknown"
+        let mediaSize = diskDescription[kDADiskDescriptionMediaSizeKey as String] as? Int64 ?? 0
+        
+        // Get first 4 digits of media size
+        let mediaSizeString = String(mediaSize)
+        let sizePrefix = mediaSizeString.count >= 4 ? String(mediaSizeString.prefix(4)) : mediaSizeString
+        
+        // Clean up vendor and revision names (replace spaces with underscores)
+        let cleanVendor = deviceVendor.replacingOccurrences(of: " ", with: "_")
+        let cleanRevision = deviceRevision.replacingOccurrences(of: " ", with: "_")
+        
+        return "\(cleanVendor)_\(cleanRevision)_\(sizePrefix)"
+    }
+
     /// Device name derived from Disk Arbitration with fallback chain.
     /// Tries: DAVolumeName → DAMediaName → DADeviceModel → DADeviceProtocol → Vendor+Product
     var daDeviceName: String? {

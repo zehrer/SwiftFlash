@@ -491,7 +491,7 @@ struct ContentView: View {
     }
     
     private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
-        return drive.daMediaUUID
+        return drive.mediaUUID
     }
     
 
@@ -500,7 +500,7 @@ struct ContentView: View {
 
     private func updateInventory(for drives: [Drive]) {
         for drive in drives {
-            guard let mediaUUID = drive.daMediaUUID else { continue }
+            let mediaUUID = drive.mediaUUID
             appModel.deviceInventory.addOrUpdateDevice(
                 mediaUUID: mediaUUID,
                 size: drive.size,
@@ -521,8 +521,8 @@ struct DriveRowView: View {
     @EnvironmentObject var deviceInventory: DeviceInventory
     
     var deviceType: DeviceType {
-        if let mediaUUID = drive.daMediaUUID,
-           let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+        let mediaUUID = drive.mediaUUID
+        if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
             return inventoryDevice.deviceType
         }
         return drive.deviceType
