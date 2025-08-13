@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct ImageInspectorView: View {
     let image: ImageFile
@@ -94,4 +95,4 @@ struct ImageInspectorView: View {
         )
     )
     .frame(width: 250)
-} 
+}

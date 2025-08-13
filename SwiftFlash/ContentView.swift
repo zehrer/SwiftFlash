@@ -1,21 +1,22 @@
+import Foundation
 import SwiftUI
 
 struct ContentView: View {
     @StateObject private var imageService = ImageFileService()
-    @State private var imageHistoryService = ImageHistoryService()
+    @State private var imageHistoryService: any ImageHistoryServiceProtocol = ImageHistoryService()
     @State private var flashService: ImageFlashService
     @State private var toolbarConfig = ToolbarConfigurationService()
     @EnvironmentObject var appModel: AppModel
-    @State private var selectedDrive: Drive?
+    @State private var selectedDrive: Device?
     @State private var selectedImage: ImageFile?
-    
+
     init() {
         let imageHistoryService = ImageHistoryService()
         let flashService = ImageFlashService(imageHistoryService: imageHistoryService)
         self._imageHistoryService = State(wrappedValue: imageHistoryService)
         self._flashService = State(wrappedValue: flashService)
     }
-    
+
     private func setupDriveService() {
         // Intentionally left empty to decouple service from model.
         // Inventory is managed by the model layer (DeviceInventory) directly.
@@ -27,95 +28,102 @@ struct ContentView: View {
     @State private var showFlashConfirmation = false
     @State private var showFlashProgress = false
     @State private var customNameText = ""
-    @State private var deviceToRename: Drive?
-    @AppStorage("showStatusBar") private var showStatusBar = true // User can toggle this
-    
+    @State private var deviceToRename: Device?
+    @AppStorage("showStatusBar") private var showStatusBar = true  // User can toggle this
+
     // MARK: - Computed Properties
-    
+
     private var canFlash: Bool {
         guard let selectedDrive = selectedDrive,
-              let selectedImage = imageService.selectedImage else {
+            let selectedImage = imageService.selectedImage
+        else {
             return false
         }
-        
+
         // Check all preconditions
         return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HSplitView {
-            // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
-            // This ScrollView section has been thoroughly tested and should not be changed
-            // without additional verification. Changes here require re-testing of the entire UI layout.
-            ScrollView {
-                VStack(spacing: 30) {
-                    imageFileSection
-                    errorMessageSection
-                    driveSelectionSection
-                    
-                    // Remove version from main content area
+                // MARK: - MAIN CONTENT AREA (DO NOT MODIFY - Tested and verified)
+                // This ScrollView section has been thoroughly tested and should not be changed
+                // without additional verification. Changes here require re-testing of the entire UI layout.
+                ScrollView {
+                    VStack(spacing: 30) {
+                        imageFileSection
+                        errorMessageSection
+                        driveSelectionSection
+
+                        // Remove version from main content area
+                    }
+                    .padding()
                 }
-                .padding()
-            }
-            .frame(minWidth: 400, idealWidth: 500)
-            .background(Color.white)
-            .onReceive(appModel.$drives) { drives in
-                print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
-                updateInventory(for: drives)
-            }
-//            .onReceive(appModel.$isScanning) { isScanning in
-//                print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
-//            }
-            // END: MAIN CONTENT AREA
-            
-            // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)
-            // Inspector layout has been tested and should not be changed without verification
-            if showInspector {
-                if let selectedImage = selectedImage {
-                    ScrollView {
-                        ImageInspectorView(image: selectedImage)
-                            .frame(minWidth: 250, idealWidth: 300)
-                    }
-                } else if let selectedDrive = selectedDrive {
-                    ScrollView {
-                        DriveInspectorView(drive: selectedDrive, deviceInventory: appModel.deviceInventory)
-                            .frame(minWidth: 250, idealWidth: 300)
-                    }
-                } else {
-                    VStack {
-                        Image(systemName: "sidebar.right")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("No Selection")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                        Text("Select an image file or drive to view its details")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 400, idealWidth: 500)
+                .background(Color.white)
+                .onReceive(appModel.$drives) { drives in
+                    print("🔍 [DEBUG] ContentView: drives array changed - count: \(drives.count)")
+                    updateInventory(for: drives)
                 }
+                //            .onReceive(appModel.$isScanning) { isScanning in
+                //                print("🔍 [DEBUG] ContentView: isScanning changed - \(isScanning)")
+                //            }
+                // END: MAIN CONTENT AREA
+
+                // MARK: - INSPECTOR AREA (DO NOT MODIFY - Tested and verified)
+                // Inspector layout has been tested and should not be changed without verification
+                if showInspector {
+                    if let selectedImage = selectedImage {
+                        ScrollView {
+                            ImageInspectorView(image: selectedImage)
+                                .frame(minWidth: 250, idealWidth: 300)
+                        }
+                    } else if let selectedDrive = selectedDrive {
+                        ScrollView {
+                            DriveInspectorView(
+                                drive: selectedDrive, deviceInventory: appModel.deviceInventory
+                            )
+                            .frame(minWidth: 250, idealWidth: 300)
+                        }
+                    } else {
+                        VStack {
+                            Image(systemName: "sidebar.right")
+                                .font(.system(size: 48))
+                                .foregroundColor(.secondary)
+                            Text("No Selection")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            Text("Select an image file or drive to view its details")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                // END: INSPECTOR AREA
             }
-            // END: INSPECTOR AREA
-            }
-            
+
             // Status Bar
             if showStatusBar {
                 HStack {
                     // Version info
-                    Text("Version : \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (build : \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
+                    Text(
+                        "Version : \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2025.8") (build : \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))"
+                    )
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
                     Spacer()
-                    
+
                     // Drive count
                     if !appModel.drives.isEmpty {
-                        Text("\(appModel.drives.count) drive\(appModel.drives.count == 1 ? "" : "s") detected")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Text(
+                            "\(appModel.drives.count) drive\(appModel.drives.count == 1 ? "" : "s") detected"
+                        )
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -141,28 +149,31 @@ struct ContentView: View {
                         refreshButton(driveService: appModel.driveService)
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("flexibleSpace") {
                     ToolbarItem(id: "flexibleSpace", placement: .automatic) {
                         Spacer()
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("flash") {
                     ToolbarItem(id: "flash", placement: .automatic) {
-                        flashButton(showFlashConfirmation: $showFlashConfirmation, canFlash: canFlash)
+                        flashButton(
+                            showFlashConfirmation: $showFlashConfirmation, canFlash: canFlash)
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("eject") {
                     ToolbarItem(id: "eject", placement: .automatic) {
                         ejectButton(selectedDrive: selectedDrive) {
                             // TODO: Implement eject functionality
-                            print("⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")")
+                            print(
+                                "⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")"
+                            )
                         }
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("checksum") {
                     ToolbarItem(id: "checksum", placement: .automatic) {
                         checksumButton(selectedImage: imageService.selectedImage) {
@@ -170,16 +181,20 @@ struct ContentView: View {
                                 Task {
                                     do {
                                         // Calculate checksum with progress updates (service handles state)
-                                        let checksum = try await flashService.calculateSHA256Checksum(for: selectedImage)
-                                        
+                                        let checksum =
+                                            try await flashService.calculateSHA256Checksum(
+                                                for: selectedImage)
+
                                         // Update the image with the checksum
                                         var updatedImage = selectedImage
                                         updatedImage.sha256Checksum = checksum
                                         imageService.selectedImage = updatedImage
-                                        
+
                                         // Try to store in history, but don't fail if it doesn't work
                                         imageHistoryService.addToHistory(updatedImage)
-                                        print("✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)")
+                                        print(
+                                            "✅ [DEBUG] Checksum generated and stored for: \(selectedImage.displayName)"
+                                        )
                                     } catch {
                                         print("❌ [DEBUG] Failed to generate checksum: \(error)")
                                         // Service already handles state management, no need to set failed state here
@@ -189,7 +204,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                
+
                 // Progress bar for checksum calculation
                 if case .calculatingChecksum(let progress) = flashService.flashState {
                     ToolbarItem(id: "checksumProgress", placement: .automatic) {
@@ -198,13 +213,13 @@ struct ContentView: View {
                             ProgressView(value: progress, total: 1.0)
                                 .progressViewStyle(LinearProgressViewStyle())
                                 .frame(width: 120)
-                            
+
                             // Percentage text
                             Text("\(Int(progress * 100))%")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .frame(width: 35, alignment: .trailing)
-                            
+
                             // Cancel button
                             Button(action: {
                                 flashService.cancel()
@@ -221,7 +236,7 @@ struct ContentView: View {
                         .cornerRadius(6)
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("tags") {
                     ToolbarItem(id: "tags", placement: .automatic) {
                         tagsButton {
@@ -230,23 +245,23 @@ struct ContentView: View {
                         }
                     }
                 }
-                
-                if toolbarConfig.toolbarItems.contains("debug") {
-                    ToolbarItem(id: "debug", placement: .automatic) {
-                        debugButton(selectedDrive: selectedDrive) {
-                            if let selectedDrive = selectedDrive {
-                
-                            }
-                        }
-                    }
-                }
-                
+
+                //                if toolbarConfig.toolbarItems.contains("debug") {
+                //                    ToolbarItem(id: "debug", placement: .automatic) {
+                //                        debugButton(selectedDrive: selectedDrive) {
+                //                            if let selectedDrive = selectedDrive {
+                //
+                //                            }
+                //                        }
+                //                    }
+                //                }
+
                 if toolbarConfig.toolbarItems.contains("about") {
                     ToolbarItem(id: "about", placement: .automatic) {
                         aboutButton(showAboutDialog: $showAboutDialog)
                     }
                 }
-                
+
                 if toolbarConfig.toolbarItems.contains("inspector") {
                     ToolbarItem(id: "inspector", placement: .automatic) {
                         inspectorToggleButton(showInspector: $showInspector)
@@ -262,17 +277,22 @@ struct ContentView: View {
             }
             Button("Save") {
                 if let drive = deviceToRename, !customNameText.isEmpty {
-                    print("🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.displayName)'")
+                    print(
+                        "🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.displayName)'"
+                    )
                     if let mediaUUID = getMediaUUIDForDrive(drive) {
                         print("🔧 [DEBUG] Found media UUID: \(mediaUUID)")
                         // Update model directly, then refresh detection service
-                        appModel.deviceInventory.setCustomName(for: mediaUUID, customName: customNameText)
+                        appModel.deviceInventory.setCustomName(
+                            for: mediaUUID, customName: customNameText)
                         appModel.driveService.refreshDrives()
                     } else {
                         print("❌ [DEBUG] Could not find media UUID for drive: \(drive.displayName)")
                     }
                 } else {
-                    print("❌ [DEBUG] Invalid custom name attempt - drive: \(deviceToRename?.displayName ?? "nil"), text: '\(customNameText)'")
+                    print(
+                        "❌ [DEBUG] Invalid custom name attempt - drive: \(deviceToRename?.displayName ?? "nil"), text: '\(customNameText)'"
+                    )
                 }
                 customNameText = ""
                 deviceToRename = nil
@@ -292,7 +312,8 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showFlashConfirmation) {
             if let selectedDrive = selectedDrive,
-               let selectedImage = imageService.selectedImage {
+                let selectedImage = imageService.selectedImage
+            {
                 FlashConfirmationDialog(
                     image: selectedImage,
                     device: selectedDrive,
@@ -311,7 +332,8 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showFlashProgress) {
             if let selectedDrive = selectedDrive,
-               let selectedImage = imageService.selectedImage {
+                let selectedImage = imageService.selectedImage
+            {
                 FlashProgressView(
                     image: selectedImage,
                     device: selectedDrive,
@@ -326,14 +348,14 @@ struct ContentView: View {
         .onAppear {
             setupDriveService()
             appModel.driveService.refreshDrives()
-            
+
             // Validate all bookmarks in history
             imageHistoryService.validateAllBookmarks()
         }
     }
-    
+
     // MARK: - View Components
-    
+
     private var imageFileSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -342,7 +364,7 @@ struct ContentView: View {
                     .fontWeight(.semibold)
                 Spacer()
             }
-            
+
             HStack(spacing: 16) {
                 // Left side: Drop zone or selected image
                 VStack {
@@ -374,7 +396,7 @@ struct ContentView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                
+
                 // Right side: Image history
                 ImageHistoryView(
                     imageHistoryService: imageHistoryService,
@@ -390,7 +412,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private var errorMessageSection: some View {
         Group {
             if let errorMessage = imageService.errorMessage {
@@ -412,7 +434,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private var driveSelectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -421,7 +443,7 @@ struct ContentView: View {
                     .fontWeight(.semibold)
                 Spacer()
             }
-            
+
             if appModel.isScanning {
                 VStack(spacing: 16) {
                     ProgressView()
@@ -474,31 +496,33 @@ struct ContentView: View {
             }
         }
     }
-    
+
     // MARK: - Helper Functions
-    
+
     private func performFlash() async {
-        guard let selectedDrive = selectedDrive,
-              let selectedImage = imageService.selectedImage else {
-            return
-        }
-        
-        do {
-            try await flashService.flashImage(selectedImage, to: selectedDrive)
-        } catch {
-            print("❌ [DEBUG] Flash failed: \(error)")
+
+        if let image = selectedImage,
+            let device = selectedDrive
+        {
+            // Beide Werte sind nicht nil, hier kannst du sie verwenden
+
+            do {
+                try await flashService.flashImage(image, to: device)
+            } catch {
+                print("❌ [DEBUG] Flash failed: \(error)")
+            }
+        } else {
+            print("❌ [DEBUG] Flash failed: missing image or device selection")
         }
     }
-    
-    private func getMediaUUIDForDrive(_ drive: Drive) -> String? {
+
+    private func getMediaUUIDForDrive(_ drive: Device) -> String? {
         return drive.mediaUUID
     }
-    
-
 
     // MARK: - Inventory Coordination
 
-    private func updateInventory(for drives: [Drive]) {
+    private func updateInventory(for drives: [Device]) {
         for drive in drives {
             let mediaUUID = drive.mediaUUID
             appModel.deviceInventory.addOrUpdateDevice(
@@ -516,18 +540,19 @@ struct ContentView: View {
 // MARK: - DriveRowView
 
 struct DriveRowView: View {
-    let drive: Drive
+    let drive: Device
     let isSelected: Bool
     @EnvironmentObject var deviceInventory: DeviceInventory
-    
+
     var deviceType: DeviceType {
         let mediaUUID = drive.mediaUUID
-        if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
+        if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID })
+        {
             return inventoryDevice.deviceType
         }
         return drive.deviceType
     }
-    
+
     var body: some View {
         HStack(spacing: 12) {
             // Device Icon
@@ -535,31 +560,31 @@ struct DriveRowView: View {
                 .font(.title2)
                 .foregroundColor(drive.isReadOnly ? .red : .blue)
                 .frame(width: 32)
-            
+
             // Device Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(drive.displayName)
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(drive.isReadOnly ? .red : .primary)
-                
+
                 HStack(spacing: 8) {
                     Text(drive.formattedSize)
                         .font(.caption)
                         .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
-                    
+
                     if let vendor = drive.daVendor {
                         Text("• \(vendor)")
                             .font(.caption)
                             .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
-                    
+
                     if let revision = drive.daRevision {
                         Text("• \(revision)")
                             .font(.caption)
                             .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
-                    
+
                     if drive.isReadOnly {
                         Text("• Read Only")
                             .font(.caption)
@@ -568,9 +593,9 @@ struct DriveRowView: View {
                     }
                 }
             }
-            
+
             Spacer()
-            
+
             // Device Type
             Text(deviceType.rawValue)
                 .font(.caption)

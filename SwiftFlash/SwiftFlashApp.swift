@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Foundation
+import Combine
 
 // MARK: - Status Bar Toggle Notification
 extension Notification.Name {

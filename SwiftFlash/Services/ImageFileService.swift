@@ -80,7 +80,7 @@ class ImageFileService: ObservableObject {
         errorMessage = nil
     }
     
-    func validateImageForDrive(_ image: ImageFile, drive: Drive) -> Bool {
+    func validateImageForDrive(_ image: ImageFile, drive: Device) -> Bool {
         // Check if drive is read-only
         if drive.isReadOnly {
             errorMessage = "Cannot flash to read-only drive. Please use a writable USB drive."

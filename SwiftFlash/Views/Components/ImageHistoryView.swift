@@ -1,7 +1,8 @@
 import SwiftUI
+import Foundation
 
 struct ImageHistoryView: View {
-    let imageHistoryService: ImageHistoryService
+    let imageHistoryService: any ImageHistoryServiceProtocol
     let onImageSelected: (ImageFile) -> Void
     
     var body: some View {
@@ -210,4 +211,4 @@ struct ImageHistoryRowView: View {
             fileType: .dmg
         ))
     }
-} 
+}

@@ -32,81 +32,139 @@ final class DriveDetectionTests: XCTestCase {
     }
     
     /// Creates a mock disk image device for testing
-    /// - Returns: DeviceInfo representing a mounted disk image
-    private func createMockDiskImage() -> DeviceInfo {
-        return DeviceInfo(
-            name: "Disk Image",
+    /// - Returns: Device representing a mounted disk image
+    private func createMockDiskImage() -> Device {
+        let diskDescription: [String: Any] = [
+            kDADiskDescriptionMediaNameKey as String: "Disk Image",
+            kDADiskDescriptionMediaUUIDKey as String: "DISK_IMAGE_001",
+            kDADiskDescriptionDeviceVendorKey as String: "Apple",
+            kDADiskDescriptionDeviceRevisionKey as String: "1.0",
+            kDADiskDescriptionMediaSizeKey as String: 1000000000 as Int64 // 1GB
+        ]
+        
+        return Device(
             devicePath: "/dev/disk999",
-            size: 1000000000, // 1GB
             isRemovable: true,
             isEjectable: true,
             isReadOnly: false,
-            mediaUUID: "DISK_IMAGE_001",
-            mediaName: "Disk Image",
-            vendor: "Apple",
-            revision: "1.0"
+            isSystemDrive: false,
+            diskDescription: diskDescription,
+            partitions: []
         )
     }
     
     /// Creates a mock real USB device for testing
-    /// - Returns: DeviceInfo representing a real USB device
-    private func createMockRealDevice() -> DeviceInfo {
-        return DeviceInfo(
-            name: "SanDisk Ultra USB 3.0",
+    /// - Returns: Device representing a real USB device
+    private func createMockRealDevice() -> Device {
+        let diskDescription: [String: Any] = [
+            kDADiskDescriptionMediaNameKey as String: "SanDisk Ultra USB 3.0",
+            kDADiskDescriptionMediaUUIDKey as String: "REAL_DEVICE_001",
+            kDADiskDescriptionDeviceVendorKey as String: "SanDisk",
+            kDADiskDescriptionDeviceRevisionKey as String: "1.0",
+            kDADiskDescriptionMediaSizeKey as String: 32000000000 as Int64 // 32GB
+        ]
+        
+        return Device(
             devicePath: "/dev/disk888",
-            size: 32000000000, // 32GB
             isRemovable: true,
             isEjectable: true,
             isReadOnly: false,
-            mediaUUID: "REAL_DEVICE_001",
-            mediaName: "SanDisk Ultra USB 3.0",
-            vendor: "SanDisk",
-            revision: "1.0"
+            isSystemDrive: false,
+            diskDescription: diskDescription,
+            partitions: []
         )
     }
     
-    // MARK: - DeviceInfo derived logic
+    // MARK: - Device derived logic
 
-    func testDeviceInfoDiskImageDetection() throws {
+    func testDeviceDiskImageDetection() throws {
         let diskImage = createMockDiskImage()
         XCTAssertTrue(diskImage.isDiskImage)
 
         let realDevice = createMockRealDevice()
         XCTAssertFalse(realDevice.isDiskImage)
 
-        let unknown = DeviceInfo(
-            name: "Unknown Device",
+        let unknownDiskDescription: [String: Any] = [
+            kDADiskDescriptionMediaNameKey as String: "Unknown Device"
+        ]
+        
+        let unknown = Device(
             devicePath: "/dev/disk777",
-            size: 0,
             isRemovable: false,
             isEjectable: false,
             isReadOnly: false,
-            mediaUUID: nil,
-            mediaName: nil,
-            vendor: nil,
-            revision: nil
+            isSystemDrive: false,
+            diskDescription: unknownDiskDescription,
+            partitions: []
         )
         XCTAssertFalse(unknown.isDiskImage)
     }
 
-    func testDeviceInfoMainDeviceDetection() throws {
-        let main = DeviceInfo(name: "disk3", devicePath: "/dev/disk3", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+    func testDeviceMainDeviceDetection() throws {
+        let main = Device(
+            devicePath: "/dev/disk3",
+            isRemovable: true,
+            isEjectable: true,
+            isReadOnly: false,
+            isSystemDrive: false,
+            diskDescription: [:],
+            partitions: []
+        )
         XCTAssertTrue(main.isMainDevice)
 
-        let partition = DeviceInfo(name: "disk3s1", devicePath: "/dev/disk3s1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+        let partition = Device(
+            devicePath: "/dev/disk3s1",
+            isRemovable: true,
+            isEjectable: true,
+            isReadOnly: false,
+            isSystemDrive: false,
+            diskDescription: [:],
+            partitions: []
+        )
         XCTAssertFalse(partition.isMainDevice)
 
-        let nested = DeviceInfo(name: "disk3s1s1", devicePath: "/dev/disk3s1s1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil)
+        let nested = Device(
+            devicePath: "/dev/disk3s1s1",
+            isRemovable: true,
+            isEjectable: true,
+            isReadOnly: false,
+            isSystemDrive: false,
+            diskDescription: [:],
+            partitions: []
+        )
         XCTAssertFalse(nested.isMainDevice)
     }
 
-    func testDeviceInfoInferredDeviceType() throws {
-        XCTAssertEqual(DeviceInfo(name: "microSD Adapter", devicePath: "/dev/disk1", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .microSDCard)
-        XCTAssertEqual(DeviceInfo(name: "SD Transcend", devicePath: "/dev/disk2", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .sdCard)
-        XCTAssertEqual(DeviceInfo(name: "Udisk Mass Storage", devicePath: "/dev/disk3", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .usbStick)
-        XCTAssertEqual(DeviceInfo(name: "Portable SSD", devicePath: "/dev/disk4", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .externalSSD)
-        XCTAssertEqual(DeviceInfo(name: "External Drive", devicePath: "/dev/disk5", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .externalHDD)
-        XCTAssertEqual(DeviceInfo(name: "Unknown Gadget", devicePath: "/dev/disk6", size: 0, isRemovable: true, isEjectable: true, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil).inferredDeviceType, .unknown)
+    func testDeviceInferredDeviceType() throws {
+        // microSD Adapter
+        let microSDDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "microSD Adapter"]
+        let microSD = Device(devicePath: "/dev/disk1", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: microSDDesc, partitions: [])
+        XCTAssertEqual(microSD.inferredDeviceType, .microSDCard)
+        
+        // SD Card
+        let sdDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "SD Transcend"]
+        let sd = Device(devicePath: "/dev/disk2", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: sdDesc, partitions: [])
+        XCTAssertEqual(sd.inferredDeviceType, .sdCard)
+        
+        // USB Stick
+        let usbDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Udisk Mass Storage"]
+        let usb = Device(devicePath: "/dev/disk3", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: usbDesc, partitions: [])
+        XCTAssertEqual(usb.inferredDeviceType, .usbStick)
+        
+        // External SSD
+        let ssdDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Portable SSD"]
+        let ssd = Device(devicePath: "/dev/disk4", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: ssdDesc, partitions: [])
+        XCTAssertEqual(ssd.inferredDeviceType, .externalSSD)
+        
+        // External HDD
+        let hddDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "External Drive"]
+        let hdd = Device(devicePath: "/dev/disk5", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: hddDesc, partitions: [])
+        XCTAssertEqual(hdd.inferredDeviceType, .externalHDD)
+        
+        // Unknown
+        let unknownDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Unknown Gadget"]
+        let unknown = Device(devicePath: "/dev/disk6", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: unknownDesc, partitions: [])
+        XCTAssertEqual(unknown.inferredDeviceType, .unknown)
     }
     
     // MARK: - Real device filtering (hardware dependent)

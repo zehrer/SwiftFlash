@@ -2,7 +2,7 @@ import SwiftUI
 
 struct FlashConfirmationDialog: View {
     let image: ImageFile
-    let device: Drive
+    let device: Device
     let onConfirm: () -> Void
     let onCancel: () -> Void
     
@@ -65,7 +65,7 @@ struct FlashConfirmationDialog: View {
                                 .font(.body)
                                 .fontWeight(.medium)
                             
-                            Text("\(device.formattedSize) • \(device.mountPoint)")
+                            Text("\(device.formattedSize) • \(device.devicePath)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -146,15 +146,14 @@ struct FlashConfirmationDialog: View {
 #Preview {
     FlashConfirmationDialog(
         image: ImageFile.demoImage,
-        device: Drive(
-            name: "Demo USB Stick",
-            mountPoint: "/dev/disk2",
-            size: 32000000000,
+        device: Device(
+            devicePath: "/dev/disk2",
             isRemovable: true,
-            isSystemDrive: false,
+            isEjectable: true,
             isReadOnly: false,
+            isSystemDrive: false,
             diskDescription: nil,
-            deviceType: .usbStick
+            partitions: []
         ),
         onConfirm: { print("Confirmed") },
         onCancel: { print("Cancelled") }

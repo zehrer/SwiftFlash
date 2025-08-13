@@ -2,23 +2,18 @@
 
 ## Overview
 
-This document outlines the revised design for consolidating the three overlapping device models (`DeviceInfo`, `Drive`, `DeviceInventoryItem`) into a cleaner architecture with two separate structs and clear responsibilities.
+This document outlines the consolidating design, this was required because several AI agents were having trouble understanding basics concepts and created overlapping structures. 
 
-## Current Problem
 
-### Data Duplication Across Three Models
+THe device model is the main data object, it contains all the basic properties of a device.
 
-**DeviceInfo** (Runtime Detection):
-- `name`, `size`, `mediaUUID`, `vendor`, `revision`, `deviceType`
-- `devicePath`, `isRemovable`, `isEjectable`, `isReadOnly`
-- `daDeviceModel`, `partitions`
-- Runtime-only properties for device discovery
-
-**Drive** (UI/Application Model):
+**Device** (UI/Application Model):
 - `name`, `size`, `mediaUUID`, `vendor`, `revision`, `deviceType` (via computed properties)
 - `mountPoint`, `isRemovable`, `isSystemDrive`, `isReadOnly`
 - `diskDescription`, `partitionScheme`
 - UI display and application logic
+
+A subset of information is stored in the DeviceInventoryItem, this is to avoid duplicating data.
 
 **DeviceInventoryItem** (Persistence):
 - `mediaUUID`, `size`, `mediaName`, `vendor`, `revision`, `deviceType`

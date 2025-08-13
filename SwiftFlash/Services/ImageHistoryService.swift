@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 @Observable
-class ImageHistoryService {
+class ImageHistoryService: ImageHistoryServiceProtocol {
     var imageHistory: [ImageHistoryItem] = []
     private let userDefaultsKey = "ImageHistory"
     private let maxHistoryItems = 20
@@ -190,4 +190,4 @@ struct ImageHistoryItem: Identifiable, Codable {
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: lastUsed, relativeTo: Date())
     }
-} 
+}

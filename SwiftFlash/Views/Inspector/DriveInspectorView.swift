@@ -1,4 +1,6 @@
 import SwiftUI
+import Foundation
+import Combine
 
 // MARK: - Inspector Section View
 
@@ -45,12 +47,12 @@ struct InspectorSectionView<Content: View>: View {
 // MARK: - Drive Inspector View
 
 struct DriveInspectorView: View {
-    let drive: Drive
-    @ObservedObject var deviceInventory: DeviceInventory
+    let drive: Device
+    var deviceInventory: any DeviceInventoryManager
     @State private var selectedDeviceType: DeviceType
     @State private var editableName: String
     
-    init(drive: Drive, deviceInventory: DeviceInventory) {
+    init(drive: Device, deviceInventory: any DeviceInventoryManager) {
         self.drive = drive
         self.deviceInventory = deviceInventory
         self._selectedDeviceType = State(initialValue: drive.deviceType)
@@ -70,7 +72,7 @@ struct DriveInspectorView: View {
                 .onChange(of: editableName) { _, newValue in
                     let mediaUUID = drive.mediaUUID
                     if newValue.isEmpty {
-                        deviceInventory.setCustomName(for: mediaUUID, customName: nil)
+                        deviceInventory.setCustomName(for: mediaUUID, customName: nil as String?)
                     } else {
                         deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
                     }
@@ -98,7 +100,7 @@ struct DriveInspectorView: View {
                 // Device Path
                 LabelAndText(
                     label: "Device Path",
-                    value: drive.mountPoint
+                    value: drive.devicePath
                 )
                 
                 // Partition Scheme
@@ -176,15 +178,14 @@ struct DriveInspectorView: View {
 
 #Preview {
     DriveInspectorView(
-        drive: Drive(
-            name: "Test Drive",
-            mountPoint: "/dev/disk4",
-            size: 31910000000,
+        drive: Device(
+            devicePath: "/dev/disk4",
             isRemovable: true,
-            isSystemDrive: false,
+            isEjectable: true,
             isReadOnly: true,
+            isSystemDrive: false,
             diskDescription: nil,
-            deviceType: .microSDCard
+            partitions: []
         ),
         deviceInventory: DeviceInventory()
     )

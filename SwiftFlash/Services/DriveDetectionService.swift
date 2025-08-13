@@ -32,13 +32,18 @@ import IOKit.storage
 // Any changes must keep the service largely stateless (no persistent ownership
 // of model data) and safe for re-scan at any time.
 @MainActor
-class DriveDetectionService: ObservableObject {
-    @Published var drives: [Drive] = []
-    @Published var isScanning = false
+class DriveDetectionService: ObservableObject, DeviceDetectionService {
+    /// Published array of detected drives, updated by detectDrives()
+    @Published var drives: [Device] = []
+    /// Indicates whether a scan is currently in progress
+    @Published var isScanning: Bool = false
     
+    /// Device inventory for persistence
+    var deviceInventory: (any DeviceInventoryManager)?
     private var diskArbitrationSession: DASession?
     
-    init() {
+    init(deviceInventory: (any DeviceInventoryManager)? = nil) {
+        self.deviceInventory = deviceInventory
         setupDiskArbitration()
         // Note: refreshDrives() is called from ContentView.onAppear to ensure proper initialization order
     }
@@ -51,20 +56,16 @@ class DriveDetectionService: ObservableObject {
         }
     }
     
-    /// Refreshes the list of available drives
+    /// Refreshes the list of drives by calling detectDrives()
+    /// This is a convenience method for SwiftUI views to call
     func refreshDrives() {
         isScanning = true
-        print("🔍 [DEBUG] DriveDetectionService: Starting drive refresh")
         
-        Task {
-            let detectedDrives = await detectDrives()
-            print("🔍 [DEBUG] DriveDetectionService: Detected \(detectedDrives.count) drives, updating on MainActor")
-            
-            // Update directly on MainActor since we're already @MainActor
+        // Detect drives and update the published array
+        let detectedDrives = detectDrives()
             self.drives = detectedDrives
-            self.isScanning = false
-            print("🔍 [DEBUG] DriveDetectionService: Updated drives array - count: \(self.drives.count)")
-        }
+        
+        isScanning = false
     }
     
 
@@ -82,80 +83,58 @@ class DriveDetectionService: ObservableObject {
     }
     
     /// Detects all external storage devices that can be used for flashing
-    func detectDrives() async -> [Drive] {
-        var drives: [Drive] = []
+     func detectDrives() -> [Device] {
+        isScanning = true
+        defer { isScanning = false }
         
-        //print("🔍 [DEBUG] Starting external drive detection...")
+        // Get system boot device to exclude it
+        let systemBootDevice = getSystemBootDevice()
         
-        // Get all external storage devices using IOKit
+        // Get devices from IOKit
         let devices = getExternalStorageDevices()
+        var detectedDrives: [Device] = []
+        
         print("🔍 [DEBUG] Found \(devices.count) external storage devices")
         
-        // Get the system boot device to exclude it
-        let systemBootDevice = getSystemBootDevice()
-        //print("🔍 [DEBUG] System boot device: \(systemBootDevice)")
-        
         // Iterate with index for clearer logging
-        for (index, deviceInfo) in devices.enumerated() {
-            print("🔍 [DEBUG] Checking device \(index + 1): \(deviceInfo.name)")
-            //print("   📍 Device path: \(deviceInfo.devicePath)")
-            //print("   💾 Size: \(ByteCountFormatter.string(fromByteCount: deviceInfo.size, countStyle: .file))")
-            //print("   🔄 Removable: \(deviceInfo.isRemovable)")
-            //print("   ⏏️ Ejectable: \(deviceInfo.isEjectable)")
-            //print("   📝 Read-only: \(deviceInfo.isReadOnly)")
+        for (index, device) in devices.enumerated() {
+            print("🔍 [DEBUG] Checking device \(index + 1): \(device.name)")
             
             // Check if this is the system boot device
-            let isSystemDrive = deviceInfo.devicePath == systemBootDevice
+            let isSystemDrive = device.devicePath == systemBootDevice
             
             if isSystemDrive {
-                //print("⚠️ [DEBUG] Device \(deviceInfo.name) is the system boot device - excluding")
+                //print("⚠️ [DEBUG] Device \(device.name) is the system boot device - excluding")
                 continue
             }
             
             // Check if this is a disk image (mounted .dmg file)
-            if deviceInfo.isDiskImage {
-                print("⚠️ [DEBUG] Device \(deviceInfo.name) is a disk image - excluding")
+            if device.isDiskImage {
+                print("⚠️ [DEBUG] Device \(device.name) is a disk image - excluding")
                 continue
             }
             
-            print("✅ [DEBUG] Found external drive: \(deviceInfo.name)")
-            
-            // Determine device type automatically from detected properties
-            let deviceType: DeviceType = deviceInfo.inferredDeviceType
-            
-            // Capture Disk Arbitration description for Drive struct (used in Drive initializer below)
-            _ = diskDescription(for: deviceInfo.devicePath)
-            
-            let drive = Drive(
-                name: deviceInfo.name,
-                mountPoint: deviceInfo.devicePath,
-                size: deviceInfo.size,
-                isRemovable: true,
-                isSystemDrive: false,
-                isReadOnly: deviceInfo.isReadOnly,
-                diskDescription: diskDescription(for: deviceInfo.devicePath),
-                deviceType: deviceType
-            )
+            print("✅ [DEBUG] Found external drive: \(device.name)")
             
             // Detect partition scheme once and cache it
-            var driveWithPartitionScheme = drive
-            let partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: deviceInfo.devicePath)
-            driveWithPartitionScheme.partitionScheme = partitionScheme
-            print("🔍 [DEBUG] Detected partition scheme for \(deviceInfo.name): \(driveWithPartitionScheme.partitionSchemeDisplay)")
+            var deviceWithPartitionScheme = device
+            let partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: device.devicePath)
+            deviceWithPartitionScheme.partitionScheme = partitionScheme
+            print("🔍 [DEBUG] Detected partition scheme for \(device.name): \(deviceWithPartitionScheme.partitionSchemeDisplay)")
             
 
 #if DEBUG
             // Dump full Disk Arbitration description for this relevant detected device
-            //driveWithPartitionScheme.logDiskDescription()
+            //deviceWithPartitionScheme.logDiskDescription()
 #endif
             
-            drives.append(driveWithPartitionScheme)
-            print("✅ [DEBUG] Added drive to array: \(deviceInfo.name) - Total drives: \(drives.count)")
+            detectedDrives.append(deviceWithPartitionScheme)
+            print("✅ [DEBUG] Added drive to array: \(device.name) - Total drives: \(detectedDrives.count)")
         }
         
-        print("🔍 [DEBUG] Drive detection complete. Found \(drives.count) external drives")
+        print("🔍 [DEBUG] Drive detection complete. Found \(detectedDrives.count) external drives")
         
-        return drives
+        return detectedDrives
     }
 }
 
@@ -173,17 +152,17 @@ extension DriveDetectionService {
     
 
     
-    /// IOKit: Enumerates removable/ejectable media and builds `DeviceInfo` records.
+    /// Gets external storage devices from IOKit.
     ///
-    /// - Uses IORegistry (kIOMediaClass) to find candidates with properties `Removable == true` and
-    ///   `Ejectable == true`.
-    /// - Filters out partition/slice nodes; includes only main devices (e.g. `/dev/disk2`, not `/dev/disk2s1`).
-    /// - Enriches with Disk Arbitration metadata (vendor, revision, media name) via helper lookups.
-    /// - Returns transient `DeviceInfo` models; persistence is handled by higher-level model logic.
+    /// This method:
+    /// 1. Iterates through IOKit registry entries of class kIOMediaClass
+    /// 2. Extracts device information from IOKit properties
+    /// 3. Builds Device objects directly with basic properties
+    /// 4. Persistence is handled by DeviceInventory
     ///
-    /// - Returns: Array of discovered `DeviceInfo`.
-    private func getExternalStorageDevices() -> [DeviceInfo] {
-        var devices: [DeviceInfo] = []
+    /// - Returns: Array of `Device` objects representing external storage devices.
+    private func getExternalStorageDevices() -> [Device] {
+        var devices: [Device] = []
         
         // Create a matching dictionary for removable storage devices
         let matchingDict = IOServiceMatching(kIOMediaClass) as NSMutableDictionary
@@ -212,13 +191,13 @@ extension DriveDetectionService {
             
             
             // Only include main devices (not partitions)
-            if let deviceInfo = getDeviceInfoFromIOKit(service: service) {
-                //print("🔍 [DEBUG] Processing device: \(deviceInfo.devicePath)")
-                if deviceInfo.isMainDevice {
-                    //print("✅ [DEBUG] Adding device to list: \(deviceInfo.devicePath)")
-                    devices.append(deviceInfo)
+            if let device = getDeviceFromIOKit(service: service) {
+                //print("🔍 [DEBUG] Processing device: \(device.devicePath)")
+                if device.isMainDevice {
+                    //print("✅ [DEBUG] Adding device to list: \(device.devicePath)")
+                    devices.append(device)
                 } else {
-                    //print("❌ [DEBUG] Excluding device from list: \(deviceInfo.devicePath)")
+                    //print("❌ [DEBUG] Excluding device from list: \(device.devicePath)")
                 }
             }
         }
@@ -226,15 +205,17 @@ extension DriveDetectionService {
         return devices
     }
     
-    /// IOKit: Builds `DeviceInfo` for a given IORegistry service node.
+    /// IOKit: Builds `Device` for a given IORegistry service node.
     ///
     /// - Reads IORegistry properties (BSD Name → device path, size, writable, etc.).
     /// - Consults Disk Arbitration for media name, vendor, revision, and a derived stable identifier.
+    /// - Creates a Device object directly with all necessary properties
+    /// - Handles inventory persistence through DeviceInventory
     /// - Skips nodes that represent partitions/slices.
     ///
     /// - Parameter service: IORegistry object of class kIOMedia.
-    /// - Returns: `DeviceInfo` or `nil` if not a main device or properties unavailable.
-    private func getDeviceInfoFromIOKit(service: io_object_t) -> DeviceInfo? {
+    /// - Returns: `Device` or `nil` if not a main device or properties unavailable.
+    private func getDeviceFromIOKit(service: io_object_t) -> Device? {
         // Get device properties
         var properties: Unmanaged<CFMutableDictionary>?
         let result = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
@@ -248,8 +229,18 @@ extension DriveDetectionService {
         let devicePath = getDevicePath(from: props) ?? "/dev/unknown"
         
         // Check if this is a main device (not a partition) BEFORE processing further
-        // Use DeviceInfo-style predicate to keep a single source of truth
-        if !DeviceInfo(name: "", devicePath: devicePath, size: 0, isRemovable: false, isEjectable: false, isReadOnly: false, mediaUUID: nil, mediaName: nil, vendor: nil, revision: nil, daDeviceModel: nil, partitions: []).isMainDevice {
+        // Create a temporary Device to check if it's a main device
+        let tempDevice = Device(
+            devicePath: devicePath,
+            isRemovable: false,
+            isEjectable: false,
+            isReadOnly: false,
+            isSystemDrive: false,
+            diskDescription: nil,
+            partitions: []
+        )
+        
+        if !tempDevice.isMainDevice {
             // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
         }
@@ -264,33 +255,65 @@ extension DriveDetectionService {
         // Get raw Disk Arbitration description and extract individual values
         let daDesc = diskDescription(for: devicePath)
         
-        // Extract individual Disk Arbitration values for DeviceInfo
-        let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String
-        let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String
-        let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
-        let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
-        let daDeviceModel = daDesc?[kDADiskDescriptionDeviceModelKey as String] as? String
-        
-        // Always use original name from system; higher-level model may overlay custom names
-        let name: String = originalName
-        
         // Collect partitions (Disk Arbitration) for this main device
         let partitions = getPartitionsForDevice(devicePath: devicePath)
         
-        return DeviceInfo(
-            name: name,
+        // Generate a stable mediaUUID if needed
+        let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String ?? Device.generateStableDeviceID(from: daDesc ?? [:])
+        
+        // Check if we have this device in inventory
+        var inventoryItem: DeviceInventoryItem? = nil
+        if let inventory = deviceInventory {
+            // Find by mediaUUID
+            inventoryItem = inventory.getInventoryItem(for: mediaUUID)
+            
+            // If not found, create a new inventory item
+            if inventoryItem == nil {
+                let deviceType = tempDevice.inferredDeviceType
+                let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
+                let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
+                let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
+                
+                inventory.addOrUpdateDevice(
+                    mediaUUID: mediaUUID,
+                size: size,
+                    originalName: mediaName,
+                deviceType: deviceType,
+                vendor: vendor,
+                revision: revision
+            )
+                inventoryItem = inventory.getInventoryItem(for: mediaUUID)
+            } else {
+                // Update lastSeen for existing device
+                let deviceType = inventoryItem?.deviceType ?? tempDevice.inferredDeviceType
+                let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
+                let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
+                let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
+                
+                inventory.addOrUpdateDevice(
+                    mediaUUID: mediaUUID,
+                    size: size,
+                    originalName: mediaName,
+                    deviceType: deviceType,
+                    vendor: vendor,
+                    revision: revision
+                )
+            }
+        }
+        
+        // Create a Device object directly
+        let device = Device(
             devicePath: devicePath,
-            size: size,
             isRemovable: isRemovable,
             isEjectable: isEjectable,
             isReadOnly: isReadOnly,
-            mediaUUID: mediaUUID,
-            mediaName: mediaName,
-            vendor: vendor,
-            revision: revision,
-            daDeviceModel: daDeviceModel,
-            partitions: partitions
+            isSystemDrive: false,
+            diskDescription: daDesc,
+            partitions: partitions,
+            inventoryItem: inventoryItem
         )
+        
+        return device
     }
     
     // Note: Individual Disk Arbitration value extraction is now handled by Drive computed properties
@@ -386,25 +409,7 @@ extension DriveDetectionService {
         return results
     }
     
-    /// Generates a consistent device ID using DADeviceVendor + DADeviceRevision + 4 digits of DAMediaSize
-    private func generateDeviceID(from diskDescription: [String: Any]) -> String {
-        let deviceVendor = diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String ?? "Unknown"
-        let deviceRevision = diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String ?? "Unknown"
-        let mediaSize = diskDescription[kDADiskDescriptionMediaSizeKey as String] as? Int64 ?? 0
-        
-        // Get first 4 digits of media size (convert to string and take first 4 chars)
-        let mediaSizeString = String(mediaSize)
-        let sizePrefix = mediaSizeString.count >= 4 ? String(mediaSizeString.prefix(4)) : mediaSizeString
-        
-        // Clean up vendor and revision names (replace spaces with underscores)
-        let cleanVendor = deviceVendor.replacingOccurrences(of: " ", with: "_")
-        let cleanRevision = deviceRevision.replacingOccurrences(of: " ", with: "_")
-        
-        let deviceID = "\(cleanVendor)_\(cleanRevision)_\(sizePrefix)"
-        //print("🔧 [DEBUG] Device ID components - Vendor: \(deviceVendor), Revision: \(deviceRevision), Size: \(mediaSize)")
-        
-        return deviceID
-    }
+    // Note: Device ID generation is now handled by Device.generateStableDeviceID
     
     /// IOKit: Attempts to read a content type hint from IORegistry properties.
     /// - Parameter props: IORegistry property dictionary.

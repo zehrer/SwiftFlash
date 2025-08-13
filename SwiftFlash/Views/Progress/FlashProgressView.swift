@@ -2,7 +2,7 @@ import SwiftUI
 
 struct FlashProgressView: View {
     let image: ImageFile
-    let device: Drive
+    let device: Device
     let flashState: ImageFlashService.FlashState
     let onCancel: () -> Void
     
@@ -59,7 +59,7 @@ struct FlashProgressView: View {
                             .font(.body)
                             .fontWeight(.medium)
                         
-                        Text(device.mountPoint)
+                        Text(device.devicePath)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -228,15 +228,14 @@ struct FlashProgressView: View {
 #Preview("Flashing") {
     FlashProgressView(
         image: ImageFile.demoImage,
-        device: Drive(
-            name: "Demo USB Stick",
-            mountPoint: "/dev/disk2",
-            size: 32000000000,
+        device: Device(
+            devicePath: "/dev/disk2",
             isRemovable: true,
-            isSystemDrive: false,
+            isEjectable: true,
             isReadOnly: false,
+            isSystemDrive: false,
             diskDescription: nil,
-            deviceType: .usbStick
+            partitions: []
         ),
         flashState: .flashing(progress: 0.45),
         onCancel: { print("Cancelled") }
@@ -246,15 +245,14 @@ struct FlashProgressView: View {
 #Preview("Completed") {
     FlashProgressView(
         image: ImageFile.demoImage,
-        device: Drive(
-            name: "Demo USB Stick",
-            mountPoint: "/dev/disk2",
-            size: 32000000000,
+        device: Device(
+            devicePath: "/dev/disk2",
             isRemovable: true,
-            isSystemDrive: false,
+            isEjectable: true,
             isReadOnly: false,
+            isSystemDrive: false,
             diskDescription: nil,
-            deviceType: .usbStick
+            partitions: []
         ),
         flashState: .completed,
         onCancel: { print("Done") }
@@ -264,15 +262,14 @@ struct FlashProgressView: View {
 #Preview("Failed") {
     FlashProgressView(
         image: ImageFile.demoImage,
-        device: Drive(
-            name: "Demo USB Stick",
-            mountPoint: "/dev/disk2",
-            size: 32000000000,
+        device: Device(
+            devicePath: "/dev/disk2",
             isRemovable: true,
-            isSystemDrive: false,
+            isEjectable: true,
             isReadOnly: false,
+            isSystemDrive: false,
             diskDescription: nil,
-            deviceType: .usbStick
+            partitions: []
         ),
         flashState: .failed(.deviceReadOnly),
         onCancel: { print("Close") }

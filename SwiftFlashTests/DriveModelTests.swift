@@ -34,14 +34,14 @@ final class DriveModelTests: XCTestCase {
         
         for devicePath in potentialDevices {
             if FileManager.default.fileExists(atPath: devicePath) {
-                let testDrive = Drive(
-                    name: "Test Device",
-                    mountPoint: devicePath,
-                    size: 0,
+                let testDrive = Device(
+                    devicePath: devicePath,
                     isRemovable: true,
-                    isSystemDrive: false,
+                    isEjectable: true,
                     isReadOnly: false,
-                    diskDescription: nil
+                    isSystemDrive: false,
+                    diskDescription: nil,
+                    partitions: []
                 )
                 
                 print("📱 Found potential test device: \(devicePath)")

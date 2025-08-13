@@ -3,10 +3,11 @@
 // Author: AI (Refactoring)
 // Created: 2025-08-03
 
+import Foundation
 import SwiftUI
 
 /// Toolbar-Button zum Aktualisieren der Laufwerksliste
-func refreshButton(driveService: DriveDetectionService) -> some View {
+func refreshButton(driveService: DeviceDetectionService) -> some View {
     Button(action: {
         driveService.refreshDrives()
     }) {
@@ -28,7 +29,7 @@ func flashButton(showFlashConfirmation: Binding<Bool>, canFlash: Bool) -> some V
 }
 
 /// Toolbar-Button zum Auswerfen eines Laufwerks
-func ejectButton(selectedDrive: Drive?, onEject: @escaping () -> Void) -> some View {
+func ejectButton(selectedDrive: Device?, onEject: @escaping () -> Void) -> some View {
     Button(action: {
         onEject()
     }) {
@@ -49,7 +50,7 @@ func tagsButton(onTags: @escaping () -> Void) -> some View {
 }
 
 /// Toolbar-Button für Debug-Info
-func debugButton(selectedDrive: Drive?, onDebug: @escaping () -> Void) -> some View {
+func debugButton(selectedDrive: Device?, onDebug: @escaping () -> Void) -> some View {
     Group {
         if selectedDrive != nil {
             Button(action: {

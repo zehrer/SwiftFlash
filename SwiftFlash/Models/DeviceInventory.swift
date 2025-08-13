@@ -1,35 +1,7 @@
 import Foundation
 import Combine
 
-// MARK: - CRITICAL ENUM (DO NOT MODIFY - Device type definitions)
-// This enum defines device types and their icons. Changes here affect
-// device categorization, UI display, and icon mapping throughout the app.
-// Any modifications require testing of device type detection and display.
-enum DeviceType: String, CaseIterable, Codable {
-    case usbStick = "USB Stick"
-    case sdCard = "SD Card"
-    case microSDCard = "microSD Card"
-    case externalHDD = "external HDD"
-    case externalSSD = "external SSD"
-    case unknown = "unknown"
-    
-    var icon: String {
-        switch self {
-        case .usbStick:
-            return "mediastick"
-        case .sdCard:
-            return "sdcard"
-        case .microSDCard:
-            return "sdcard.fill"
-        case .externalHDD:
-            return "externaldrive.fill"
-        case .externalSSD:
-            return "externaldrive.fill"
-        case .unknown:
-            return "questionmark.circle"
-        }
-    }
-}
+// DeviceType enum has been moved to DeviceType.swift
 
 // This struct represents devices in the inventory and is used for persistence.
 // Changes here affect device tracking, data storage, and UI display.
@@ -45,6 +17,7 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var deviceType: DeviceType = .unknown
     var vendor: String?
     var revision: String?
+    var customName: String?
     
     var displayName: String {
         return name ?? mediaName
@@ -56,11 +29,48 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
         formatter.countStyle = .file
         return formatter.string(fromByteCount: size)
     }
+    
+    // MARK: - Initializers
+    /// Creates a new DeviceInventoryItem from detection data
+    init(
+        mediaUUID: String,
+        size: Int64,
+        mediaName: String,
+        name: String?,
+        firstSeen: Date,
+        lastSeen: Date,
+        deviceType: DeviceType = .unknown,
+        vendor: String? = nil,
+        revision: String? = nil
+    ) {
+        self.mediaUUID = mediaUUID
+        self.size = size
+        self.mediaName = mediaName
+        self.name = name
+        self.firstSeen = firstSeen
+        self.lastSeen = lastSeen
+        self.deviceType = deviceType
+        self.vendor = vendor
+        self.revision = revision
+    }
+    
+    /// Creates a DeviceInventoryItem from a Device (for new devices)
+    init(from device: Device) {
+        self.mediaUUID = device.mediaUUID
+        self.size = device.size
+        self.mediaName = device.daMediaName ?? device.name
+        self.name = device.name
+        self.vendor = device.daVendor ?? device.vendor
+        self.revision = device.daRevision ?? device.revision
+        self.deviceType = device.deviceType
+        self.firstSeen = Date()
+        self.lastSeen = Date()
+    }
 }
 
 /// Manages the inventory of recognized devices
 @MainActor
-class DeviceInventory: ObservableObject {
+class DeviceInventory: ObservableObject, DeviceInventoryManager {
     @Published var devices: [DeviceInventoryItem] = []
     
     private let userDefaults = UserDefaults.standard
@@ -197,7 +207,7 @@ class DeviceInventory: ObservableObject {
     
 
     
-    private func saveInventory() {
+    func saveInventory() {
         do {
             let data = try JSONEncoder().encode(devices)
             userDefaults.set(data, forKey: inventoryKey)
@@ -210,6 +220,11 @@ class DeviceInventory: ObservableObject {
         }
     }
     
+    /// Gets an inventory item by its media UUID
+    func getInventoryItem(for mediaUUID: String) -> DeviceInventoryItem? {
+        return devices.first(where: { $0.mediaUUID == mediaUUID })
+    }
+    
     private func loadInventory() {
         guard let data = userDefaults.data(forKey: inventoryKey) else { 
             print("📚 [DEBUG] No inventory data found in UserDefaults")
@@ -220,13 +235,15 @@ class DeviceInventory: ObservableObject {
             devices = try JSONDecoder().decode([DeviceInventoryItem].self, from: data)
             print("📚 [INVENTORY] Loaded \(devices.count) devices")
             
+#if DEBUG
             // Debug: Show loaded devices
             for (index, device) in devices.enumerated() {
-                print("   📱 [DEBUG] Device \(index + 1): \(device.name) (ID: \(device.mediaUUID))")
+                print("   📱 [DEBUG] Device \(index + 1): \(String(describing: device.name)) (ID: \(device.mediaUUID))")
             }
+#endif
         } catch {
             print("❌ [INVENTORY] Failed to load inventory: \(error)")
             devices = []
         }
     }
-} 
+}
