@@ -7,7 +7,7 @@ import Foundation
 import SwiftUI
 
 /// Toolbar-Button zum Aktualisieren der Laufwerksliste
-func refreshButton(driveService: DeviceDetectionService) -> some View {
+func refreshButton(driveService: any DeviceDetectionService) -> some View {
     Button(action: {
         driveService.refreshDrives()
     }) {

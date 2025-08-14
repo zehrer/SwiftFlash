@@ -139,20 +139,41 @@ final class DriveDetectionTests: XCTestCase {
     
     // MARK: - Real device filtering (hardware dependent)
 
+    /// Tests that DriveDetectionService excludes disk images from detected drives
+    /// Requires SWIFTFLASH_HW_TESTS=1 environment variable to run
     func testDetectDrivesExcludesDiskImages() async throws {
-        // Opt-in only: avoid blocking CI/local runs by default
-        guard ProcessInfo.processInfo.environment["SWIFTFLASH_HW_TESTS"] == "1" else {
-            throw XCTSkip("Hardware-dependent tests are disabled. Set SWIFTFLASH_HW_TESTS=1 to enable.")
-        }
+        // GUARD: Skip this test unless explicitly enabled with environment variable
+        // This prevents the test from running during normal development/CI builds
+        // because it performs real hardware operations that can be slow and unreliable
+//        guard ProcessInfo.processInfo.environment["SWIFTFLASH_HW_TESTS"] == "1" else {
+//            throw XCTSkip("Hardware-dependent tests are disabled. Set SWIFTFLASH_HW_TESTS=1 to enable.")
+//        }
+        
+        // CREATE: Instantiate a real DriveDetectionService (not a mock)
+        // This will initialize IOKit and Disk Arbitration frameworks
+        // WARNING: This is why the test "starts the complete app" - it uses real system services
         driveDetectionService = DriveDetectionService()
         guard let service = driveDetectionService else {
             XCTFail("DriveDetectionService could not be created")
             return
         }
+        
+        // DETECT: Call the real detectDrives() method which performs:
+        // 1. IOKit registry enumeration (scans all removable/ejectable media)
+        // 2. Disk Arbitration queries (gets device metadata)
+        // 3. System boot device detection (to exclude internal drives)
+        // 4. Disk image filtering (the main focus of this test)
         let drives = await service.detectDrives()
+        
+        // VALIDATE: Ensure we have actual drives to test against
+        // If no external drives are connected, we can't meaningfully test the filtering
         if drives.isEmpty {
             throw XCTSkip("No external drives detected on this machine – skipping hardware-dependent assertion")
         }
+        
+        // ASSERT: Verify that no detected drives are disk images
+        // This tests the real-world filtering logic in DriveDetectionService.detectDrives()
+        // where devices with isDiskImage=true are excluded from the results
         XCTAssertTrue(drives.allSatisfy { $0.name != "Disk Image" }, "Disk image devices should be filtered out by detection")
     }
     

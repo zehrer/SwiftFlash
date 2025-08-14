@@ -68,6 +68,22 @@ SwiftFlash includes built-in SHA256 checksum functionality to ensure file integr
 - **Documentation**: Function-level comments and key step documentation
 - **Dependencies**: Prefer system libraries over third-party dependencies
 - **APIs**: Use latest libraries and avoid deprecated interfaces
+- **Design Principles** : 
+    - **Unit**: Define features in units of functionality
+    - **Services** : Services shall be used to encapsulate business logic and provide a clear separation of concerns 
+    - **Model** : The model shall be used to represent the data and business logic 
+    - **Incjection** : The main app shall use dependency injection to provide the services to the view models.
+    - **Protocols** : Protocols shall be used to define the interface of the services and the model.
+    - **Views** : Views shall be defined as generic as possible to be reused as much as possible.
+    - **ViewModels** : ViewModels shall be used to provide the data and business logic to the views (optional)
+    - **Coordinators** : Coordinators shall be used to manage the flow of the application (TODO)
+    - **Error Handling** : Error handling shall be implemented to provide a good user experience.
+    - **Localization** : Localization shall be implemented to support multiple languages (TODO)
+    - **Testing** : Unit tests shall be implemented to ensure the quality of the code.
+    - **Modules** : The app shall be divided into modules to improve maintainability and scalability (TODO)
+    - **Mockup** : Modules shall provide mockups to test the functionality of the app. 
+    
+
 
 ### Project Structure
 
@@ -95,6 +111,147 @@ see [Versioning](notes/Versioning.md) for more.
 2. Open `SwiftFlash.xcodeproj` in Xcode
 3. Select your target device/simulator
 4. Build and run
+
+## Unit Testing & Dependency Injection
+
+### SwiftUI App Initialization During Unit Tests
+
+**Important Note**: When running unit tests in SwiftUI applications, the entire app initialization process is triggered, including the main `@main` struct and all associated services. This behavior is **normal** for SwiftUI apps but differs from traditional unit testing expectations.
+
+#### Why This Happens
+
+<mcreference link="https://www.steveclarkapps.com/unit-testing-tdd-in-swift/" index="1">1</mcreference> SwiftUI's testing framework initializes the complete application context, which means:
+- The main `SwiftFlashApp` struct is instantiated
+- `AppModel` and all its dependencies are created
+- Services like `DriveDetectionService` are initialized with real system resources
+- Debug logging from app initialization appears in test output
+
+#### Current Behavior in SwiftFlash
+
+When running `testDetectDrivesExcludesDiskImages`, you'll see:
+```
+🚀 [DEBUG] SwiftFlash App Starting
+🔍 [DEBUG] Found X external storage devices
+🔍 [DEBUG] Checking device...
+```
+
+This occurs because:
+1. `SwiftFlashApp.init()` prints the startup message
+2. `AppModel` initializes `DriveDetectionService`
+3. `DriveDetectionService.detectDrives()` performs real IOKit operations with debug logging
+
+### Best Practices for Unit Testing
+
+#### 1. Dependency Injection Patterns
+
+<mcreference link="https://www.avanderlee.com/swift/dependency-injection/" index="2">2</mcreference> <mcreference link="https://swdevnotes.com/swift/2022/use-dependency-injection-to-unit-test-a-viewmodel-in-swift/" index="5">5</mcreference> To achieve proper unit testing isolation:
+
+**Protocol-Based Abstraction**:
+```swift
+protocol DriveDetectionProtocol {
+    func detectDrives() async throws -> [Drive]
+}
+
+class DriveDetectionService: DriveDetectionProtocol {
+    // Real implementation using IOKit
+}
+
+class MockDriveDetectionService: DriveDetectionProtocol {
+    // Mock implementation for testing
+}
+```
+
+**Dependency Injection in Services**:
+```swift
+class AppModel: ObservableObject {
+    private let driveDetection: DriveDetectionProtocol
+    
+    init(driveDetection: DriveDetectionProtocol = DriveDetectionService()) {
+        self.driveDetection = driveDetection
+    }
+}
+```
+
+#### 2. SwiftUI Environment-Based Injection
+
+<mcreference link="https://mokacoding.com/blog/swiftui-dependency-injection/" index="4">4</mcreference> For SwiftUI views, use `@EnvironmentObject` for clean dependency injection:
+
+```swift
+@main
+struct SwiftFlashApp: App {
+    let appModel = AppModel()
+    
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(appModel)
+        }
+    }
+}
+```
+
+#### 3. Conditional App Initialization
+
+<mcreference link="https://www.steveclarkapps.com/unit-testing-tdd-in-swift/" index="1">1</mcreference> To prevent full app initialization during tests:
+
+```swift
+@main
+struct SwiftFlashApp: App {
+    var body: some Scene {
+        WindowGroup {
+            // Only initialize full app when not running tests
+            if NSClassFromString("XCTestCase") == nil {
+                ContentView()
+                    .environmentObject(AppModel())
+            } else {
+                Text("Test Mode")
+            }
+        }
+    }
+}
+```
+
+#### 4. Async/Await Testing Patterns
+
+<mcreference link="https://www.swiftbysundell.com/articles/dependency-injection-and-unit-testing-using-async-await/" index="3">3</mcreference> For testing async operations without complex mocking:
+
+```swift
+class ProductLoader {
+    private let loadProduct: (Product.ID) async throws -> Product
+    
+    init(loadProduct: @escaping (Product.ID) async throws -> Product = Self.defaultLoadProduct) {
+        self.loadProduct = loadProduct
+    }
+    
+    func load(id: Product.ID) async throws -> Product {
+        try await loadProduct(id)
+    }
+}
+```
+
+### Hardware-Dependent Tests
+
+For tests that require real hardware interaction (like `testDetectDrivesExcludesDiskImages`):
+
+1. **Environment Gating**: Use `SWIFTFLASH_HW_TESTS=1` to control execution
+2. **Clear Documentation**: Mark tests as hardware-dependent
+3. **Separate Test Targets**: Consider separate targets for unit vs. integration tests
+4. **CI/CD Considerations**: Hardware tests may need special runners
+
+### Testing Strategy Recommendations
+
+1. **Pure Unit Tests**: Test business logic with mocked dependencies
+2. **Integration Tests**: Test service interactions with real or stubbed backends
+3. **Hardware Tests**: Test actual device detection and interaction
+4. **UI Tests**: Test complete user workflows
+
+### Future Improvements
+
+- Implement dependency injection container
+- Create mock implementations for all external services
+- Add conditional compilation flags for test vs. production builds
+- Consider using a logging framework with configurable levels
+- Separate unit tests from integration/hardware tests
 
 ## License
 
