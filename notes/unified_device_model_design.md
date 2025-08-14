@@ -130,15 +130,7 @@ struct Device: Identifiable, Hashable {
         return false
     }
     
-    var inferredDeviceType: DeviceType {
-        let lower = name.lowercased()
-        if lower.contains("microsd") || lower.contains("micro sd") { return .microSDCard }
-        if lower.contains("sd") || lower.contains("transce") { return .sdCard }
-        if lower.contains("udisk") || lower.contains("mass") || lower.contains("generic") { return .usbStick }
-        if lower.contains("ssd") || lower.contains("solid state") { return .externalSSD }
-        if lower.contains("external") || lower.contains("drive") || lower.contains("hard disk") { return .externalHDD }
-        return .unknown
-    }
+
     
     // MARK: - Device Operations (moved from Drive struct)
     func unmountDevice() -> Bool {

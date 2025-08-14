@@ -135,37 +135,7 @@ final class DriveDetectionTests: XCTestCase {
         XCTAssertFalse(nested.isMainDevice)
     }
 
-    func testDeviceInferredDeviceType() throws {
-        // microSD Adapter
-        let microSDDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "microSD Adapter"]
-        let microSD = Device(devicePath: "/dev/disk1", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: microSDDesc, partitions: [])
-        XCTAssertEqual(microSD.inferredDeviceType, .microSDCard)
-        
-        // SD Card
-        let sdDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "SD Transcend"]
-        let sd = Device(devicePath: "/dev/disk2", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: sdDesc, partitions: [])
-        XCTAssertEqual(sd.inferredDeviceType, .sdCard)
-        
-        // USB Stick
-        let usbDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Udisk Mass Storage"]
-        let usb = Device(devicePath: "/dev/disk3", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: usbDesc, partitions: [])
-        XCTAssertEqual(usb.inferredDeviceType, .usbStick)
-        
-        // External SSD
-        let ssdDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Portable SSD"]
-        let ssd = Device(devicePath: "/dev/disk4", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: ssdDesc, partitions: [])
-        XCTAssertEqual(ssd.inferredDeviceType, .externalSSD)
-        
-        // External HDD
-        let hddDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "External Drive"]
-        let hdd = Device(devicePath: "/dev/disk5", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: hddDesc, partitions: [])
-        XCTAssertEqual(hdd.inferredDeviceType, .externalHDD)
-        
-        // Unknown
-        let unknownDesc: [String: Any] = [kDADiskDescriptionMediaNameKey as String: "Unknown Gadget"]
-        let unknown = Device(devicePath: "/dev/disk6", isRemovable: true, isEjectable: true, isReadOnly: false, isSystemDrive: false, diskDescription: unknownDesc, partitions: [])
-        XCTAssertEqual(unknown.inferredDeviceType, .unknown)
-    }
+
     
     // MARK: - Real device filtering (hardware dependent)
 

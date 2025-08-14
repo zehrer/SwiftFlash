@@ -269,7 +269,7 @@ extension DriveDetectionService {
             
             // If not found, create a new inventory item
             if inventoryItem == nil {
-                let deviceType = tempDevice.inferredDeviceType
+                let deviceType = DeviceType.unknown
                 let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
                 let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
                 let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
@@ -285,7 +285,7 @@ extension DriveDetectionService {
                 inventoryItem = inventory.getInventoryItem(for: mediaUUID)
             } else {
                 // Update lastSeen for existing device
-                let deviceType = inventoryItem?.deviceType ?? tempDevice.inferredDeviceType
+                let deviceType = inventoryItem?.deviceType ?? DeviceType.unknown
                 let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
                 let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
                 let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String

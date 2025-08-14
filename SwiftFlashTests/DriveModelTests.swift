@@ -26,6 +26,7 @@ final class DriveModelTests: XCTestCase {
     
     /// Finds an available external USB device for testing
     /// - Returns: Drive instance if found, nil otherwise
+    @MainActor
     private func findTestDevice() -> Drive? {
         print("🔍 Scanning for available test devices...")
         
@@ -41,7 +42,8 @@ final class DriveModelTests: XCTestCase {
                     isReadOnly: false,
                     isSystemDrive: false,
                     diskDescription: nil,
-                    partitions: []
+                    partitions: [],
+                    inventoryItem: nil
                 )
                 
                 print("📱 Found potential test device: \(devicePath)")

@@ -4,12 +4,15 @@
 
 ⚡️ **Simple. Safe. Swift.**
 
-## KEy Features
+## Key Features
 
 - 🖥️ **Native macOS Interface** - Built with SwiftUI for seamless integration and a very small app size (just around 4MB)
 - 📁 **Drag & Drop Support** - Simply drag your image file onto the app
 - 💾 **Device Inventory** - Tracks and remembers your external drives (e.g. USB sticks, SD Cards ...)
-- 🔒 **SHA256 Checksum** - Generate and store integrity checksums
+    - The app provide and inventory of all externale devices and the user can define a name and a type.
+    - A automatic type detection is for the moment not possibe as related informaton are missing. 
+     **SHA256 Checksum** - Generate and store integrity checksums
+- **LocalAuthentication** to provide access to root rights (flash is only possible under root)
 
 
 ## Supported File Formats
