@@ -75,34 +75,36 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
         
         // Get devices from IOKit
         let devices = getExternalStorageDevices()
-        var detectedDrives: [Device] = []
+        //var detectedDrives: [Device] = []
         
         print("🔍 [DEBUG] Found \(devices.count) external storage devices")
         
+        // TODO: better partition data in root flash tool
         // iterating over the device to add partition data.
-        for (index, device) in devices.enumerated() {
-            print("🔍 [DEBUG] Checking device \(index + 1): \(device.name)")
+//        for (index, device) in devices.enumerated() {
+//            print("🔍 [DEBUG] Checking device \(index + 1): \(device.name)")
             
             // Check if this is the system boot device
             //let isSystemDrive = device.devicePath == systemBootDevice
             
             // Detect partition scheme once and cache it
-            var deviceWithPartitionScheme = device
-            let partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: device.devicePath)
-            deviceWithPartitionScheme.partitionScheme = partitionScheme
-            print("🔍 [DEBUG] Detected partition scheme for \(device.name): \(deviceWithPartitionScheme.partitionSchemeDisplay)")
-            
+//            var deviceWithPartitionScheme = device
+//            let partitionScheme = ImageFileService.PartitionSchemeDetector.detectPartitionScheme(devicePath: device.devicePath)
+//            deviceWithPartitionScheme.partitionScheme = partitionScheme
+//            print("🔍 [DEBUG] Detected partition scheme for \(device.name): \(deviceWithPartitionScheme.partitionSchemeDisplay)")
+//            detectedDrives.append(deviceWithPartitionScheme)
+
 #if DEBUG
             // Dump full Disk Arbitration description for this relevant detected device
-            deviceWithPartitionScheme.logDiskDescription()
+            //deviceWithPartitionScheme.logDiskDescription()
 #endif
-            detectedDrives.append(deviceWithPartitionScheme)
-            print("✅ [DEBUG] Added drive to array: \(device.name) - Total drives: \(detectedDrives.count)")
-        }
+
+            //print("✅ [DEBUG] Added drive to array: \(device.name) - Total drives: \(detectedDrives.count)")
+        //}
         
-        print("🔍 [DEBUG] Drive detection complete. Found \(detectedDrives.count) external drives")
+        //print("🔍 [DEBUG] Drive detection complete. Found \(devices.count) external drives")
         
-        return detectedDrives
+        return devices //  detectedDrives
     }
 }
 
@@ -219,6 +221,7 @@ extension DriveDetectionService {
             partitions: []
         )
         
+        // move the isMainDevice out of Device to remove tempDevice
         if !tempDevice.isMainDevice {
             // print("❌ [DEBUG] Device \(devicePath) is a partition - excluding from processing")
             return nil
@@ -251,12 +254,6 @@ extension DriveDetectionService {
             partitions: partitions,
             inventoryItem: nil  // Will be set after inventory check
         )
-        
-        // Check if this is a disk image BEFORE adding to inventory
-        if device.isDiskImage {
-            print("⚠️ [DEBUG] Device \(device.name) is a disk image - excluding from inventory")
-            return nil
-        }
         
         // Check if we have this device in inventory (only for non-disk-image devices)
         var inventoryItem: DeviceInventoryItem? = nil
