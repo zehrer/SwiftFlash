@@ -18,14 +18,20 @@ enum DeviceType: String, CaseIterable, Codable {
     case unknown = "unknown"
     
     /// Returns the appropriate SF Symbol icon name for this device type
+    /// Icons defined by DATA-009 requirement in notes/requirements_specification.md
+    /// DO NOT CHANGE unless DATA-009 requirement is updated
     var icon: String {
         switch self {
-        case .usbStick, .sdCard, .microSDCard:
-            return "mediastick"
+        case .usbStick:
+            return "mediastick"  // DATA-009: user preference
+        case .sdCard:
+            return "sdcard"      // DATA-009: specific icon for SD cards
+        case .microSDCard:
+            return "sdcard.fill" // DATA-009: filled variant for microSD
         case .externalHDD, .externalSSD:
-            return "externaldrive"
+            return "externaldrive.fill" // DATA-009: filled variant for external drives
         case .unknown:
-            return "questionmark.circle"
+            return "questionmark.circle" // DATA-009: question mark for unknown devices
         }
     }
     
