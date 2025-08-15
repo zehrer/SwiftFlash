@@ -552,8 +552,8 @@ struct DriveRowView: View {
     var displayName: String {
         let mediaUUID = drive.mediaUUID
         if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }),
-           let customName = inventoryDevice.customName, !customName.isEmpty {
-            return customName
+           let customName = inventoryDevice.name, !customName.isEmpty {
+                return customName
         }
         return drive.name
     }

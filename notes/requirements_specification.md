@@ -19,9 +19,10 @@ This document defines SMART (Specific, Measurable, Achievable, Relevant, Time-bo
 
 #### DATA-001: Drive Structure Requirements
 **Requirement**: Drive struct MUST contain all required properties for external drive representation
+**Note**: The `name` property is the user-editable display name. Do not change this attribute structure.
 - **Properties Required**:
   - `id: UUID` - Unique identifier (auto-generated)
-  - `name: String` - Display name from system (currently called customName)
+  - `name: String` - Display name from system (user-editable display name)
   - `mountPoint: String` - File system mount path
   - `size: Int64` - Total capacity in bytes
   - `isRemovable: Bool` - System removable flag

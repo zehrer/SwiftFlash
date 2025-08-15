@@ -47,10 +47,7 @@ struct Device: Identifiable, Hashable {
         get { inventoryItem?.lastSeen ?? Date() }
         set { inventoryItem?.lastSeen = newValue }
     }
-    var customName: String? {
-        get { inventoryItem?.customName }
-        set { inventoryItem?.customName = newValue }
-    }
+
 
     // MARK: - Runtime Properties (non-optional, Device-specific)
     let devicePath: String
@@ -72,7 +69,7 @@ struct Device: Identifiable, Hashable {
 
     // MARK: - Computed Properties
     var displayName: String {
-        return customName ?? name
+        return inventoryItem?.name ?? name
     }
 
     var formattedSize: String {

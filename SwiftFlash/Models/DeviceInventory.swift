@@ -6,21 +6,21 @@ import Combine
 // This struct represents devices in the inventory and is used for persistence.
 // Changes here affect device tracking, data storage, and UI display.
 // Any modifications require testing of device inventory functionality.
-struct DeviceInventoryItem: Codable, Identifiable, Hashable {
-    var id = UUID()
+struct DeviceInventoryItem: Codable, Identifiable {
+    let id = UUID()
     let mediaUUID: String
     let size: Int64
     let mediaName: String
-    var name: String?
+    var name: String? // User-editable display name (per DATA-001)
     let firstSeen: Date
     var lastSeen: Date
-    var deviceType: DeviceType = .unknown
+    var deviceType: DeviceType
     var vendor: String?
     var revision: String?
-    var customName: String?
+
     
     var displayName: String {
-        return customName ?? name ?? mediaName
+        return name ?? mediaName
     }
     
     var formattedSize: String {
@@ -139,7 +139,7 @@ class DeviceInventory: ObservableObject, DeviceInventoryManager {
         //print("🔧 [DEBUG] DeviceInventory.setCustomName called with UUID: \(mediaUUID), name: \(customName ?? "nil")")
         if let index = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
             //print("🔧 [DEBUG] Found device at index \(index), updating custom name")
-            devices[index].customName = customName
+            devices[index].name = customName
             saveInventory()
             //print("✏️ [INVENTORY] Custom name set: \(customName ?? "nil")")
         } else {
