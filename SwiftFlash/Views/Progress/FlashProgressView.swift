@@ -55,7 +55,7 @@ struct FlashProgressView: View {
                         .foregroundColor(device.isReadOnly ? .red : .blue)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(device.displayName)
+                        Text(device.name)
                             .font(.body)
                             .fontWeight(.medium)
                         

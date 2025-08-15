@@ -18,6 +18,8 @@ typealias Drive = Device
 /// This struct contains all non-optional properties and handles device operations
 /// Acts as a wrapper around DeviceInventoryItem to avoid data duplication
 /// Replaces the previous Device, Drive, and DeviceInfo models
+/// The data structure is defined in notes/requirements_specification.md
+/// DO NOT CHANGE unless DATA-001 requirement is updated
 struct Device: Identifiable, Hashable {
     // MARK: - Core Identity (from DeviceInventoryItem)
     var id: UUID { inventoryItem?.id ?? UUID() }
@@ -68,9 +70,6 @@ struct Device: Identifiable, Hashable {
     var inventoryItem: DeviceInventoryItem?
 
     // MARK: - Computed Properties
-    var displayName: String {
-        return inventoryItem?.name ?? name
-    }
 
     var formattedSize: String {
         let formatter = ByteCountFormatter()
@@ -365,7 +364,7 @@ extension Device {
                 print("[Device][DA] No diskDescription captured for: \(devicePath)")
                 return
             }
-            print("[Device][DA] Description for \(devicePath) → \(displayName)")
+            print("[Device][DA] Description for \(devicePath) → \(name)")
             for (key, value) in desc.sorted(by: { $0.key < $1.key }) {
                 print("   \(key): \(value)")
             }

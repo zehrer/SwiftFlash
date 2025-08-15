@@ -56,7 +56,7 @@ struct DriveInspectorView: View {
         self.drive = drive
         self.deviceInventory = deviceInventory
         self._selectedDeviceType = State(initialValue: drive.deviceType)
-        self._editableName = State(initialValue: drive.displayName)
+        self._editableName = State(initialValue: drive.name)
     }
     
     var body: some View {

@@ -164,7 +164,7 @@ struct ContentView: View {
                         ejectButton(selectedDrive: selectedDrive) {
                             // TODO: Implement eject functionality
                             print(
-                                "⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.displayName ?? "none")"
+                                "⏏️ [DEBUG] Eject button pressed for drive: \(selectedDrive?.name ?? "none")"
                             )
                         }
                     }
@@ -274,7 +274,7 @@ struct ContentView: View {
             Button("Save") {
                 if let drive = deviceToRename, !customNameText.isEmpty {
                     print(
-                        "🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.displayName)'"
+                        "🔧 [DEBUG] Attempting to set custom name: '\(customNameText)' for drive: '\(drive.name)'"
                     )
                     if let mediaUUID = getMediaUUIDForDrive(drive) {
                         print("🔧 [DEBUG] Found media UUID: \(mediaUUID)")
@@ -283,11 +283,11 @@ struct ContentView: View {
                             for: mediaUUID, customName: customNameText)
                         appModel.refreshDrives()
                     } else {
-                        print("❌ [DEBUG] Could not find media UUID for drive: \(drive.displayName)")
+                        print("❌ [DEBUG] Could not find media UUID for drive: \(drive.name)")
                     }
                 } else {
                     print(
-                        "❌ [DEBUG] Invalid custom name attempt - drive: \(deviceToRename?.displayName ?? "nil"), text: '\(customNameText)'"
+                        "❌ [DEBUG] Invalid custom name attempt - drive: \(deviceToRename?.name ?? "nil"), text: '\(customNameText)'"
                     )
                 }
                 customNameText = ""
@@ -295,12 +295,12 @@ struct ContentView: View {
             }
         } message: {
             if let drive = deviceToRename {
-                Text("Set a custom name for '\(drive.displayName)'")
+                Text("Set a custom name for '\(drive.name)'")
             }
         }
         .onChange(of: showCustomNameDialog) { _, showDialog in
             if showDialog, let drive = deviceToRename {
-                customNameText = drive.displayName
+                customNameText = drive.name
             }
         }
         .sheet(isPresented: $showAboutDialog) {
@@ -486,7 +486,7 @@ struct ContentView: View {
                 }
                 .onAppear {
                     for (index, drive) in appModel.drives.enumerated() {
-                        print("🔍 [DEBUG] UI: Drive \(index): \(drive.displayName)")
+                        print("🔍 [DEBUG] UI: Drive \(index): \(drive.name)")
                     }
                 }
             }

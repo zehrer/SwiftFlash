@@ -6,19 +6,20 @@ import Combine
 // This struct represents devices in the inventory and is used for persistence.
 // Changes here affect device tracking, data storage, and UI display.
 // Any modifications require testing of device inventory functionality.
+/// The data structure is defined in notes/requirements_specification.md
+/// DO NOT CHANGE unless DATA-001 requirement is update
 struct DeviceInventoryItem: Codable, Identifiable {
     let id = UUID()
+    var name: String? // User-editable display name (per DATA-001)
+    let mediaName: String
     let mediaUUID: String
     let size: Int64
-    let mediaName: String
-    var name: String? // User-editable display name (per DATA-001)
     let firstSeen: Date
     var lastSeen: Date
     var deviceType: DeviceType
     var vendor: String?
     var revision: String?
 
-    
     var displayName: String {
         return name ?? mediaName
     }
