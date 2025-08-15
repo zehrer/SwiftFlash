@@ -17,14 +17,8 @@ protocol DeviceDetectionService: ObservableObject {
     /// The current list of detected devices
     var drives: [Device] { get }
     
-    /// Indicates whether a scan is currently in progress
-    var isScanning: Bool { get }
-    
-    /// The inventory manager that this service reports to
-    var deviceInventory: (any DeviceInventoryManager)? { get set }
-    
     /// Refreshes the list of drives
-    func refreshDrives()
+//    func refreshDrives()
     
     /// Detects all available devices
     func detectDrives() -> [Device]

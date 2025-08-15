@@ -21,25 +21,38 @@ final class AppModel: ObservableObject {
 
     // Mirror service state for SwiftUI reactivity
     @Published var drives: [Device] = []
-    @Published var isScanning: Bool = false
+    @Published var isScanning: Bool = false  // check if we need this status 
 
     init() {
-        let inventory = DeviceInventory()
-        let driveService = DriveDetectionService(deviceInventory: inventory)
-
-        self.deviceInventory = inventory
-        self.driveService = driveService
+        self.driveService = DriveDetectionService()
+        self.deviceInventory  = DeviceInventory()
+       
+        // Inject DeviceInventory
+        self.driveService.deviceInventory = self.deviceInventory
+        
 
         // Bridge service state into AppModel so SwiftUI updates when drives change
         // Use the concrete DriveDetectionService for publisher access
-        if let concreteService = driveService as? DriveDetectionService {
-            concreteService.$drives
-                .receive(on: RunLoop.main)
-                .assign(to: &self.$drives)
+        driveService.$drives
+            .receive(on: RunLoop.main)
+            .assign(to: &self.$drives)
 
-            concreteService.$isScanning
-                .receive(on: RunLoop.main)
-                .assign(to: &self.$isScanning)
-        }
+//        driveService.$isScanning
+//            .receive(on: RunLoop.main)
+//            .assign(to: &self.$isScanning)
     }
+    
+    /// Refreshes the list of drives by calling detectDrives()
+    /// This is a convenience method for SwiftUI views to call
+    func refreshDrives() {
+        isScanning = true
+        
+        // Detect drives and update the published array
+        let allDrives = driveService.detectDrives()
+    
+        self.drives = allDrives.filter { !($0.isDiskImage) }
+        
+        isScanning = false
+    }
+    
 }

@@ -21,6 +21,7 @@
 - add log view within the app itself (include related log leven / menu / icon / filter ...) and build a os.Logger wrapper
 - Add quality code indicators (including test code coverage)
 - Fix / reduce Waning during startup in BookmarkManager
+- Add F3 / F3XSwift / Fight Flash Fraud check (TODO)
 
 ## High Priority Tasks
 

@@ -71,12 +71,14 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
 /// Manages the inventory of recognized devices
 @MainActor
 class DeviceInventory: ObservableObject, DeviceInventoryManager {
+    
     @Published var devices: [DeviceInventoryItem] = []
     
     private let userDefaults = UserDefaults.standard
     private let inventoryKey = "DeviceInventory"
     
     init() {
+        
         // Debug: Show UserDefaults path
         if let bundleIdentifier = Bundle.main.bundleIdentifier {
             let userDefaultsPath = "~/Library/Preferences/\(bundleIdentifier).plist"

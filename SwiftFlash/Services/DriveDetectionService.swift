@@ -35,15 +35,12 @@ import IOKit.storage
 class DriveDetectionService: ObservableObject, DeviceDetectionService {
     /// Published array of detected drives, updated by detectDrives()
     @Published var drives: [Device] = []
-    /// Indicates whether a scan is currently in progress
-    @Published var isScanning: Bool = false
-    
+
     /// Device inventory for persistence
-    var deviceInventory: (any DeviceInventoryManager)?
+    var deviceInventory: (any DeviceInventoryManager)? = nil
     private var diskArbitrationSession: DASession?
     
-    init(deviceInventory: (any DeviceInventoryManager)? = nil) {
-        self.deviceInventory = deviceInventory
+    init() {
         setupDiskArbitration()
         // Note: refreshDrives() is called from ContentView.onAppear to ensure proper initialization order
     }
@@ -55,20 +52,6 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
             DASessionUnscheduleFromRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         }
     }
-    
-    /// Refreshes the list of drives by calling detectDrives()
-    /// This is a convenience method for SwiftUI views to call
-    func refreshDrives() {
-        isScanning = true
-        
-        // Detect drives and update the published array
-        let detectedDrives = detectDrives()
-            self.drives = detectedDrives
-        
-        isScanning = false
-    }
-    
-
     
     /// Sets up Disk Arbitration session for device monitoring
     private func setupDiskArbitration() {
@@ -83,9 +66,9 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
     }
     
     /// Detects all external storage devices that can be used for flashing
-     func detectDrives() -> [Device] {
-        isScanning = true
-        defer { isScanning = false }
+    func detectDrives() -> [Device] {
+        //isScanning = true
+        //defer { isScanning = false }
         
         // Get system boot device to exclude it
         let systemBootDevice = getSystemBootDevice()
@@ -96,25 +79,12 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
         
         print("🔍 [DEBUG] Found \(devices.count) external storage devices")
         
-        // Iterate with index for clearer logging
+        // iterating over the device to add partition data.
         for (index, device) in devices.enumerated() {
             print("🔍 [DEBUG] Checking device \(index + 1): \(device.name)")
             
             // Check if this is the system boot device
-            let isSystemDrive = device.devicePath == systemBootDevice
-            
-            if isSystemDrive {
-                //print("⚠️ [DEBUG] Device \(device.name) is the system boot device - excluding")
-                continue
-            }
-            
-            // Check if this is a disk image (mounted .dmg file)
-            if device.isDiskImage {
-                print("⚠️ [DEBUG] Device \(device.name) is a disk image - excluding")
-                continue
-            }
-            
-            print("✅ [DEBUG] Found external drive: \(device.name)")
+            //let isSystemDrive = device.devicePath == systemBootDevice
             
             // Detect partition scheme once and cache it
             var deviceWithPartitionScheme = device
@@ -122,12 +92,10 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
             deviceWithPartitionScheme.partitionScheme = partitionScheme
             print("🔍 [DEBUG] Detected partition scheme for \(device.name): \(deviceWithPartitionScheme.partitionSchemeDisplay)")
             
-
 #if DEBUG
             // Dump full Disk Arbitration description for this relevant detected device
-            //deviceWithPartitionScheme.logDiskDescription()
+            deviceWithPartitionScheme.logDiskDescription()
 #endif
-            
             detectedDrives.append(deviceWithPartitionScheme)
             print("✅ [DEBUG] Added drive to array: \(device.name) - Total drives: \(detectedDrives.count)")
         }
@@ -164,44 +132,55 @@ extension DriveDetectionService {
     private func getExternalStorageDevices() -> [Device] {
         var devices: [Device] = []
         
-        // Create a matching dictionary for removable storage devices
+        // Create a matching dictionary for removable storage devices.
+        // IOServiceMatching(kIOMediaClass) matches all IOMedia objects (physical disks, partitions, etc.).
+        // We further filter by setting "Removable" and "Ejectable" to true, so that only devices
+        // that are removable (e.g., USB sticks, SD cards) and/or ejectable (can be physically removed) are matched.
         let matchingDict = IOServiceMatching(kIOMediaClass) as NSMutableDictionary
         matchingDict["Removable"] = true
         matchingDict["Ejectable"] = true
         
-        // Get an iterator for all matching devices
+        // Get an iterator for all matching devices.
+        // IOServiceGetMatchingServices returns an iterator over IORegistry objects that match our dictionary.
+        // The return value is a kern_return_t result code; iterator is set if successful.
         var iterator: io_iterator_t = 0
         let result = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iterator)
         
+        // If result is not kIOReturnSuccess, the iterator is invalid and we should not proceed.
         guard result == kIOReturnSuccess else {
             print("❌ [DEBUG] Failed to get IOKit services: \(result)")
             return devices
         }
         
+        // Release the iterator when we leave this scope to avoid memory/resource leaks,
+        // regardless of how the function exits.
         defer {
             IOObjectRelease(iterator)
         }
         
+        // Iterate over all matching IOService objects (devices).
         var service = IOIteratorNext(iterator)
         while service != 0 {
+            // Ensure each IOService object is released after we're done with it.
+            // This prevents resource leaks. We also advance to the next service here.
             defer {
                 IOObjectRelease(service)
                 service = IOIteratorNext(iterator)
             }
             
-            
-            // Only include main devices (not partitions)
+            // Only include main devices (not partitions).
+            // getDeviceFromIOKit will return a Device? for the given IOService object.
+            // We further check device.isMainDevice to ensure we only append whole disks (not slices/partitions).
             if let device = getDeviceFromIOKit(service: service) {
-                //print("🔍 [DEBUG] Processing device: \(device.devicePath)")
                 if device.isMainDevice {
-                    //print("✅ [DEBUG] Adding device to list: \(device.devicePath)")
+                    // Only append main devices, not their partitions, to the result array.
+                    // This ensures we only list whole external drives.
                     devices.append(device)
-                } else {
-                    //print("❌ [DEBUG] Excluding device from list: \(device.devicePath)")
                 }
             }
         }
         
+        // Returns only whole external devices (no partitions) that are removable/ejectable.
         return devices
     }
     
@@ -261,19 +240,37 @@ extension DriveDetectionService {
         // Generate a stable mediaUUID if needed
         let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String ?? Device.generateStableDeviceID(from: daDesc ?? [:])
         
-        // Check if we have this device in inventory
+        // Create a Device object first to check if it's a disk image
+        let device = Device(
+            devicePath: devicePath,
+            isRemovable: isRemovable,
+            isEjectable: isEjectable,
+            isReadOnly: isReadOnly,
+            isSystemDrive: false,
+            diskDescription: daDesc,
+            partitions: partitions,
+            inventoryItem: nil  // Will be set after inventory check
+        )
+        
+        // Check if this is a disk image BEFORE adding to inventory
+        if device.isDiskImage {
+            print("⚠️ [DEBUG] Device \(device.name) is a disk image - excluding from inventory")
+            return nil
+        }
+        
+        // Check if we have this device in inventory (only for non-disk-image devices)
         var inventoryItem: DeviceInventoryItem? = nil
         if let inventory = deviceInventory {
             // Find by mediaUUID
             inventoryItem = inventory.getInventoryItem(for: mediaUUID)
-            
+
             // If not found, create a new inventory item
             if inventoryItem == nil {
                 let deviceType = DeviceType.unknown
                 let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
                 let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
                 let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
-                
+
                 inventory.addOrUpdateDevice(
                     mediaUUID: mediaUUID,
                 size: size,
@@ -289,7 +286,7 @@ extension DriveDetectionService {
                 let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
                 let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
                 let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
-                
+
                 inventory.addOrUpdateDevice(
                     mediaUUID: mediaUUID,
                     size: size,
@@ -301,8 +298,8 @@ extension DriveDetectionService {
             }
         }
         
-        // Create a Device object directly
-        let device = Device(
+        // Update the device with the inventory item
+        let finalDevice = Device(
             devicePath: devicePath,
             isRemovable: isRemovable,
             isEjectable: isEjectable,
@@ -313,7 +310,7 @@ extension DriveDetectionService {
             inventoryItem: inventoryItem
         )
         
-        return device
+        return finalDevice
     }
     
     // Note: Individual Disk Arbitration value extraction is now handled by Drive computed properties

@@ -7,14 +7,14 @@ import Foundation
 import SwiftUI
 
 /// Toolbar-Button zum Aktualisieren der Laufwerksliste
-func refreshButton(driveService: any DeviceDetectionService) -> some View {
+func refreshButton(model: AppModel) -> some View {
     Button(action: {
-        driveService.refreshDrives()
+        model.refreshDrives()
     }) {
         Label("Refresh", systemImage: "arrow.clockwise")
     }
     .help("Refresh Drives")
-    .disabled(driveService.isScanning)
+    .disabled(model.isScanning)
 }
 
 /// Toolbar-Button zum Flashen eines Images

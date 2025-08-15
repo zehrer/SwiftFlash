@@ -17,10 +17,6 @@ struct ContentView: View {
         self._flashService = State(wrappedValue: flashService)
     }
 
-    private func setupDriveService() {
-        // Intentionally left empty to decouple service from model.
-        // Inventory is managed by the model layer (DeviceInventory) directly.
-    }
     @State private var isDropTargeted = false
     @State private var showInspector = false  // Hidden by default
     @State private var showAboutDialog = false
@@ -146,7 +142,7 @@ struct ContentView: View {
             Group {
                 if toolbarConfig.toolbarItems.contains("refresh") {
                     ToolbarItem(id: "refresh", placement: .automatic) {
-                        refreshButton(driveService: appModel.driveService)
+                        refreshButton(model: appModel)
                     }
                 }
 
@@ -285,7 +281,7 @@ struct ContentView: View {
                         // Update model directly, then refresh detection service
                         appModel.deviceInventory.setCustomName(
                             for: mediaUUID, customName: customNameText)
-                        appModel.driveService.refreshDrives()
+                        appModel.refreshDrives()
                     } else {
                         print("❌ [DEBUG] Could not find media UUID for drive: \(drive.displayName)")
                     }
@@ -346,8 +342,8 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            setupDriveService()
-            appModel.driveService.refreshDrives()
+            // (re)load drives
+            appModel.refreshDrives()
 
             // Validate all bookmarks in history
             imageHistoryService.validateAllBookmarks()
