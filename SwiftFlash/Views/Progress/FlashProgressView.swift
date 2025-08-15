@@ -110,6 +110,22 @@ struct FlashProgressView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                 }
+                
+                if case .failed = flashState {
+                    Button("OK") {
+                        onCancel()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+                
+                if case .completed = flashState {
+                    Button("Done") {
+                        onCancel()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
             }
         }
         .padding(32)
@@ -274,4 +290,4 @@ struct FlashProgressView: View {
         flashState: .failed(.deviceReadOnly),
         onCancel: { print("Close") }
     )
-} 
+}

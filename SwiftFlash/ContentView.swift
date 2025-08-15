@@ -506,9 +506,15 @@ struct ContentView: View {
                 try await flashService.flashImage(image, to: device)
             } catch {
                 print("❌ [DEBUG] Flash failed: \(error)")
+                // The flash service already sets the state to .failed, 
+                // so the UI will show the error with an OK button
             }
         } else {
             print("❌ [DEBUG] Flash failed: missing image or device selection")
+            // Set flash service to failed state for missing selection
+            await MainActor.run {
+                flashService.flashState = .failed(.flashFailed("missing image or device selection"))
+            }
         }
     }
 
