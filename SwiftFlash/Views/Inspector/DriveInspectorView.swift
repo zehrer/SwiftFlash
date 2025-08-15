@@ -68,13 +68,13 @@ struct DriveInspectorView: View {
                     label: "Name",
                     text: $editableName,
                     placeholder: "Enter device name"
-                )
-                .onChange(of: editableName) { _, newValue in
+                ) {
+                    // Update inventory when Enter is pressed
                     let mediaUUID = drive.mediaUUID
-                    if newValue.isEmpty {
+                    if editableName.isEmpty {
                         deviceInventory.setCustomName(for: mediaUUID, customName: nil as String?)
                     } else {
-                        deviceInventory.setCustomName(for: mediaUUID, customName: newValue)
+                        deviceInventory.setCustomName(for: mediaUUID, customName: editableName)
                     }
                 }
                 

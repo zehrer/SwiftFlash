@@ -548,6 +548,15 @@ struct DriveRowView: View {
         }
         return drive.deviceType
     }
+    
+    var displayName: String {
+        let mediaUUID = drive.mediaUUID
+        if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }),
+           let customName = inventoryDevice.customName, !customName.isEmpty {
+            return customName
+        }
+        return drive.name
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -559,7 +568,7 @@ struct DriveRowView: View {
 
             // Device Info
             VStack(alignment: .leading, spacing: 2) {
-                Text(drive.displayName)
+                Text(displayName)
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(drive.isReadOnly ? .red : .primary)

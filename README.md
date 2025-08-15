@@ -114,9 +114,7 @@ see [Versioning](notes/Versioning.md) for more.
 
 ## Unit Testing & Dependency Injection
 
-### SwiftUI App Initialization During Unit Tests
 
-**Important Note**: When running unit tests in SwiftUI applications, the entire app initialization process is triggered, including the main `@main` struct and all associated services. This behavior is **normal** for SwiftUI apps but differs from traditional unit testing expectations.
 
 #### Why This Happens
 

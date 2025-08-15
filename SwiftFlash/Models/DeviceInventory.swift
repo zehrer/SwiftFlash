@@ -20,7 +20,7 @@ struct DeviceInventoryItem: Codable, Identifiable, Hashable {
     var customName: String?
     
     var displayName: String {
-        return name ?? mediaName
+        return customName ?? name ?? mediaName
     }
     
     var formattedSize: String {
