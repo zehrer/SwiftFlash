@@ -496,11 +496,15 @@ struct ContentView: View {
     // MARK: - Helper Functions
 
     private func performFlash() async {
+        print("🔍 [DEBUG] performFlash called")
+        print("🔍 [DEBUG] ContentView.selectedImage: \(selectedImage?.name ?? "nil")")
+        print("🔍 [DEBUG] imageService.selectedImage: \(imageService.selectedImage?.name ?? "nil")")
+        print("🔍 [DEBUG] selectedDrive: \(selectedDrive?.name ?? "nil")")
 
-        if let image = selectedImage,
+        if let image = imageService.selectedImage,  // Use imageService.selectedImage instead of selectedImage
             let device = selectedDrive
         {
-            // Beide Werte sind nicht nil, hier kannst du sie verwenden
+            // Both values are not nil, proceed with flash operation
 
             do {
                 try await flashService.flashImage(image, to: device)

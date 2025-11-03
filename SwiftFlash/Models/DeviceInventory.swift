@@ -9,7 +9,7 @@ import Combine
 /// The data structure is defined in notes/requirements_specification.md
 /// DO NOT CHANGE unless DATA-001 requirement is update
 struct DeviceInventoryItem: Codable, Identifiable {
-    let id = UUID()
+    var id = UUID() // needs to be mutalbe as this is a codable struct !!
     var name: String? // User-editable display name (per DATA-001)
     let mediaName: String
     let mediaUUID: String

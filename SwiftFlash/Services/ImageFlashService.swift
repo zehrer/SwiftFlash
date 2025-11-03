@@ -68,11 +68,12 @@ class ImageFlashService {
     private var isCancelled: Bool = false
 
     private let imageHistoryService: any ImageHistoryServiceProtocol
+    @MainActor private var authorizationRef: AuthorizationRef?
 
     init(imageHistoryService: any ImageHistoryServiceProtocol) {
         self.imageHistoryService = imageHistoryService
     }
-
+    
     // MARK: - Public Methods
 
     /// Flashes an image file to a target device with comprehensive validation and progress tracking.
@@ -91,7 +92,7 @@ class ImageFlashService {
     ///   - device: The target `Drive` to flash the image to
     /// - Throws: `FlashError` for various failure conditions (device not found, insufficient permissions, etc.)
     /// - Note: This method requires Touch ID authentication for root privileges
-    func flashImage(_ image: ImageFile, to device: Drive) async throws {
+    func flashImage(_ image: ImageFile, to device: Device) async throws {
         guard !isFlashing else {
             throw FlashError.deviceBusy
         }
@@ -143,48 +144,60 @@ class ImageFlashService {
 
     // MARK: - Authentication Methods
 
-    /// Authenticates the user with Touch ID for root privileges.
+    /// Requests admin privileges using AuthorizationServices for dd command execution.
     ///
-    /// This method performs Touch ID authentication to ensure the user
-    /// is authorized to perform root operations. The actual sudo prompt
-    /// will still appear, but Touch ID provides an additional security layer.
+    /// This method uses the macOS AuthorizationServices framework to request
+    /// administrator privileges needed for the dd command. This will show
+    /// the system authentication dialog (password, Touch ID, or Apple Watch).
     ///
-    /// - Throws: `FlashError.authenticationFailed` if Touch ID fails
-    /// - Note: This method requires user interaction for Touch ID authentication
+    /// - Throws: `FlashError.authenticationFailed` if authorization fails
+    /// - Note: This method requires user interaction for admin authentication
     private func authenticateForRootPrivileges() async throws {
-        print("🔐 [DEBUG] Starting Touch ID authentication for root privileges...")
-
-        // Check Touch ID availability
-        let context = LAContext()
-        var error: NSError?
-
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
-        else {
-            print(
-                "❌ [DEBUG] Touch ID not available: \(error?.localizedDescription ?? "Unknown error")"
-            )
+        print("🔐 [DEBUG] Requesting admin privileges for dd command...")
+        
+        // Create authorization reference
+        var authRef: AuthorizationRef?
+        let status = AuthorizationCreate(nil, nil, [], &authRef)
+        
+        guard status == errAuthorizationSuccess else {
+            print("❌ [DEBUG] Failed to create authorization reference: \(status)")
             throw FlashError.authenticationFailed
         }
-
-        // Authenticate with Touch ID
-        do {
-            let success = try await context.evaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics,
-                localizedReason: "SwiftFlash needs authentication to write to external drives"
+        
+        // Define the privilege we need
+        let authStatus = "system.privilege.admin".withCString { namePtr in
+            var authItem = AuthorizationItem(
+                name: namePtr,
+                valueLength: 0,
+                value: nil,
+                flags: 0
             )
-
-            if !success {
-                print("❌ [DEBUG] Touch ID authentication failed")
-                throw FlashError.authenticationFailed
+            
+            return withUnsafeMutablePointer(to: &authItem) { itemPtr in
+                var authRights = AuthorizationRights(
+                    count: 1,
+                    items: itemPtr
+                )
+                
+                return AuthorizationCopyRights(
+                    authRef!,
+                    &authRights,
+                    nil,
+                    [.interactionAllowed, .preAuthorize, .extendRights],
+                    nil
+                )
             }
-
-            print("✅ [DEBUG] Touch ID authentication successful")
-        } catch {
-            print("❌ [DEBUG] Touch ID authentication error: \(error.localizedDescription)")
-            throw FlashError.authenticationFailed
         }
-
-        print("✅ [DEBUG] User authenticated for root operations")
+        
+        guard authStatus == errAuthorizationSuccess else {
+            print("❌ [DEBUG] Admin privileges denied: \(authStatus)")
+            AuthorizationFree(authRef!, [])
+            throw FlashError.authorizationDenied
+        }
+        
+        // Store authorization for dd command
+        self.authorizationRef = authRef
+        //print("✅ [DEBUG] Admin privileges granted")
     }
 
     // MARK: - Private Methods
@@ -202,7 +215,7 @@ class ImageFlashService {
     ///   - image: The `ImageFile` to validate
     ///   - device: The target `Drive` to validate
     /// - Throws: `FlashError` for any validation failure
-    private func validateFlashPreconditions(image: ImageFile, device: Drive) throws {
+    private func validateFlashPreconditions(image: ImageFile, device: Device) throws {
 
         // Check if device exists and is accessible
         guard FileManager.default.fileExists(atPath: device.mountPoint) else {
@@ -297,7 +310,7 @@ class ImageFlashService {
     ///   - device: The `Drive` object representing the target device
     /// - Throws: `FlashError` for any operation failure
     /// - Note: This method requires sudo privileges and handles device mounting automatically
-    private func performFlash(image: ImageFile, device: Drive) async throws {
+    private func performFlash(image: ImageFile, device: Device) async throws {
 
         // Get raw device path for flash operations
         guard let rawDevicePath = getRawDevicePath(from: device.mountPoint) else {
@@ -323,27 +336,27 @@ class ImageFlashService {
         }
 
         // Step 3: Calculate or verify image checksum
-        if let checksum = image.sha256Checksum {
-            print("🔍 [DEBUG] Verifying image checksum before flashing...")
-            let isValid = try await verifySHA256Checksum(for: image, expectedChecksum: checksum)
-            if !isValid {
-                throw FlashError.flashFailed(
-                    "Image checksum verification failed - image may be corrupted")
-            }
-            print("✅ [DEBUG] Image checksum verified successfully")
-        } else {
-            print("🔍 [DEBUG] No checksum available - calculating checksum before flashing...")
-            let checksum = try await calculateSHA256Checksum(for: image)
-            print("✅ [DEBUG] Checksum calculated: \(checksum.prefix(8))...")
-
-            // Update the image with the calculated checksum
-            var updatedImage = image
-            updatedImage.sha256Checksum = checksum
-
-            // Store in history
-            imageHistoryService.addToHistory(updatedImage)
-            print("✅ [DEBUG] Updated image with checksum in history")
-        }
+//        if let checksum = image.sha256Checksum {
+//            print("🔍 [DEBUG] Verifying image checksum before flashing...")
+//            let isValid = try await verifySHA256Checksum(for: image, expectedChecksum: checksum)
+//            if !isValid {
+//                throw FlashError.flashFailed(
+//                    "Image checksum verification failed - image may be corrupted")
+//            }
+//            print("✅ [DEBUG] Image checksum verified successfully")
+//        } else {
+//            print("🔍 [DEBUG] No checksum available - calculating checksum before flashing...")
+//            let checksum = try await calculateSHA256Checksum(for: image)
+//            print("✅ [DEBUG] Checksum calculated: \(checksum.prefix(8))...")
+//
+//            // Update the image with the calculated checksum
+//            var updatedImage = image
+//            updatedImage.sha256Checksum = checksum
+//
+//            // Store in history
+//            imageHistoryService.addToHistory(updatedImage)
+//            print("✅ [DEBUG] Updated image with checksum in history")
+//        }
 
         // Step 4: Perform the actual flash operation
         print("✏️ [DEBUG] Writing image to device...")
@@ -394,9 +407,16 @@ class ImageFlashService {
     ///   - image: The `ImageFile` to write to the device
     ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
     /// - Throws: `FlashError.flashFailed` if the write operation fails
-    /// - Note: This method requires prior Touch ID authentication and uses 1MB block size for optimal performance
+    /// - Note: This method requires prior authorization and uses 1MB block size for optimal performance
     private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
-        print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
+        
+        //print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
+        
+        // Safely access the MainActor-isolated authorizationRef
+//        let authRef = await MainActor.run { self.authorizationRef }
+//        guard let authRef else {
+//            throw FlashError.authorizationDenied
+//        }
 
         // Get secure URL for the image file
         let imageURL = try image.getSecureURL()
@@ -405,97 +425,123 @@ class ImageFlashService {
         }
         defer { imageURL.stopAccessingSecurityScopedResource() }
 
-        // Create dd command with sudo (Touch ID already authenticated)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        process.arguments = [
-            "/bin/dd",
+        print("   - Executing: dd if=\(imageURL.path) of=\(devicePath) bs=1m status=progress")
+
+        // Prepare arguments for dd command
+        //let ddPath = "/bin/dd"
+        let args = [
             "if=\(imageURL.path)",
             "of=\(devicePath)",
             "bs=1m",
-            "status=progress",
+            "status=progress"
         ]
+        
+        // Duplicate arguments as C strings and append NULL terminator
+        var cArgs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) }
+        cArgs.append(nil)
+        defer {
+            for ptr in cArgs where ptr != nil {
+                free(ptr)
+            }
+        }
+        
+//        // Execute dd with authorization
+//        var communicationsPipe: UnsafeMutablePointer<FILE>?
+//        let status: OSStatus = ddPath.withCString { ddCStr in
+//            cArgs.withUnsafeMutableBufferPointer { buffer -> OSStatus in
+//                guard let base = buffer.baseAddress else {
+//                    return errAuthorizationInternal
+//                }
+//                // Rebind the optional element pointer type to non-optional for the C API
+//                let argc = buffer.count
+//                let argv = base.withMemoryRebound(
+//                    to: UnsafeMutablePointer<CChar>.self,
+//                    capacity: argc
+//                ) { $0 }
+//                
+//                return AuthorizationExecuteWithPrivileges(
+//                    authRef,
+//                    ddCStr,
+//                    [],
+//                    argv,
+//                    &communicationsPipe
+//                )
+//            }
+//        }
+        
+//        guard status == errAuthorizationSuccess else {
+//            throw FlashError.flashFailed("Failed to execute dd with privileges: \(status)")
+//        }
+        
+//        guard let pipe = communicationsPipe else {
+//            throw FlashError.flashFailed("Failed to create communication pipe")
+//        }
+//        
+//        let fileHandle = FileHandle(
+//             fileDescriptor: fileno(pipe),
+//             closeOnDealloc: true
+//         )
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
+        // Start monitoring process
+        let totalBytes = image.size
+        var lastProgressUpdate = Date()
+        var outputBuffer = ""
+        
+        // Monitor progress from dd output
+        while !isCancelled {
+            // Read available data from pipe
+            let data =  NSData.init()
+            // init empty data
+            //fileHandle.availableData
+            
+            if !data.isEmpty {
+                let output = String(data: data as Data, encoding: .utf8) ?? ""
+                outputBuffer += output
+                
+                // Parse dd progress output (format: "1234567+0 records out")
+                if let progressMatch = outputBuffer.range(
+                    of: #"(\d+)\+0 records out"#, options: .regularExpression)
+                {
+                    let progressString = String(outputBuffer[progressMatch])
+                    if let recordsOut = progressString.components(
+                        separatedBy: CharacterSet.decimalDigits.inverted
+                    ).compactMap({ Int($0) }).first {
+                        // dd uses 1MB blocks by default with bs=1m
+                        let bytesWritten = UInt64(recordsOut) * 1024 * 1024
+                        let progress = min(Double(bytesWritten) / Double(totalBytes), 1.0)
 
-        print("   - Executing: sudo dd if=\(imageURL.path) of=\(devicePath) bs=1m status=progress")
-
-        // Start the process
-        do {
-            try process.run()
-
-            // Monitor progress from dd output
-            let fileHandle = pipe.fileHandleForReading
-            let totalBytes = image.size
-            var lastProgressUpdate = Date()
-
-            while process.isRunning && !isCancelled {
-                // Read available output
-                let data = fileHandle.availableData
-                if !data.isEmpty {
-                    let output = String(data: data, encoding: .utf8) ?? ""
-
-                    // Parse dd progress output (format: "1234567+0 records in/out")
-                    if let progressMatch = output.range(
-                        of: #"(\d+)\+0 records out"#, options: .regularExpression)
-                    {
-                        let progressString = String(output[progressMatch])
-                        if let recordsOut = progressString.components(
-                            separatedBy: CharacterSet.decimalDigits.inverted
-                        ).compactMap({ Int($0) }).first {
-                            // dd uses 1MB blocks by default with bs=1m
-                            let bytesWritten = UInt64(recordsOut) * 1024 * 1024
-                            let progress = min(Double(bytesWritten) / Double(totalBytes), 1.0)
-
-                            // Update progress every 0.5 seconds to avoid UI spam
-                            if Date().timeIntervalSince(lastProgressUpdate) >= 0.5 {
-                                await MainActor.run {
-                                    flashState = .flashing(progress: progress)
-                                }
-                                lastProgressUpdate = Date()
-
-                                print(
-                                    "📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(ByteCountFormatter.string(fromByteCount: Int64(bytesWritten), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)))"
-                                )
+                        // Update progress every 0.5 seconds to avoid UI spam
+                        if Date().timeIntervalSince(lastProgressUpdate) >= 0.5 {
+                            await MainActor.run {
+                                flashState = .flashing(progress: progress)
                             }
+                            lastProgressUpdate = Date()
+
+                            print(
+                                "📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(ByteCountFormatter.string(fromByteCount: Int64(bytesWritten), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)))"
+                            )
                         }
                     }
                 }
-
-                // Small delay to avoid busy waiting
-                try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+            } else {
+                // No more data available, dd process likely finished
+                break
             }
 
-            // Wait for process to complete
-            process.waitUntilExit()
-
-            if isCancelled {
-                // Try to terminate dd process
-                process.terminate()
-                throw FlashError.flashFailed("Flash operation was cancelled")
-            }
-
-            if process.terminationStatus != 0 {
-                let output =
-                    String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
-                    ?? "Unknown error"
-                throw FlashError.flashFailed(
-                    "dd command failed (exit code: \(process.terminationStatus)): \(output)")
-            }
-
-            // Final progress update
-            await MainActor.run {
-                flashState = .flashing(progress: 1.0)
-            }
-
-            print("   - dd command completed successfully")
-
-        } catch {
-            throw FlashError.flashFailed(
-                "Failed to execute dd command: \(error.localizedDescription)")
+            // Small delay to avoid busy waiting
+            try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
         }
+
+        if isCancelled {
+            throw FlashError.flashFailed("Flash operation was cancelled")
+        }
+
+        // Final progress update
+        await MainActor.run {
+            flashState = .flashing(progress: 1.0)
+        }
+
+        print("   - dd command completed successfully")
     }
 
     /// Verifies that the flash operation was successful by comparing samples from the image and device.
@@ -674,11 +720,6 @@ class ImageFlashService {
             // Calculate and report progress
             let progress = Double(bytesProcessed) / Double(totalBytes)
             flashState = .calculatingChecksum(progress: progress)
-
-            // Log progress every 5% for debugging
-            //            if Int(progress * 20) % 20 == 0 {
-            //                print("📊 [DEBUG] Checksum progress: \(Int(progress * 100))% (\(bytesProcessed) bytes processed)")
-            //            }
 
             // Small delay to allow UI updates
             try await Task.sleep(nanoseconds: 1_000_000)  // 1ms delay

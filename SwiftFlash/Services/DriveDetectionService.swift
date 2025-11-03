@@ -71,7 +71,7 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
         //defer { isScanning = false }
         
         // Get system boot device to exclude it
-        let systemBootDevice = getSystemBootDevice()
+        //let systemBootDevice = getSystemBootDevice()
         
         // Get devices from IOKit
         let devices = getExternalStorageDevices()
@@ -244,16 +244,16 @@ extension DriveDetectionService {
         let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String ?? Device.generateStableDeviceID(from: daDesc ?? [:])
         
         // Create a Device object first to check if it's a disk image
-        let device = Device(
-            devicePath: devicePath,
-            isRemovable: isRemovable,
-            isEjectable: isEjectable,
-            isReadOnly: isReadOnly,
-            isSystemDrive: false,
-            diskDescription: daDesc,
-            partitions: partitions,
-            inventoryItem: nil  // Will be set after inventory check
-        )
+//        let device = Device(
+//            devicePath: devicePath,
+//            isRemovable: isRemovable,
+//            isEjectable: isEjectable,
+//            isReadOnly: isReadOnly,
+//            isSystemDrive: false,
+//            diskDescription: daDesc,
+//            partitions: partitions,
+//            inventoryItem: nil  // Will be set after inventory check
+//        )
         
         // Check if we have this device in inventory (only for non-disk-image devices)
         var inventoryItem: DeviceInventoryItem? = nil
