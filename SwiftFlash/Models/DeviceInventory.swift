@@ -19,6 +19,7 @@ struct DeviceInventoryItem: Codable, Identifiable {
     var deviceType: DeviceType
     var vendor: String?
     var revision: String?
+    var deviceProtocol: String?
 
     var displayName: String {
         return name ?? mediaName
@@ -55,6 +56,9 @@ struct DeviceInventoryItem: Codable, Identifiable {
         self.revision = revision
     }
     
+
+    
+    
     /// Creates a DeviceInventoryItem from a Device (for new devices)
     init(from device: Device) {
         self.mediaUUID = device.mediaUUID
@@ -76,7 +80,7 @@ class DeviceInventory: ObservableObject, DeviceInventoryManager {
     @Published var devices: [DeviceInventoryItem] = []
     
     private let userDefaults = UserDefaults.standard
-    private let inventoryKey = "DeviceInventory"
+    private let inventoryKey = "DeviceInventory"  // TODO add comment
     
     init() {
         
@@ -89,7 +93,7 @@ class DeviceInventory: ObservableObject, DeviceInventoryManager {
             let expandedPath = (userDefaultsPath as NSString).expandingTildeInPath
             let fileManager = FileManager.default
             if fileManager.fileExists(atPath: expandedPath) {
-                print("✅ [DEBUG] UserDefaults file exists at: \(expandedPath)")
+                //print("✅ [DEBUG] UserDefaults file exists at: \(expandedPath)")
             } else {
                 print("⚠️ [DEBUG] UserDefaults file does not exist yet at: \(expandedPath)")
             }
@@ -97,6 +101,52 @@ class DeviceInventory: ObservableObject, DeviceInventoryManager {
         
         loadInventory()
     }
+    
+    func addDevice(mediaUUID: String,
+                   size: Int64,
+                   originalName: String,
+                   diskDescription : [String: Any]?) {
+        let now = Date()
+        
+        let deviceType = DeviceType.unknown
+        
+        let vendor = diskDescription?[kDADiskDescriptionDeviceVendorKey as String] as? String
+        let revision = diskDescription?[kDADiskDescriptionDeviceRevisionKey as String] as? String
+        
+        // Add new device
+        let newDevice = DeviceInventoryItem(
+            mediaUUID: mediaUUID,
+            size: size,
+            mediaName: originalName,
+            name: nil,
+            firstSeen: now,
+            lastSeen: now,
+            deviceType: deviceType,
+            vendor: vendor,
+            revision: revision
+        )
+        
+        devices.append(newDevice)
+        print("➕ [INVENTORY] Added: \(originalName)")
+        
+        saveInventory()
+
+    }
+
+    func updateDeviceLastSeen(mediaUUID: String) {
+   
+        if let existingIndex = devices.firstIndex(where: { $0.mediaUUID == mediaUUID }) {
+            let now = Date()
+            // Update existing device
+            var updatedDevice = devices[existingIndex]
+            updatedDevice.lastSeen = now
+            devices[existingIndex] = updatedDevice
+            //print("📝 [INVENTORY] Updated: \(originalName)")
+        } else {
+            print("⚠️ [DEBUG] Device was not found. UUID:\(mediaUUID) ")
+        }
+    }
+    
     
     /// Adds or updates a device in the inventory
     func addOrUpdateDevice(

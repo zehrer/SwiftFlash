@@ -40,17 +40,14 @@ struct DropZoneView: View {
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             guard let provider = providers.first else { return false }
             
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+            _ = provider.loadObject(ofClass: URL.self) { url, error in
                 if let error = error {
                     print("Error loading dropped file: \(error)")
                     return
                 }
-                
-                guard let data = item as? Data,
-                      let url = URL(dataRepresentation: data, relativeTo: nil) else {
-                    return
-                }
-                
+
+                guard let url else { return }
+
                 DispatchQueue.main.async {
                     onDrop(url)
                 }

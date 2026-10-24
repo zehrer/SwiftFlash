@@ -5,14 +5,19 @@
 //  Main business logic model for device operations and runtime properties.
 //  This struct acts as a wrapper around DeviceInventoryItem to avoid data duplication
 //  and provides a unified interface for device operations throughout the application.
-//  It combines the functionality of the previous Device and Drive models.
 //
 
 import DiskArbitration
 import Foundation
 
-// Compatibility alias for legacy code paths using Drive
-typealias Drive = Device
+func dumpDiskDescriptionKeys(for disk: DADisk) {
+    guard let dict = DADiskCopyDescription(disk) as? [String: Any] else { return }
+    for (k, v) in dict.sorted(by: { $0.key < $1.key }) {
+        print("\(k) = \(type(of: v)) -> \(v)")
+    }
+}
+
+
 
 /// Main business logic model for device operations and runtime properties
 /// This struct contains all non-optional properties and handles device operations
@@ -50,14 +55,13 @@ struct Device: Identifiable, Hashable {
         set { inventoryItem?.lastSeen = newValue }
     }
 
-
     // MARK: - Runtime Properties (non-optional, Device-specific)
     let devicePath: String
     let isRemovable: Bool
     let isEjectable: Bool
     let isReadOnly: Bool
     let isSystemDrive: Bool
-    let diskDescription: [String: Any]?
+    let diskDescription: DiskDescription
     let partitions: [PartitionInfo]
 
     // Compatibility alias for legacy code using Drive.mountPoint
@@ -93,7 +97,7 @@ struct Device: Identifiable, Hashable {
     // MARK: - Disk Arbitration Computed Properties
     // These properties provide direct access to Disk Arbitration data
     // They replace the previous DeviceInfo properties
-    var daMediaUUID: String? { daString(kDADiskDescriptionMediaUUIDKey as String) }
+    var daMediaUUID: String? { diskDescription.mediaUUID }
 
     // MARK: - Derived Properties
     var isMainDevice: Bool {
@@ -218,7 +222,7 @@ struct Device: Identifiable, Hashable {
         self.isEjectable = isEjectable
         self.isReadOnly = isReadOnly
         self.isSystemDrive = isSystemDrive
-        self.diskDescription = diskDescription
+        self.diskDescription = DiskDescription(diskDescription)
         self.partitions = partitions
         self.inventoryItem = inventoryItem
     }
@@ -234,7 +238,7 @@ struct Device: Identifiable, Hashable {
         self.isEjectable = isEjectable
         self.isReadOnly = isReadOnly
         self.isSystemDrive = isSystemDrive
-        self.diskDescription = diskDescription
+        self.diskDescription = DiskDescription(diskDescription)
         self.partitions = partitions
         self.inventoryItem = inventoryItem
     }
@@ -251,18 +255,17 @@ struct Device: Identifiable, Hashable {
     /// Generates a stable device identifier from Disk Arbitration data
     /// This is used when no inventory item exists yet
     private func generateStableDeviceID() -> String {
-        guard let diskDescription = diskDescription else { return "" }
         return Device.generateStableDeviceID(from: diskDescription)
     }
 
     /// Static helper to generate a stable device identifier from a Disk Arbitration description dictionary.
     /// Used by detection services to correlate devices when DA media UUID is unavailable.
-    static func generateStableDeviceID(from diskDescription: [String: Any]) -> String {
-        let deviceVendor =
-            diskDescription[kDADiskDescriptionDeviceVendorKey as String] as? String ?? "Unknown"
-        let deviceRevision =
-            diskDescription[kDADiskDescriptionDeviceRevisionKey as String] as? String ?? "Unknown"
-        let mediaSize = diskDescription[kDADiskDescriptionMediaSizeKey as String] as? Int64 ?? 0
+    static func generateStableDeviceID(from disk: DiskDescription) -> String {
+        
+        let deviceVendor = disk.deviceVendor ?? "Unknown"
+        let deviceRevision = disk.deviceRevision ?? "Unknown"
+        
+        let mediaSize = disk.mediaSize ?? 0
 
         // Get first 4 digits of media size
         let mediaSizeString = String(mediaSize)
@@ -280,69 +283,56 @@ struct Device: Identifiable, Hashable {
 // MARK: - Disk Arbitration accessors
 
 extension Device {
-    private func daString(_ key: String) -> String? {
-        guard let value = diskDescription?[key] as? String, !value.isEmpty else { return nil }
-        return value
-    }
 
     /// DADeviceProtocol (e.g., "USB", "SATA")
-    var daDeviceProtocol: String? { daString(kDADiskDescriptionDeviceProtocolKey as String) }
+    var daDeviceProtocol: String? { diskDescription.deviceProtocol }
 
     /// Device model from Disk Arbitration.
-    var daDeviceModel: String? { daString(kDADiskDescriptionDeviceModelKey as String) }
+    var daDeviceModel: String? { diskDescription.deviceModel }
 
     /// Vendor from Disk Arbitration.
-    var daVendor: String? { daString(kDADiskDescriptionDeviceVendorKey as String) }
+    var daVendor: String? { diskDescription.deviceVendor }
 
     /// Revision from Disk Arbitration.
-    var daRevision: String? { daString(kDADiskDescriptionDeviceRevisionKey as String) }
+    var daRevision: String? { diskDescription.deviceRevision }
 
     /// Media name from Disk Arbitration.
-    var daMediaName: String? { daString(kDADiskDescriptionMediaNameKey as String) }
+    var daMediaName: String? { diskDescription.mediaName }
 
     /// Volume name from Disk Arbitration.
     var daVolumeName: String? {
-        daString(kDADiskDescriptionVolumeNameKey as String)
-            ?? daString(kDADiskDescriptionMediaNameKey as String)
+        diskDescription.volumeName ?? diskDescription.mediaName
     }
 
     /// Volume/filesystem kind, if available (e.g. "apfs", "msdos").
     var daVolumeKind: String? {
-        daString(kDADiskDescriptionVolumeKindKey as String)
-            ?? daString(kDADiskDescriptionMediaKindKey as String)
+        diskDescription.volumeKind ?? diskDescription.mediaKind
+
     }
 
     /// Volume mount path as string, if available.
     var daVolumePath: String? {
-        if let url = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? URL {
-            return url.path
-        }
-        if let path = diskDescription?[kDADiskDescriptionVolumePathKey as String] as? String {
-            return path
-        }
-        return nil
+        diskDescription.volumePath
     }
 
     /// Device name derived from Disk Arbitration with fallback chain.
     /// Tries: DAVolumeName → DAMediaName → DADeviceModel → DADeviceProtocol → Vendor+Product
     var daDeviceName: String? {
         // Try volume name first
-        if let volumeName = daString(kDADiskDescriptionVolumeNameKey as String) {
-            return volumeName
-        }
+        if let volumeName = diskDescription.volumeName { return volumeName }
+        
         // Try media name
-        if let mediaName = daString(kDADiskDescriptionMediaNameKey as String) { return mediaName }
+        if let mediaName = diskDescription.mediaName { return mediaName }
+        
         // Try device model
-        if let deviceModel = daString(kDADiskDescriptionDeviceModelKey as String) {
-            return deviceModel
-        }
+        if let deviceModel = diskDescription.deviceModel { return deviceModel }
+        
         // Try device protocol
-        if let deviceProtocol = daString(kDADiskDescriptionDeviceProtocolKey as String) {
-            return deviceProtocol
-        }
+        if let deviceProtocol = diskDescription.deviceProtocol { return deviceProtocol }
+        
         // Try vendor + product combination
-        if let vendor = daString(kDADiskDescriptionDeviceVendorKey as String),
-            let product = diskDescription?["DADeviceProduct"] as? String
+        if let vendor = diskDescription.deviceVendor,
+            let product = diskDescription.dictionary?["DADeviceProduct"] as? String
         {
             return "\(vendor) \(product)"
         }
@@ -360,7 +350,7 @@ extension Device {
         /// need to inspect raw DA metadata without re-querying the system. This uses
         /// the captured `diskDescription` stored on the model.
         func logDiskDescription() {
-            guard let desc = diskDescription, !desc.isEmpty else {
+            guard let desc = diskDescription.dictionary, !desc.isEmpty else {
                 print("[Device][DA] No diskDescription captured for: \(devicePath)")
                 return
             }
@@ -371,3 +361,4 @@ extension Device {
         }
     }
 #endif
+

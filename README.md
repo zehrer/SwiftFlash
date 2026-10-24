@@ -12,6 +12,8 @@
     - The app provide and inventory of all externale devices and the user can define a name and a type.
     - A automatic type detection is for the moment not possibe as related informaton are missing. 
      **SHA256 Checksum** - Generate and store integrity checksums
+    - USB sticks and USB flash card readers are destinglished as externale devices. The app try to detect if a device is a USB stick or a USB flash card reader. Therefore the device type  card reader is defined as externale device.
+
 - **LocalAuthentication** to provide access to root rights (flash is only possible under root)
 
 

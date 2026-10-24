@@ -15,7 +15,9 @@ enum DeviceType: String, CaseIterable, Codable {
     case microSDCard = "microSD Card"
     case externalHDD = "external HDD"
     case externalSSD = "external SSD"
+    //case usbCardReader = "USB Card Reader"
     case unknown = "unknown"
+    
     
     /// Returns the appropriate SF Symbol icon name for this device type
     /// Icons defined by DATA-009 requirement in notes/requirements_specification.md

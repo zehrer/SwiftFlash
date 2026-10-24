@@ -17,7 +17,7 @@
 - change build number based on tagged releases (git describe --tags --long)
 - improve usage of Disk Arbitration Framework 
     - use it for mount and unmount
-    - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey")
+    - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey") 
 - add log view within the app itself (include related log leven / menu / icon / filter ...) and build a os.Logger wrapper
 - Add quality code indicators (including test code coverage)
 - Fix / reduce Waning during startup in BookmarkManager
