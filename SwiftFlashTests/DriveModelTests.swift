@@ -25,9 +25,9 @@ final class DriveModelTests: XCTestCase {
     // MARK: - Helper Methods
     
     /// Finds an available external USB device for testing
-    /// - Returns: Drive instance if found, nil otherwise
+    /// - Returns: Device instance if found, nil otherwise
     @MainActor
-    private func findTestDevice() -> Drive? {
+    private func findTestDevice() -> Device? {
         print("🔍 Scanning for available test devices...")
         
         // Check common external device paths

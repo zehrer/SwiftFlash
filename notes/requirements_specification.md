@@ -314,8 +314,12 @@ NavigationSplitView {
 **Requirement**: App MUST integrate properly with macOS system services
 - **Disk Arbitration**: Real-time mount/unmount notifications
 - **IOKit**: Hardware device enumeration and properties
-- **Security**: Sandbox compliance, no privileged operations
-- **Permissions**: Request file access permissions as needed
+- **Security**: Raw disk access requires root. It MUST be isolated in a privileged helper daemon
+  (`SwiftFlashHelper`, registered via `SMAppService`, reached over XPC). The app itself MUST NOT run
+  as root. The helper MUST only accept connections from the correctly signed app, and MUST refuse
+  targets that are not removable/ejectable whole disks.
+- **Permissions**: Request file access permissions as needed. The user approves the helper once in
+  System Settings → General → Login Items & Extensions.
 
 #### NFR-003: System Resource Requirements
 - **Memory**: < 50MB baseline, < 200MB during flash operations

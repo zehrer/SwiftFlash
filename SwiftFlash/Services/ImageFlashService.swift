@@ -1,10 +1,5 @@
-import Combine
 import CryptoKit
-import DiskArbitration
 import Foundation
-import IOKit
-import LocalAuthentication
-import Security
 import SwiftUI
 
 // MARK: - CRITICAL ERROR ENUM (DO NOT MODIFY - Flash error definitions)
@@ -68,7 +63,7 @@ class ImageFlashService {
     private var isCancelled: Bool = false
 
     private let imageHistoryService: any ImageHistoryServiceProtocol
-    @MainActor private var authorizationRef: AuthorizationRef?
+    private let helperClient = PrivilegedHelperClient()
 
     init(imageHistoryService: any ImageHistoryServiceProtocol) {
         self.imageHistoryService = imageHistoryService
@@ -80,18 +75,18 @@ class ImageFlashService {
     ///
     /// This method performs the complete flash operation including:
     /// - Precondition validation (device accessibility, image compatibility, etc.)
-    /// - Touch ID authentication for root privileges
+    /// - Registration/approval check of the privileged helper (root access)
     /// - Checksum calculation/verification
     /// - Device unmounting/mounting as needed
-    /// - Image writing using `dd` with authorized root privileges
+    /// - Image writing through the privileged helper
     /// - Flash verification
     /// - Progress state management
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to flash to the device
-    ///   - device: The target `Drive` to flash the image to
+    ///   - device: The target `Device` to flash the image to
     /// - Throws: `FlashError` for various failure conditions (device not found, insufficient permissions, etc.)
-    /// - Note: This method requires Touch ID authentication for root privileges
+    /// - Note: The privileged helper must be allowed once in System Settings → Login Items & Extensions
     func flashImage(_ image: ImageFile, to device: Device) async throws {
         guard !isFlashing else {
             throw FlashError.deviceBusy
@@ -100,11 +95,12 @@ class ImageFlashService {
         // Validate preconditions
         try validateFlashPreconditions(image: image, device: device)
 
+        isCancelled = false
         isFlashing = true
         flashState = .preparing
 
         do {
-            // Authenticate with Touch ID for root privileges
+            // Make sure the privileged helper (root access) is available
             flashState = .authenticating
             try await authenticateForRootPrivileges()
 
@@ -138,66 +134,24 @@ class ImageFlashService {
     /// The state will be reset when the operation completes.
     func cancel() {
         isCancelled = true
+        helperClient.cancel()
         // Don't reset state immediately - let the operation check the flag and handle cancellation
         // The state will be reset when the operation completes or throws due to cancellation
     }
 
     // MARK: - Authentication Methods
 
-    /// Requests admin privileges using AuthorizationServices for dd command execution.
+    /// Makes sure the privileged helper daemon is registered and approved.
     ///
-    /// This method uses the macOS AuthorizationServices framework to request
-    /// administrator privileges needed for the dd command. This will show
-    /// the system authentication dialog (password, Touch ID, or Apple Watch).
+    /// Raw disk access needs root. Instead of running `dd` through deprecated
+    /// Authorization Services, the app talks to a root launch daemon
+    /// (`SwiftFlashHelper`) over XPC. The first run registers the daemon, which the
+    /// user has to allow once in System Settings → Login Items & Extensions.
     ///
-    /// - Throws: `FlashError.authenticationFailed` if authorization fails
-    /// - Note: This method requires user interaction for admin authentication
+    /// - Throws: `FlashError.flashFailed` with instructions if the helper is not usable
     private func authenticateForRootPrivileges() async throws {
-        print("🔐 [DEBUG] Requesting admin privileges for dd command...")
-        
-        // Create authorization reference
-        var authRef: AuthorizationRef?
-        let status = AuthorizationCreate(nil, nil, [], &authRef)
-        
-        guard status == errAuthorizationSuccess else {
-            print("❌ [DEBUG] Failed to create authorization reference: \(status)")
-            throw FlashError.authenticationFailed
-        }
-        
-        // Define the privilege we need
-        let authStatus = "system.privilege.admin".withCString { namePtr in
-            var authItem = AuthorizationItem(
-                name: namePtr,
-                valueLength: 0,
-                value: nil,
-                flags: 0
-            )
-            
-            return withUnsafeMutablePointer(to: &authItem) { itemPtr in
-                var authRights = AuthorizationRights(
-                    count: 1,
-                    items: itemPtr
-                )
-                
-                return AuthorizationCopyRights(
-                    authRef!,
-                    &authRights,
-                    nil,
-                    [.interactionAllowed, .preAuthorize, .extendRights],
-                    nil
-                )
-            }
-        }
-        
-        guard authStatus == errAuthorizationSuccess else {
-            print("❌ [DEBUG] Admin privileges denied: \(authStatus)")
-            AuthorizationFree(authRef!, [])
-            throw FlashError.authorizationDenied
-        }
-        
-        // Store authorization for dd command
-        self.authorizationRef = authRef
-        //print("✅ [DEBUG] Admin privileges granted")
+        print("🔐 [DEBUG] Checking privileged helper...")
+        try helperClient.ensureHelperEnabled()
     }
 
     // MARK: - Private Methods
@@ -213,7 +167,7 @@ class ImageFlashService {
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to validate
-    ///   - device: The target `Drive` to validate
+    ///   - device: The target `Device` to validate
     /// - Throws: `FlashError` for any validation failure
     private func validateFlashPreconditions(image: ImageFile, device: Device) throws {
 
@@ -299,17 +253,16 @@ class ImageFlashService {
     ///
     /// This method orchestrates the entire flash process:
     /// - Converts device mount point to raw device path
-    /// - Sudo availability verification
     /// - Device mount state management (unmount/remount as needed)
     /// - Image checksum calculation or verification
-    /// - Image writing using `dd` with progress tracking
+    /// - Image writing through the privileged helper with progress tracking
     /// - Flash verification
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to flash
-    ///   - device: The `Drive` object representing the target device
+    ///   - device: The `Device` object representing the target device
     /// - Throws: `FlashError` for any operation failure
-    /// - Note: This method requires sudo privileges and handles device mounting automatically
+    /// - Note: Root access is provided by the privileged helper; device mounting is handled automatically
     private func performFlash(image: ImageFile, device: Device) async throws {
 
         // Get raw device path for flash operations
@@ -318,9 +271,6 @@ class ImageFlashService {
                 "Could not determine raw device path for: \(device.mountPoint)")
         }
         //print("   - Raw Device Path: \(rawDevicePath)")
-
-        // Root privileges are already obtained via Touch ID authentication
-        print("✅ [DEBUG] Root privileges available via Touch ID")
 
         // Step 1: Check if device is mounted
         let isMounted = isDeviceMounted(device.mountPoint)
@@ -394,242 +344,64 @@ class ImageFlashService {
 
     // REMOVED: mountDevice() method - now using Drive.mountDevice() which follows same reliable pattern
 
-    /// Writes an image file to a device using the `dd` command with authorized root privileges.
+    /// Writes an image file to a device through the privileged helper.
     ///
-    /// This method handles the core flash operation:
-    /// - Secures access to the image file using security-scoped bookmarks
-    /// - Executes `dd` with authorized root privileges for raw device access
-    /// - Monitors progress by parsing `dd` output
-    /// - Updates the flash state with progress information
-    /// - Handles cancellation gracefully
+    /// The app opens the image (security-scoped access) and hands the file handle to the
+    /// root helper, which unmounts the disk, writes it to the raw device and reports progress.
     ///
     /// - Parameters:
     ///   - image: The `ImageFile` to write to the device
     ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
-    /// - Throws: `FlashError.flashFailed` if the write operation fails
-    /// - Note: This method requires prior authorization and uses 1MB block size for optimal performance
+    /// - Throws: `FlashError.flashFailed` if the write operation fails or is cancelled
     private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
-        
-        //print("   - Writing \(image.formattedSize) to \(devicePath) using dd")
-        
-        // Safely access the MainActor-isolated authorizationRef
-//        let authRef = await MainActor.run { self.authorizationRef }
-//        guard let authRef else {
-//            throw FlashError.authorizationDenied
-//        }
-
-        // Get secure URL for the image file
         let imageURL = try image.getSecureURL()
         guard imageURL.startAccessingSecurityScopedResource() else {
             throw FlashError.flashFailed("Cannot access image file")
         }
         defer { imageURL.stopAccessingSecurityScopedResource() }
 
-        print("   - Executing: dd if=\(imageURL.path) of=\(devicePath) bs=1m status=progress")
+        let imageHandle = try FileHandle(forReadingFrom: imageURL)
+        defer { try? imageHandle.close() }
 
-        // Prepare arguments for dd command
-        //let ddPath = "/bin/dd"
-        let args = [
-            "if=\(imageURL.path)",
-            "of=\(devicePath)",
-            "bs=1m",
-            "status=progress"
-        ]
-        
-        // Duplicate arguments as C strings and append NULL terminator
-        var cArgs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) }
-        cArgs.append(nil)
-        defer {
-            for ptr in cArgs where ptr != nil {
-                free(ptr)
-            }
-        }
-        
-//        // Execute dd with authorization
-//        var communicationsPipe: UnsafeMutablePointer<FILE>?
-//        let status: OSStatus = ddPath.withCString { ddCStr in
-//            cArgs.withUnsafeMutableBufferPointer { buffer -> OSStatus in
-//                guard let base = buffer.baseAddress else {
-//                    return errAuthorizationInternal
-//                }
-//                // Rebind the optional element pointer type to non-optional for the C API
-//                let argc = buffer.count
-//                let argv = base.withMemoryRebound(
-//                    to: UnsafeMutablePointer<CChar>.self,
-//                    capacity: argc
-//                ) { $0 }
-//                
-//                return AuthorizationExecuteWithPrivileges(
-//                    authRef,
-//                    ddCStr,
-//                    [],
-//                    argv,
-//                    &communicationsPipe
-//                )
-//            }
-//        }
-        
-//        guard status == errAuthorizationSuccess else {
-//            throw FlashError.flashFailed("Failed to execute dd with privileges: \(status)")
-//        }
-        
-//        guard let pipe = communicationsPipe else {
-//            throw FlashError.flashFailed("Failed to create communication pipe")
-//        }
-//        
-//        let fileHandle = FileHandle(
-//             fileDescriptor: fileno(pipe),
-//             closeOnDealloc: true
-//         )
-
-        // Start monitoring process
         let totalBytes = image.size
-        var lastProgressUpdate = Date()
-        var outputBuffer = ""
-        
-        // Monitor progress from dd output
-        while !isCancelled {
-            // Read available data from pipe
-            let data =  NSData.init()
-            // init empty data
-            //fileHandle.availableData
-            
-            if !data.isEmpty {
-                let output = String(data: data as Data, encoding: .utf8) ?? ""
-                outputBuffer += output
-                
-                // Parse dd progress output (format: "1234567+0 records out")
-                if let progressMatch = outputBuffer.range(
-                    of: #"(\d+)\+0 records out"#, options: .regularExpression)
-                {
-                    let progressString = String(outputBuffer[progressMatch])
-                    if let recordsOut = progressString.components(
-                        separatedBy: CharacterSet.decimalDigits.inverted
-                    ).compactMap({ Int($0) }).first {
-                        // dd uses 1MB blocks by default with bs=1m
-                        let bytesWritten = UInt64(recordsOut) * 1024 * 1024
-                        let progress = min(Double(bytesWritten) / Double(totalBytes), 1.0)
+        print("   - Writing \(image.formattedSize) to \(devicePath) via privileged helper")
 
-                        // Update progress every 0.5 seconds to avoid UI spam
-                        if Date().timeIntervalSince(lastProgressUpdate) >= 0.5 {
-                            await MainActor.run {
-                                flashState = .flashing(progress: progress)
-                            }
-                            lastProgressUpdate = Date()
-
-                            print(
-                                "📊 [DEBUG] Flash progress: \(Int(progress * 100))% (\(ByteCountFormatter.string(fromByteCount: Int64(bytesWritten), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)))"
-                            )
-                        }
-                    }
-                }
-            } else {
-                // No more data available, dd process likely finished
-                break
+        try await helperClient.writeImage(
+            imageHandle, imageSize: totalBytes, devicePath: devicePath
+        ) { [weak self] done, total in
+            let progress = total > 0 ? min(Double(done) / Double(total), 1.0) : 0
+            Task { @MainActor in
+                self?.flashState = .flashing(progress: progress)
             }
-
-            // Small delay to avoid busy waiting
-            try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
         }
 
         if isCancelled {
             throw FlashError.flashFailed("Flash operation was cancelled")
         }
 
-        // Final progress update
-        await MainActor.run {
-            flashState = .flashing(progress: 1.0)
-        }
-
-        print("   - dd command completed successfully")
+        flashState = .flashing(progress: 1.0)
+        print("   - Image written successfully")
     }
 
-    /// Verifies that the flash operation was successful by comparing samples from the image and device.
-    ///
-    /// This method performs verification by:
-    /// - Extracting the first 1MB from both the original image and the flashed device
-    /// - Comparing the samples to ensure they match
-    /// - Using `dd` commands for both extraction operations
-    /// - Cleaning up temporary files after verification
+    /// Verifies the flash by letting the helper read the whole device back and compare it
+    /// byte for byte with the image.
     ///
     /// - Parameters:
     ///   - image: The original `ImageFile` to compare against
     ///   - devicePath: The raw device path to verify (e.g., `/dev/rdisk4`)
-    /// - Throws: `FlashError.flashFailed` if verification fails or samples don't match
-    /// - Note: This method requires authorized root privileges for device access and creates temporary files
+    /// - Throws: `FlashError.flashFailed` if verification fails or data does not match
     private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
-        print("   - Verifying flash operation using dd...")
-
-        // Create temporary files for comparison
-        let tempDir = FileManager.default.temporaryDirectory
-        let imageSamplePath = tempDir.appendingPathComponent("image_sample.bin")
-        let deviceSamplePath = tempDir.appendingPathComponent("device_sample.bin")
-
-        // Get secure URL for the image file
         let imageURL = try image.getSecureURL()
         guard imageURL.startAccessingSecurityScopedResource() else {
             throw FlashError.flashFailed("Cannot access image file for verification")
         }
         defer { imageURL.stopAccessingSecurityScopedResource() }
 
-        // Extract first 1MB from image using dd
-        let imageProcess = Process()
-        imageProcess.executableURL = URL(fileURLWithPath: "/bin/dd")
-        imageProcess.arguments = [
-            "if=\(imageURL.path)",
-            "of=\(imageSamplePath.path)",
-            "bs=1m",
-            "count=1",
-        ]
+        let imageHandle = try FileHandle(forReadingFrom: imageURL)
+        defer { try? imageHandle.close() }
 
-        do {
-            try imageProcess.run()
-            imageProcess.waitUntilExit()
-
-            if imageProcess.terminationStatus != 0 {
-                throw FlashError.flashFailed("Failed to extract image sample for verification")
-            }
-        } catch {
-            throw FlashError.flashFailed(
-                "Failed to execute dd for image verification: \(error.localizedDescription)")
-        }
-
-        // Extract first 1MB from device using dd with sudo
-        let deviceProcess = Process()
-        deviceProcess.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        deviceProcess.arguments = [
-            "/bin/dd",
-            "if=\(devicePath)",
-            "of=\(deviceSamplePath.path)",
-            "bs=1m",
-            "count=1",
-        ]
-
-        do {
-            try deviceProcess.run()
-            deviceProcess.waitUntilExit()
-
-            if deviceProcess.terminationStatus != 0 {
-                throw FlashError.flashFailed("Failed to extract device sample for verification")
-            }
-        } catch {
-            throw FlashError.flashFailed(
-                "Failed to execute dd for device verification: \(error.localizedDescription)")
-        }
-
-        // Compare the files
-        let imageData = try Data(contentsOf: imageSamplePath)
-        let deviceData = try Data(contentsOf: deviceSamplePath)
-
-        // Clean up temporary files
-        try? FileManager.default.removeItem(at: imageSamplePath)
-        try? FileManager.default.removeItem(at: deviceSamplePath)
-
-        // Compare
-        if imageData != deviceData {
-            throw FlashError.flashFailed("Flash verification failed - data mismatch in first 1MB")
-        }
-
+        try await helperClient.verifyImage(
+            imageHandle, imageSize: image.size, devicePath: devicePath)
         print("   - Verification successful")
     }
 

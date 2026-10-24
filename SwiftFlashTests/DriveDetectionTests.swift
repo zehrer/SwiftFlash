@@ -163,7 +163,7 @@ final class DriveDetectionTests: XCTestCase {
         // 2. Disk Arbitration queries (gets device metadata)
         // 3. System boot device detection (to exclude internal drives)
         // 4. Disk image filtering (the main focus of this test)
-        let drives = await service.detectDrives()
+        let drives = service.detectDrives()
         
         // VALIDATE: Ensure we have actual drives to test against
         // If no external drives are connected, we can't meaningfully test the filtering
