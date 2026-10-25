@@ -8,6 +8,8 @@
     - show a clear UI hint (instead of an error) when the helper still needs approval in System Settings
     - handle outdated helper after app update (unregister/register or version check)
     - verification currently re-reads the whole device; add progress phase "verifying" to the UI
+- `.img.xz` support is implemented (decompress to temp file, then flash); open: manual test with a real
+  Raspberry Pi OS image, stream directly to the helper to avoid the temp file, other formats (`.gz`, `.zst`, `.bz2`, `.zip`)
 - `FlashError.authenticationFailed` / `.authorizationDenied` are no longer thrown (Touch ID / Authorization Services
   were replaced by the helper); clean up the enum and its texts
 - Decide whether the checksum check before flashing (commented out in `ImageFlashService.performFlash`) comes back

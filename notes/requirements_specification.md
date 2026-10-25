@@ -196,7 +196,7 @@ class ImageFlashService {
 
 #### FR-003: Image File Validation Requirements
 **Requirement**: Service MUST validate and analyze image files
-- **Format Support**: .img, .iso, .dmg, .raw formats
+- **Format Support**: .img, .iso, .dmg, .raw formats, and xz-compressed images (.img.xz, decompressed to a temporary file before flashing)
 - **Metadata Extraction**: Size, checksum, partition scheme detection
 - **Integrity Checks**: File corruption detection
 - **Compatibility**: Drive size and format compatibility

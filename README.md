@@ -20,6 +20,9 @@
 ## Supported File Formats
 
 - `.iso` - ISO disk images
+- `.img` - Raw disk images
+- `.img.xz` - xz-compressed raw images (e.g. Raspberry Pi OS). They are decompressed to a temporary file
+  before flashing, so free disk space of at least the uncompressed size is required.
 
 ## System Requirements
 

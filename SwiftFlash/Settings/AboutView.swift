@@ -44,7 +44,7 @@ struct AboutView: View {
                     
                     // Description
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("A lightweight, native macOS application for flashing .img and .iso files to USB drives.")
+                        Text("A lightweight, native macOS application for flashing .img, .iso and compressed .img.xz files to USB drives.")
                             .font(.body)
                             .foregroundColor(.secondary)
                         

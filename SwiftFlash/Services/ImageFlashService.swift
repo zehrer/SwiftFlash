@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import SwiftUI
+import os
 
 // MARK: - CRITICAL ERROR ENUM (DO NOT MODIFY - Flash error definitions)
 // This enum defines all possible flash operation errors and their descriptions.
@@ -52,6 +53,7 @@ class ImageFlashService {
         case idle
         case preparing
         case authenticating
+        case decompressing(progress: Double)
         case calculatingChecksum(progress: Double)
         case flashing(progress: Double)
         case completed
@@ -61,6 +63,8 @@ class ImageFlashService {
     var flashState: FlashState = .idle
     var isFlashing: Bool = false
     private var isCancelled: Bool = false
+    /// Cancellation flag readable from the background decompression task.
+    private let decompressionCancelled = OSAllocatedUnfairLock(initialState: false)
 
     private let imageHistoryService: any ImageHistoryServiceProtocol
     private let helperClient = PrivilegedHelperClient()
@@ -96,6 +100,7 @@ class ImageFlashService {
         try validateFlashPreconditions(image: image, device: device)
 
         isCancelled = false
+        decompressionCancelled.withLock { $0 = false }
         isFlashing = true
         flashState = .preparing
 
@@ -125,6 +130,7 @@ class ImageFlashService {
         flashState = .idle
         isFlashing = false
         isCancelled = false
+        decompressionCancelled.withLock { $0 = false }
     }
 
     /// Cancels the current flash operation by setting the cancellation flag.
@@ -134,6 +140,7 @@ class ImageFlashService {
     /// The state will be reset when the operation completes.
     func cancel() {
         isCancelled = true
+        decompressionCancelled.withLock { $0 = true }
         helperClient.cancel()
         // Don't reset state immediately - let the operation check the flag and handle cancellation
         // The state will be reset when the operation completes or throws due to cancellation
@@ -190,10 +197,11 @@ class ImageFlashService {
             throw FlashError.deviceReadOnly
         }
 
-        // Check if image fits on device
-        guard image.size < device.size else {
+        // Check if image fits on device (compressed images: size after decompression)
+        let flashSize = image.flashSize()
+        guard flashSize < device.size else {
             print("❌ [DEBUG] Validation failed: Image too large")
-            print("   - Image size: \(image.formattedSize) (\(image.size) bytes)")
+            print("   - Image size: \(image.formattedSize) (\(flashSize) bytes)")
             print("   - Device size: \(device.formattedSize) (\(device.size) bytes)")
             throw FlashError.imageTooLarge
         }
@@ -272,6 +280,11 @@ class ImageFlashService {
         }
         //print("   - Raw Device Path: \(rawDevicePath)")
 
+        // Step 0: Make the image readable for the helper. Compressed images are decompressed
+        // to a temporary file first, before the device gets unmounted.
+        let source = try await prepareSource(for: image)
+        defer { source.cleanup() }
+
         // Step 1: Check if device is mounted
         let isMounted = isDeviceMounted(device.mountPoint)
         //print("📋 [DEBUG] Device mounted: \(isMounted)")
@@ -310,12 +323,12 @@ class ImageFlashService {
 
         // Step 4: Perform the actual flash operation
         print("✏️ [DEBUG] Writing image to device...")
-        try await writeImageToDevice(image: image, devicePath: rawDevicePath)
+        try await writeImageToDevice(source: source, devicePath: rawDevicePath)
         print("✅ [DEBUG] Image written successfully")
 
         // Step 5: Verify the flash operation
         print("🔍 [DEBUG] Verifying flash operation...")
-        try await verifyFlashOperation(image: image, devicePath: rawDevicePath)
+        try await verifyFlashOperation(source: source, devicePath: rawDevicePath)
         print("✅ [DEBUG] Flash verification successful")
 
         // Step 6: Remount device if it was originally mounted
@@ -344,27 +357,91 @@ class ImageFlashService {
 
     // REMOVED: mountDevice() method - now using Drive.mountDevice() which follows same reliable pattern
 
-    /// Writes an image file to a device through the privileged helper.
+    /// The file the helper reads from: the image itself, or a temporary decompressed copy.
+    private struct FlashSource {
+        let url: URL
+        /// Number of bytes that get written to the device.
+        let size: Int64
+        /// Releases security-scoped access or deletes the temporary copy.
+        let cleanup: () -> Void
+    }
+
+    /// Opens the image for flashing. `.xz` images are decompressed to a temporary file first
+    /// (the progress is reported as `.decompressing`).
     ///
-    /// The app opens the image (security-scoped access) and hands the file handle to the
-    /// root helper, which unmounts the disk, writes it to the raw device and reports progress.
-    ///
-    /// - Parameters:
-    ///   - image: The `ImageFile` to write to the device
-    ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
-    /// - Throws: `FlashError.flashFailed` if the write operation fails or is cancelled
-    private func writeImageToDevice(image: ImageFile, devicePath: String) async throws {
+    /// - Throws: `FlashError.flashFailed` if the image cannot be read, is damaged,
+    ///   there is not enough free disk space, or the operation is cancelled
+    private func prepareSource(for image: ImageFile) async throws -> FlashSource {
         let imageURL = try image.getSecureURL()
         guard imageURL.startAccessingSecurityScopedResource() else {
             throw FlashError.flashFailed("Cannot access image file")
         }
+
+        guard image.isCompressed else {
+            return FlashSource(url: imageURL, size: image.size) {
+                imageURL.stopAccessingSecurityScopedResource()
+            }
+        }
+        // The compressed file is only needed while decompressing.
         defer { imageURL.stopAccessingSecurityScopedResource() }
 
-        let imageHandle = try FileHandle(forReadingFrom: imageURL)
+        let temporaryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwiftFlash-\(UUID().uuidString).img")
+
+        if let expectedSize = XZImageDecompressor.uncompressedSize(of: imageURL),
+            let available = try? FileManager.default.temporaryDirectory
+                .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+                .volumeAvailableCapacityForImportantUsage,
+            expectedSize > available
+        {
+            let format = { (bytes: Int64) in ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }
+            throw FlashError.flashFailed(
+                "Not enough free disk space to decompress the image (needs \(format(expectedSize)), \(format(available)) available)"
+            )
+        }
+
+        flashState = .decompressing(progress: 0)
+        print("📦 [DEBUG] Decompressing \(image.displayName) to \(temporaryURL.path)")
+
+        let cancelled = decompressionCancelled
+        do {
+            let size = try await Task.detached(priority: .userInitiated) {
+                try XZImageDecompressor.decompress(
+                    from: imageURL,
+                    to: temporaryURL,
+                    progress: { [weak self] fraction in
+                        Task { @MainActor in
+                            self?.flashState = .decompressing(progress: fraction)
+                        }
+                    },
+                    isCancelled: { cancelled.withLock { $0 } })
+            }.value
+            return FlashSource(url: temporaryURL, size: size) {
+                try? FileManager.default.removeItem(at: temporaryURL)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw FlashError.flashFailed(error.localizedDescription)
+        }
+    }
+
+    /// Writes the flash source to a device through the privileged helper.
+    ///
+    /// The app opens the source and hands the file handle to the root helper, which
+    /// unmounts the disk, writes it to the raw device and reports progress.
+    ///
+    /// - Parameters:
+    ///   - source: The prepared image data (plain or decompressed)
+    ///   - devicePath: The raw device path to write to (e.g., `/dev/rdisk4`)
+    /// - Throws: `FlashError.flashFailed` if the write operation fails or is cancelled
+    private func writeImageToDevice(source: FlashSource, devicePath: String) async throws {
+        let imageHandle = try FileHandle(forReadingFrom: source.url)
         defer { try? imageHandle.close() }
 
-        let totalBytes = image.size
-        print("   - Writing \(image.formattedSize) to \(devicePath) via privileged helper")
+        let totalBytes = source.size
+        print(
+            "   - Writing \(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)) to \(devicePath) via privileged helper"
+        )
 
         try await helperClient.writeImage(
             imageHandle, imageSize: totalBytes, devicePath: devicePath
@@ -387,21 +464,15 @@ class ImageFlashService {
     /// byte for byte with the image.
     ///
     /// - Parameters:
-    ///   - image: The original `ImageFile` to compare against
+    ///   - source: The prepared image data (plain or decompressed) to compare against
     ///   - devicePath: The raw device path to verify (e.g., `/dev/rdisk4`)
     /// - Throws: `FlashError.flashFailed` if verification fails or data does not match
-    private func verifyFlashOperation(image: ImageFile, devicePath: String) async throws {
-        let imageURL = try image.getSecureURL()
-        guard imageURL.startAccessingSecurityScopedResource() else {
-            throw FlashError.flashFailed("Cannot access image file for verification")
-        }
-        defer { imageURL.stopAccessingSecurityScopedResource() }
-
-        let imageHandle = try FileHandle(forReadingFrom: imageURL)
+    private func verifyFlashOperation(source: FlashSource, devicePath: String) async throws {
+        let imageHandle = try FileHandle(forReadingFrom: source.url)
         defer { try? imageHandle.close() }
 
         try await helperClient.verifyImage(
-            imageHandle, imageSize: image.size, devicePath: devicePath)
+            imageHandle, imageSize: source.size, devicePath: devicePath)
         print("   - Verification successful")
     }
 

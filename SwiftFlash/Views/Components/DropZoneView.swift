@@ -23,7 +23,7 @@ struct DropZoneView: View {
                 .font(.headline)
                 .foregroundColor(isTargeted ? .blue : .primary)
             
-            Text("Supports .img and .iso files")
+            Text("Supports .img, .iso and compressed .img.xz files")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
