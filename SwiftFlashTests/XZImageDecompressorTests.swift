@@ -101,5 +101,31 @@ struct XZImageDecompressorTests {
         #expect(compressed.isCompressed)
         #expect(!plain.isCompressed)
         #expect(plain.flashSize() == 10)
+        #expect(plain.uncompressedSize() == nil)
+    }
+
+    /// The inspector shows the size after decompression, not the file size.
+    @Test @MainActor func imageFileReportsUncompressedSize() throws {
+        let data = try fixtureData()
+        let url = try temporaryFile("sized.img.xz", contents: data)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = ImageFile(
+            name: url.lastPathComponent, path: url.path, size: Int64(data.count), fileType: .img)
+
+        #expect(image.uncompressedSize() == Int64(Self.fixtureSize))
+        #expect(image.flashSize() == Int64(Self.fixtureSize))
+        #expect(image.flashSize() > image.size)
+    }
+
+    /// A damaged compressed file has no known size; flashSize falls back to the file size.
+    @Test @MainActor func damagedImageHasNoUncompressedSize() throws {
+        let url = try temporaryFile("bad.img.xz", contents: Data(repeating: 0x41, count: 4096))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = ImageFile(name: url.lastPathComponent, path: url.path, size: 4096, fileType: .img)
+
+        #expect(image.uncompressedSize() == nil)
+        #expect(image.flashSize() == 4096)
     }
 }

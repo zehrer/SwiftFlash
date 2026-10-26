@@ -37,7 +37,8 @@ struct ContentView: View {
         }
 
         // Check all preconditions
-        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
+        // Compressed images: compare the size after decompression
+        return !selectedDrive.isReadOnly && selectedImage.flashSize() < selectedDrive.size
     }
 
     var body: some View {

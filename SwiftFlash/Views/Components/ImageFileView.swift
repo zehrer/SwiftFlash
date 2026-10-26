@@ -46,7 +46,7 @@ struct ImageFileView: View {
                     Text("Size:")
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    Text(imageFile.formattedSize)
+                    Text(imageFile.formattedFlashSize)
                     Spacer()
                 }
                 

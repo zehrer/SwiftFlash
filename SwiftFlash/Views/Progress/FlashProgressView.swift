@@ -86,7 +86,7 @@ struct FlashProgressView: View {
                             .font(.body)
                             .fontWeight(.medium)
                         
-                        Text("\(image.formattedSize) • \(image.fileType.displayName)")
+                        Text("\(image.formattedFlashSize) • \(image.fileType.displayName)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

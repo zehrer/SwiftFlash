@@ -93,7 +93,7 @@ struct FlashConfirmationDialog: View {
                                 .font(.body)
                                 .fontWeight(.medium)
                             
-                            Text("\(image.formattedSize) • \(image.fileType.displayName)")
+                            Text("\(image.formattedFlashSize) • \(image.fileType.displayName)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -107,11 +107,11 @@ struct FlashConfirmationDialog: View {
             }
             
             // Size Check
-            if image.size >= device.size {
+            if image.flashSize() >= device.size {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                    Text("⚠️ Warning: Image size (\(image.formattedSize)) is larger than device capacity (\(device.formattedSize))")
+                    Text("⚠️ Warning: Image size (\(image.formattedFlashSize)) is larger than device capacity (\(device.formattedSize))")
                         .font(.caption)
                         .foregroundColor(.red)
                         .fontWeight(.medium)
@@ -134,7 +134,7 @@ struct FlashConfirmationDialog: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(image.size >= device.size)
+                .disabled(image.flashSize() >= device.size)
             }
             .padding(.top, 8)
         }
