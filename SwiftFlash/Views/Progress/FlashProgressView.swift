@@ -38,6 +38,11 @@ struct FlashProgressView: View {
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(.blue)
+                } else if case .decompressing(let progress) = flashState {
+                    Text("\(Int(progress * 100))%")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
                 } else if case .calculatingChecksum(let progress) = flashState {
                     Text("\(Int(progress * 100))%")
                         .font(.title3)
@@ -81,7 +86,7 @@ struct FlashProgressView: View {
                             .font(.body)
                             .fontWeight(.medium)
                         
-                        Text("\(image.formattedSize) • \(image.fileType.displayName)")
+                        Text("\(image.formattedFlashSize) • \(image.fileType.displayName)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -103,6 +108,14 @@ struct FlashProgressView: View {
                     .controlSize(.large)
                 }
                 
+                if case .decompressing = flashState {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+
                 if case .calculatingChecksum = flashState {
                     Button("Cancel") {
                         onCancel()
@@ -139,7 +152,9 @@ struct FlashProgressView: View {
         case .idle, .preparing:
             return "bolt.fill"
         case .authenticating:
-            return "touchid"
+            return "lock.shield.fill"
+        case .decompressing:
+            return "doc.zipper"
         case .calculatingChecksum:
             return "checkmark.shield.fill"
         case .flashing:
@@ -157,6 +172,8 @@ struct FlashProgressView: View {
             return .blue
         case .authenticating:
             return .orange
+        case .decompressing:
+            return .blue
         case .calculatingChecksum:
             return .green
         case .flashing:
@@ -167,13 +184,15 @@ struct FlashProgressView: View {
             return .red
         }
     }
-    
+
     private var headerTitle: String {
         switch flashState {
         case .idle, .preparing:
             return "Preparing to Flash"
         case .authenticating:
-            return "Touch ID Authentication"
+            return "Checking Privileged Helper"
+        case .decompressing:
+            return "Decompressing Image"
         case .calculatingChecksum:
             return "Calculating Checksum"
         case .flashing:
@@ -192,7 +211,9 @@ struct FlashProgressView: View {
         case .preparing:
             return "Preparing device and validating image..."
         case .authenticating:
-            return "Please authenticate with Touch ID to continue..."
+            return "Checking the privileged helper..."
+        case .decompressing:
+            return "Decompressing image to a temporary file..."
         case .calculatingChecksum:
             return "Verifying image integrity..."
         case .flashing:
@@ -210,6 +231,8 @@ struct FlashProgressView: View {
             return .primary
         case .authenticating:
             return .orange
+        case .decompressing:
+            return .blue
         case .calculatingChecksum:
             return .green
         case .flashing:
@@ -220,7 +243,7 @@ struct FlashProgressView: View {
             return .red
         }
     }
-    
+
     private var progressValue: Double {
         switch flashState {
         case .idle:
@@ -229,6 +252,8 @@ struct FlashProgressView: View {
             return 0.0
         case .authenticating:
             return 0.0
+        case .decompressing(let progress):
+            return progress
         case .calculatingChecksum(let progress):
             return progress
         case .flashing(let progress):

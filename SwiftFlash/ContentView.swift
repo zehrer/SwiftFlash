@@ -37,7 +37,8 @@ struct ContentView: View {
         }
 
         // Check all preconditions
-        return !selectedDrive.isReadOnly && selectedImage.size < selectedDrive.size
+        // Compressed images: compare the size after decompression
+        return !selectedDrive.isReadOnly && selectedImage.flashSize() < selectedDrive.size
     }
 
     var body: some View {
@@ -470,7 +471,7 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(appModel.drives) { drive in
-                        DriveRowView(drive: drive, isSelected: selectedDrive?.id == drive.id)
+                        DriveRowView(device: drive, isSelected: selectedDrive?.id == drive.id)
                             .environmentObject(appModel.deviceInventory)
                             .onTapGesture {
                                 selectedDrive = drive
@@ -546,26 +547,26 @@ struct ContentView: View {
 // MARK: - DriveRowView
 
 struct DriveRowView: View {
-    let drive: Device
+    let device: Device
     let isSelected: Bool
     @EnvironmentObject var deviceInventory: DeviceInventory
 
     var deviceType: DeviceType {
-        let mediaUUID = drive.mediaUUID
+        let mediaUUID = device.mediaUUID
         if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID })
         {
             return inventoryDevice.deviceType
         }
-        return drive.deviceType
+        return device.deviceType
     }
     
     var displayName: String {
-        let mediaUUID = drive.mediaUUID
+        let mediaUUID = device.mediaUUID
         if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }),
            let customName = inventoryDevice.name, !customName.isEmpty {
                 return customName
         }
-        return drive.name
+        return device.name
     }
 
     var body: some View {
@@ -573,7 +574,7 @@ struct DriveRowView: View {
             // Device Icon
             Image(systemName: deviceType.icon)
                 .font(.title2)
-                .foregroundColor(drive.isReadOnly ? .red : .blue)
+                .foregroundColor(device.isReadOnly ? .red : .blue)
                 .frame(width: 32)
 
             // Device Info
@@ -581,26 +582,26 @@ struct DriveRowView: View {
                 Text(displayName)
                     .font(.body)
                     .fontWeight(.medium)
-                    .foregroundColor(drive.isReadOnly ? .red : .primary)
+                    .foregroundColor(device.isReadOnly ? .red : .primary)
 
                 HStack(spacing: 8) {
-                    Text(drive.formattedSize)
+                    Text(device.formattedSize)
                         .font(.caption)
-                        .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
+                        .foregroundColor(device.isReadOnly ? .red.opacity(0.7) : .secondary)
 
-                    if let vendor = drive.daVendor {
+                    if let vendor = device.daVendor {
                         Text("• \(vendor)")
                             .font(.caption)
-                            .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
+                            .foregroundColor(device.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
 
-                    if let revision = drive.daRevision {
+                    if let revision = device.daRevision {
                         Text("• \(revision)")
                             .font(.caption)
-                            .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
+                            .foregroundColor(device.isReadOnly ? .red.opacity(0.7) : .secondary)
                     }
 
-                    if drive.isReadOnly {
+                    if device.isReadOnly {
                         Text("• Read Only")
                             .font(.caption)
                             .foregroundColor(.red)
@@ -614,7 +615,7 @@ struct DriveRowView: View {
             // Device Type
             Text(deviceType.rawValue)
                 .font(.caption)
-                .foregroundColor(drive.isReadOnly ? .red.opacity(0.7) : .secondary)
+                .foregroundColor(device.isReadOnly ? .red.opacity(0.7) : .secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(Color(NSColor.controlBackgroundColor))

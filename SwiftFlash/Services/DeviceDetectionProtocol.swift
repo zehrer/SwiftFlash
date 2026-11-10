@@ -34,14 +34,21 @@ protocol DeviceInventoryManager: ObservableObject {
     func setDeviceType(for mediaUUID: String, deviceType: DeviceType)
     
     /// Adds or updates a device in the inventory
-    func addOrUpdateDevice(
-        mediaUUID: String,
-        size: Int64,
-        originalName: String,
-        deviceType: DeviceType,
-        vendor: String?,
-        revision: String?
-    )
+//    func addOrUpdateDevice(
+//        mediaUUID: String,
+//        size: Int64,
+//        originalName: String,
+//        deviceType: DeviceType,
+//        vendor: String?,
+//        revision: String?
+//    )
+    
+    func addDevice(mediaUUID: String,
+                   size: Int64,
+                   originalName: String,
+                   diskDescription : [String: Any]?)
+    
+    func updateDeviceLastSeen(mediaUUID: String)
     
     /// Gets an inventory item by its media UUID
     func getInventoryItem(for mediaUUID: String) -> DeviceInventoryItem?

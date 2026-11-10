@@ -3,7 +3,14 @@ import Foundation
 
 struct ImageInspectorView: View {
     let image: ImageFile
-    
+
+    /// Size on the drive. Compressed images whose index cannot be read are damaged or incomplete.
+    private var sizeText: String {
+        guard image.isCompressed else { return image.formattedSize }
+        return image.uncompressedSize() == nil
+            ? "Unknown (file incomplete or damaged)" : image.formattedFlashSize
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Image Information Section
@@ -20,11 +27,18 @@ struct ImageInspectorView: View {
                     value: image.fileType.displayName
                 )
                 
-                // Size
+                // Size: for compressed images the size after decompression (what lands on the drive)
                 LabelAndText(
                     label: "Size",
-                    value: image.formattedSize
+                    value: sizeText
                 )
+
+                if image.isCompressed {
+                    LabelAndText(
+                        label: "File Size",
+                        value: image.formattedSize
+                    )
+                }
             }
             
             // File Details Section
@@ -47,7 +61,7 @@ struct ImageInspectorView: View {
                 // Supported Drives
                 LabelAndText(
                     label: "Min Drive Size",
-                    value: image.formattedSize
+                    value: sizeText
                 )
                 
                 // Format Info

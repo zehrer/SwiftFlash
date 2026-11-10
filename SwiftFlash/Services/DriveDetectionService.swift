@@ -61,6 +61,7 @@ class DriveDetectionService: ObservableObject, DeviceDetectionService {
             return
         }
         
+        // TODO add documentation 
         DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         //print("✅ [DEBUG] Disk Arbitration session created and scheduled")
     }
@@ -241,19 +242,8 @@ extension DriveDetectionService {
         let partitions = getPartitionsForDevice(devicePath: devicePath)
         
         // Generate a stable mediaUUID if needed
-        let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String ?? Device.generateStableDeviceID(from: daDesc ?? [:])
-        
-        // Create a Device object first to check if it's a disk image
-//        let device = Device(
-//            devicePath: devicePath,
-//            isRemovable: isRemovable,
-//            isEjectable: isEjectable,
-//            isReadOnly: isReadOnly,
-//            isSystemDrive: false,
-//            diskDescription: daDesc,
-//            partitions: partitions,
-//            inventoryItem: nil  // Will be set after inventory check
-//        )
+        // TODO : add protocol
+        let mediaUUID = daDesc?[kDADiskDescriptionMediaUUIDKey as String] as? String ?? Device.generateStableDeviceID(from: DiskDescription(daDesc))
         
         // Check if we have this device in inventory (only for non-disk-image devices)
         var inventoryItem: DeviceInventoryItem? = nil
@@ -263,35 +253,10 @@ extension DriveDetectionService {
 
             // If not found, create a new inventory item
             if inventoryItem == nil {
-                let deviceType = DeviceType.unknown
-                let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
-                let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
-                let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
-
-                inventory.addOrUpdateDevice(
-                    mediaUUID: mediaUUID,
-                size: size,
-                    originalName: mediaName,
-                deviceType: deviceType,
-                vendor: vendor,
-                revision: revision
-            )
-                inventoryItem = inventory.getInventoryItem(for: mediaUUID)
+                inventory.addDevice( mediaUUID: mediaUUID, size: size, originalName: originalName, diskDescription: daDesc)
+                
             } else {
-                // Update lastSeen for existing device
-                let deviceType = inventoryItem?.deviceType ?? DeviceType.unknown
-                let mediaName = daDesc?[kDADiskDescriptionMediaNameKey as String] as? String ?? originalName
-                let vendor = daDesc?[kDADiskDescriptionDeviceVendorKey as String] as? String
-                let revision = daDesc?[kDADiskDescriptionDeviceRevisionKey as String] as? String
-
-                inventory.addOrUpdateDevice(
-                    mediaUUID: mediaUUID,
-                    size: size,
-                    originalName: mediaName,
-                    deviceType: deviceType,
-                    vendor: vendor,
-                    revision: revision
-                )
+                inventory.updateDeviceLastSeen(mediaUUID: mediaUUID)
             }
         }
         
@@ -374,23 +339,26 @@ extension DriveDetectionService {
                 ?? 0
 
             // Enrich with Disk Arbitration details
-            let desc = diskDescription(for: path)
-            let volumeName = (desc?[kDADiskDescriptionVolumeNameKey as String] as? String) ?? (desc?[kDADiskDescriptionMediaNameKey as String] as? String)
-            let fs = (desc?[kDADiskDescriptionVolumeKindKey as String] as? String) ?? (desc?[kDADiskDescriptionMediaKindKey as String] as? String)
-            let mountPoint = desc?[kDADiskDescriptionVolumePathKey as String] as? String
-            let writable: Bool? = (desc?[kDADiskDescriptionMediaWritableKey as String] as? Bool)
-
-            results.append(
-                PartitionInfo(
-                    bsdName: bsdName,
-                    devicePath: path,
-                    size: size,
-                    volumeName: volumeName,
-                    fileSystem: fs,
-                    mountPoint: mountPoint,
-                    isWritable: writable
+            if let desc = diskDescription(for: path) {
+                let disk = DiskDescription(desc)
+                
+                let volumeName = disk.volumeName ?? disk.mediaName ?? "N/A"
+                let fs = disk.volumeName ?? disk.mediaKind ?? "N/A"
+                let mountPoint = disk.volumePath
+                let writable = disk.isWritable
+                
+                results.append(
+                    PartitionInfo(
+                        bsdName: bsdName,
+                        devicePath: path,
+                        size: size,
+                        volumeName: volumeName,
+                        fileSystem: fs,
+                        mountPoint: mountPoint,
+                        isWritable: writable
+                    )
                 )
-            )
+            }
         }
 
         // Sort partitions by numeric suffix (s1, s2, ...)

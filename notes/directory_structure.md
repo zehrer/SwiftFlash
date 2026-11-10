@@ -10,6 +10,11 @@ SwiftFlash/
 │   ├── task_list.md                 # Current tasks and development priorities
 │   ├── CLAUDE.md                    # AI-specific instructions and guidelines
 │   └── directory_structure.md       # This file - project layout reference
+├── SwiftFlashHelper/                # Privileged helper daemon (runs as root, own target)
+│   ├── main.swift                   # XPC listener, client signature check
+│   └── FlashHelperService.swift     # Safety checks, unmount, write and verify raw device
+├── HelperSupport/
+│   └── xyz.zehrer.SwiftFlash.helper.plist # launchd plist, embedded in Contents/Library/LaunchDaemons
 ├── SwiftFlash/                      # Main application source code
 │   ├── SwiftFlashApp.swift          # App entry point and configuration
 │   ├── ContentView.swift            # Main application interface (PROTECTED layout)
@@ -19,6 +24,8 @@ SwiftFlash/
 │   │   └── DeviceInventory.swift    # Device management types
 │   ├── Services/                    # Core business logic (PROTECTED)
 │   │   ├── ImageFlashService.swift  # Device flashing operations
+│   │   ├── PrivilegedHelperClient.swift # Registers and calls the root helper (XPC)
+│   │   ├── FlashHelperProtocol.swift # XPC protocol shared with the helper target
 │   │   ├── DriveDetectionService.swift # Device detection and monitoring
 │   │   ├── ImageFileService.swift   # Image file validation and metadata
 │   │   ├── ImageHistoryService.swift # Operation history tracking
@@ -77,6 +84,7 @@ These components contain critical functionality and should not be modified witho
 #### Core Services  
 - `ImageFlashService.swift` - Critical flashing operations and safety checks
 - `DriveDetectionService.swift` - Hardware detection and monitoring
+- `PrivilegedHelperClient.swift`, `FlashHelperProtocol.swift` - Root access via the helper (XPC contract is shared with `SwiftFlashHelper/`)
 - `BookmarkManager.swift` - File system permission management
 
 #### App Structure

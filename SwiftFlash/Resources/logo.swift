@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct IconShape: Shape {
+nonisolated struct IconShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let width = rect.size.width

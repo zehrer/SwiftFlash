@@ -2,6 +2,18 @@
 
 ## TODO
 
+- Root access for writing images: privileged helper (`SwiftFlashHelper`, SMAppService + XPC) is implemented
+  and builds; **manual end-to-end test with a real USB stick still open**
+    - check whether the daemon needs Full Disk Access / Removable Volumes permission on external disks
+    - show a clear UI hint (instead of an error) when the helper still needs approval in System Settings
+    - handle outdated helper after app update (unregister/register or version check)
+    - verification currently re-reads the whole device; add progress phase "verifying" to the UI
+- `.img.xz` support is implemented (decompress to temp file, then flash); open: manual test with a real
+  Raspberry Pi OS image, stream directly to the helper to avoid the temp file, other formats (`.gz`, `.zst`, `.bz2`, `.zip`)
+- `FlashError.authenticationFailed` / `.authorizationDenied` are no longer thrown (Touch ID / Authorization Services
+  were replaced by the helper); clean up the enum and its texts
+- Decide whether the checksum check before flashing (commented out in `ImageFlashService.performFlash`) comes back
+- Rename `Drive*` tests/files to `Device*` (type was renamed)
 - IOMediaWhole for detaction of device vs partion
 - Store partion informationin DeviceInfo (List of partion info as far as avaible )
 - support `.img` - Raw disk images (TODO testing)
@@ -17,7 +29,7 @@
 - change build number based on tagged releases (git describe --tags --long)
 - improve usage of Disk Arbitration Framework 
     - use it for mount and unmount
-    - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey")
+    - replace all key strings by the dedicated string const (e.g. kDADiskDescriptionDeviceVendorKey") 
 - add log view within the app itself (include related log leven / menu / icon / filter ...) and build a os.Logger wrapper
 - Add quality code indicators (including test code coverage)
 - Fix / reduce Waning during startup in BookmarkManager

@@ -14,7 +14,8 @@ class ImageFileService: ObservableObject {
     @Published var isProcessing = false
     @Published var errorMessage: String?
     
-    private let supportedExtensions = ["img", "iso"]
+    /// `xz` = compressed images such as `raspios.img.xz` (decompressed while flashing)
+    private let supportedExtensions = ["img", "iso", "xz"]
     
     func validateAndLoadImage(from url: URL) -> ImageFile? {
         // Check if file exists
@@ -38,8 +39,9 @@ class ImageFileService: ObservableObject {
                 return nil
             }
             
-            // Check if file is too small (likely not a valid image)
-            if fileSize < 1024 * 1024 { // Less than 1MB
+            // Check if file is too small (likely not a valid image). Compressed images can be tiny.
+            let isCompressed = fileExtension == "xz"
+            if fileSize < (isCompressed ? 1024 : 1024 * 1024) {
                 errorMessage = "File is too small to be a valid disk image"
                 return nil
             }
@@ -55,12 +57,15 @@ class ImageFileService: ObservableObject {
             }
             
             // Create image file object
-            let imageFileType = ImageFileType.fromFileExtension(fileExtension)
+            // For "name.img.xz" the type comes from the inner extension ("img").
+            let typeExtension = isCompressed ? url.deletingPathExtension().pathExtension : fileExtension
+            var imageFileType = ImageFileType.fromFileExtension(typeExtension) ?? .img
+            if imageFileType == .unknown { imageFileType = .img }
             var imageFile = ImageFile(
                 name: url.lastPathComponent,
                 path: url.path,
                 size: fileSize,
-                fileType: imageFileType ?? .img
+                fileType: imageFileType
             )
             imageFile.bookmarkData = bookmarkData
             
@@ -88,7 +93,8 @@ class ImageFileService: ObservableObject {
         }
         
         // Check if image size is larger than drive capacity
-        if image.size > drive.size {
+        // Compressed images: compare the size after decompression
+        if image.flashSize() > drive.size {
             errorMessage = "Image file (\(image.formattedSize)) is larger than drive capacity (\(drive.formattedSize))"
             return false
         }

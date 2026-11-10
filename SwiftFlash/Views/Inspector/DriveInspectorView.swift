@@ -47,13 +47,13 @@ struct InspectorSectionView<Content: View>: View {
 // MARK: - Drive Inspector View
 
 struct DriveInspectorView: View {
-    let drive: Device
+    let device: Device
     var deviceInventory: any DeviceInventoryManager
     @State private var selectedDeviceType: DeviceType
     @State private var editableName: String
     
     init(drive: Device, deviceInventory: any DeviceInventoryManager) {
-        self.drive = drive
+        self.device = drive
         self.deviceInventory = deviceInventory
         self._selectedDeviceType = State(initialValue: drive.deviceType)
         self._editableName = State(initialValue: drive.name)
@@ -70,7 +70,7 @@ struct DriveInspectorView: View {
                     placeholder: "Enter device name"
                 ) {
                     // Update inventory when Enter is pressed
-                    let mediaUUID = drive.mediaUUID
+                    let mediaUUID = device.mediaUUID
                     if editableName.isEmpty {
                         deviceInventory.setCustomName(for: mediaUUID, customName: nil as String?)
                     } else {
@@ -84,14 +84,14 @@ struct DriveInspectorView: View {
                     selection: $selectedDeviceType
                 )
                 .onChange(of: selectedDeviceType) { _, newValue in
-                    let mediaUUID = drive.mediaUUID
+                    let mediaUUID = device.mediaUUID
                     deviceInventory.setDeviceType(for: mediaUUID, deviceType: newValue)
                 }
                 
                 // Capacity
                 LabelAndText(
                     label: "Capacity",
-                    value: drive.formattedSize
+                    value: device.formattedSize
                 )
             }
             
@@ -100,19 +100,19 @@ struct DriveInspectorView: View {
                 // Device Path
                 LabelAndText(
                     label: "Device Path",
-                    value: drive.devicePath
+                    value: device.devicePath
                 )
                 
                 // Partition Scheme
                 LabelAndText(
                     label: "Partition Scheme",
-                    value: drive.partitionSchemeDisplay
+                    value: device.partitionSchemeDisplay
                 )
                 
                 // Status
                 LabelAndStatus(
                     label: "Status",
-                    isReadOnly: drive.isReadOnly
+                    isReadOnly: device.isReadOnly
                 )
             }
             
@@ -121,32 +121,32 @@ struct DriveInspectorView: View {
                 // Media Name
                 LabelAndText(
                     label: "Media Name",
-                    value: drive.daMediaName ?? "No media name"
+                    value: device.daMediaName ?? "No media name"
                 )
                 
                 // Vendor
                 LabelAndText(
                     label: "Vendor",
-                    value: drive.daVendor ?? "Unknown"
+                    value: device.daVendor ?? "Unknown"
                 )
                 
                 // Revision
                 LabelAndText(
                     label: "Revision",
-                    value: drive.daRevision ?? "Unknown"
+                    value: device.daRevision ?? "Unknown"
                 )
                 
                 // UUID
                 LabelAndText(
                     label: "UUID",
-                    value: drive.mediaUUID
+                    value: device.mediaUUID
                 )
             }
             
             // History Section
             InspectorSectionView(title: "History") {
                 // First Seen
-                let mediaUUID = drive.mediaUUID
+                let mediaUUID = device.mediaUUID
                 if let inventoryDevice = deviceInventory.devices.first(where: { $0.mediaUUID == mediaUUID }) {
                     LabelAndText(
                         label: "First Seen",
