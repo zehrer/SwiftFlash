@@ -20,7 +20,7 @@ struct SettingsTests {
         #expect(throws: FlashError.self) { try CLIParser.parse(arguments: ["swiftflash", "settings"]) }
         #expect(try CLIParser.parseInteractive(line: "settings") == .command(.settings))
         #expect(try CLIParser.parseInteractive(line: "settings verify-console always")
-            == .command(.settingsSet(key: .verifyConsole, mode: .always)))
+            == .command(.settingsSet(key: .verifyConsole, value: "always")))
         #expect(throws: FlashError.self) { try CLIParser.parseInteractive(line: "settings verify maybe") }
     }
 

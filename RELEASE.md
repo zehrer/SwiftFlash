@@ -76,6 +76,8 @@ Known gaps:
 Included requirements:
 - no verify question after flashing by default: `-v` / `--verify` verifies and `--no-verify` skips, both without asking
 - `settings` in the interactive shell: `verify` and `verify-console` (`ask`, `always`, `never`), stored in the config
+- built-in source `rpi`: the Raspberry Pi Imager OS list, filtered by board (`settings rpi-model`, `--model`);
+  unpacked images are checked against the list's SHA-256
 
 ## Later Releases
 Planned requirements:

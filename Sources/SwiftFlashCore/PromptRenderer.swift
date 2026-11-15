@@ -44,10 +44,14 @@ public final class PromptRenderer: @unchecked Sendable {
         return images[index].path
     }
 
-    public func selectFamily(_ families: [RemoteImageFamily], source: ImageSource) throws -> RemoteImageFamily {
+    public func selectFamily(
+        _ families: [RemoteImageFamily],
+        source: ImageSource,
+        boards: (RemoteImage) -> [String] = { _ in [] }
+    ) throws -> RemoteImageFamily {
         print("Images on \(source.name) (\(source.url)):")
         for (index, family) in families.enumerated() {
-            print("  \(index + 1)) \(Self.familyLine(family))")
+            print("  \(index + 1)) \(Self.familyLine(family, boards: boards(family.newest)))")
         }
         guard let line = readLine(strippingNewline: true), let selection = Int(line),
               families.indices.contains(selection - 1)
@@ -78,13 +82,22 @@ public final class PromptRenderer: @unchecked Sendable {
         return family.builds[selection - 1]
     }
 
-    public static func familyLine(_ family: RemoteImageFamily) -> String {
+    /// `boards` lists the Raspberry Pi models an image runs on (image lists only).
+    public static func familyLine(_ family: RemoteImageFamily, boards: [String] = []) -> String {
+        if let title = family.newest.title {
+            let version = family.newest.version.map { ", \($0)" } ?? ""
+            let boardList = boards.isEmpty ? "" : "  [\(boards.joined(separator: " "))]"
+            return "\(family.name)  \(title)\(version)\(boardList)"
+        }
         let count = family.builds.count == 1 ? "1 build" : "\(family.builds.count) builds"
         return "\(family.name)  newest: \(buildLabel(family.newest))  (\(count))"
     }
 
     public static func buildLine(_ build: RemoteImage) -> String {
-        "\(build.fileName)\(build.date.map { "  \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "")"
+        if let title = build.title {
+            return "\(title)\(build.version.map { ", \($0)" } ?? "")  (\(build.fileName))"
+        }
+        return "\(build.fileName)\(build.date.map { "  \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "")"
     }
 
     static func buildLabel(_ build: RemoteImage) -> String {

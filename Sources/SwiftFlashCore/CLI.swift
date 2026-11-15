@@ -141,6 +141,8 @@ public enum CLIParser {
     }
 
     private static func parseFlashArguments(_ args: [String]) throws -> FlashCommand {
+        var args = args
+        let model = try takeModelOption(from: &args)
         let flags: Set<String> = ["--yes", "-v", "--verify", "--no-verify"]
         let skipConfirmation = args.contains("--yes")
         let verifyOn = args.contains("-v") || args.contains("--verify")
@@ -161,19 +163,33 @@ public enum CLIParser {
             imagePath: imagePath,
             devicePath: devicePath,
             skipConfirmation: skipConfirmation,
-            verify: verifyOn ? true : (verifyOff ? false : nil)
+            verify: verifyOn ? true : (verifyOff ? false : nil),
+            model: model
         )
+    }
+
+    /// Removes `--model <name>` from the arguments and returns the name.
+    private static func takeModelOption(from args: inout [String]) throws -> String? {
+        guard let index = args.firstIndex(of: "--model") else {
+            return nil
+        }
+        guard args.indices.contains(index + 1) else {
+            throw FlashError.usage("--model needs a Raspberry Pi model, e.g. --model pi5")
+        }
+        let value = try SettingKey.rpiModel.parseValue(args[index + 1])
+        args.removeSubrange(index...(index + 1))
+        return value ?? "any"
     }
 
     private static func parseSettingsArguments(_ args: [String]) throws -> FlashCommand {
         if args.isEmpty {
             return .settings
         }
-        let usage = "Usage: settings [verify|verify-console] [ask|always|never]"
-        guard args.count == 2, let key = SettingKey(rawValue: args[0]), let mode = VerifyMode(rawValue: args[1]) else {
+        let usage = "Usage: settings [verify|verify-console <ask|always|never>] [rpi-model <model|any>]"
+        guard args.count == 2, let key = SettingKey(rawValue: args[0]) else {
             throw FlashError.usage(usage)
         }
-        return .settingsSet(key: key, mode: mode)
+        return .settingsSet(key: key, value: try key.parseValue(args[1]))
     }
 
     private static func parseSourceArguments(_ args: [String]) throws -> FlashCommand {
@@ -195,10 +211,12 @@ public enum CLIParser {
             }
             return .sourceRemove(name: args[1])
         case "browse":
+            var args = args
+            let model = try takeModelOption(from: &args)
             guard args.count == 2 || args.count == 3 else {
-                throw FlashError.usage("Usage: swiftflash source browse <name> [family]")
+                throw FlashError.usage("Usage: swiftflash source browse <name> [family] [--model <model>]")
             }
-            return .sourceBrowse(name: args[1], family: args.count == 3 ? args[2] : nil)
+            return .sourceBrowse(name: args[1], family: args.count == 3 ? args[2] : nil, model: model)
         default:
             throw FlashError.usage("Unknown source subcommand: \(subcommand)")
         }
@@ -398,6 +416,10 @@ public struct HelpRenderer {
       sudo swiftflash <name>:<family> [/dev/diskX]   flash the newest build of a family
       sudo swiftflash <name>: [/dev/diskX]           choose family and build interactively
 
+    Raspberry Pi images (built-in source `rpi`, the Raspberry Pi Imager list):
+      swiftflash source browse rpi [--model pi5]
+      sudo swiftflash rpi:lite-64 [/dev/diskX] [--model pi5]
+
     Show the version:
       swiftflash version
       swiftflash --version
@@ -406,6 +428,7 @@ public struct HelpRenderer {
       settings                                   show the current settings
       settings verify <ask|always|never>         verify after flashing in the interactive shell (default: ask)
       settings verify-console <ask|always|never> verify after `swiftflash …` without -v / --no-verify (default: never)
+      settings rpi-model <pi5|pi4|…|any>         Raspberry Pi board for the rpi image list (default: any)
 
     Show flash history:
       swiftflash history

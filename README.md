@@ -49,6 +49,7 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 
 - Flash `.img` / `.iso`, also `.xz` compressed, from a local path or an `http(s)` URL
 - Image sources: register a build server directory once, then flash the newest build with `redox:<family>`
+- Built-in Raspberry Pi image list (the one the Raspberry Pi Imager uses): `sudo swiftflash rpi:lite-64`, filtered by board
 - Downloads are checked against a published `<image>.sha256` and kept in the Trash for reuse
 - Optional verification of the written medium against the image (`-v`, default configurable)
 - `swiftflash id` shows which image is on a card before downloading or writing anything
@@ -163,6 +164,26 @@ sudo swiftflash redox:                      # choose family and build interactiv
 - SwiftFlash reads `index.json` if the server has one, otherwise the directory listing plus `Last-Modified`.
 - What a build server should provide is described in [docs/build-server.md](docs/build-server.md).
 
+### Raspberry Pi images
+
+The source `rpi` is built in and reads the OS list of the Raspberry Pi Imager
+(Raspberry Pi OS, Ubuntu, LibreELEC, Home Assistant, RetroPie, …):
+
+```bash
+swiftflash source browse rpi                 # all images by category, with the boards they run on
+swiftflash source browse rpi --model pi4     # only images for a Raspberry Pi 4
+sudo swiftflash rpi:lite-64                  # Raspberry Pi OS Lite (64-bit)
+sudo swiftflash rpi:ubuntu-server-24 --model pi5
+```
+
+- Families are the image names in lower case, e.g. `raspberry-pi-os-lite-64-bit`; short forms work as for
+  other sources.
+- The board is set with `settings rpi-model pi5` in the interactive shell (`any` shows everything) or per command
+  with `--model`. Models: `pi5`, `pi4`, `pi3`, `pi2`, `pi1`, `zero2w`, `zero`.
+- After unpacking, the image is checked against the SHA-256 published in the list.
+- Images packed as `.zip`, `.gz`, `.bz2` or `.zst` are not listed yet.
+- First-boot settings of the Imager (Wi-Fi, SSH, user) are not supported.
+
 ### Settings
 
 Settings are changed in the interactive shell (`swiftflash` without arguments) and stored in the config file.
@@ -174,9 +195,12 @@ verify          ask     (flash in the interactive shell)
 verify-console  never   (swiftflash … without -v / --no-verify)
 swiftflash> settings verify always
 swiftflash> settings verify-console ask
+swiftflash> settings rpi-model pi5
 ```
 
-Values are `ask`, `always` and `never`. `-v` and `--no-verify` always win; with `--yes`, `ask` counts as `never`.
+For `verify` and `verify-console` the values are `ask`, `always` and `never`. `-v` and `--no-verify` always win;
+with `--yes`, `ask` counts as `never`. `rpi-model` filters the [Raspberry Pi images](#raspberry-pi-images)
+(`any` for no filter); `--model` overrides it.
 
 ### Interactive behavior
 
@@ -206,7 +230,7 @@ The file contains:
 - `flashHistory`
 - `trashedDownloads` — downloads kept in the Trash for reuse
 - `imageSources`
-- `settings` — `verifyConsole` and `verifyInteractive` (`ask`, `always` or `never`)
+- `settings` — `verifyConsole` and `verifyInteractive` (`ask`, `always` or `never`), `rpiModel`
 
 The layout is intended to stay compatible with a future SwiftFlash GUI.
 

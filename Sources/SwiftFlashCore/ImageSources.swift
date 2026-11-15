@@ -11,6 +11,9 @@ public struct ImageSource: Codable, Equatable, Sendable {
         self.url = url
     }
 
+    /// Sources that are always available unless the user defines one with the same name.
+    public static let builtIn = [ImageSource(name: "rpi", url: RaspberryPiImageList.officialURL)]
+
     /// The directory URL, always ending in `/` so relative links resolve inside it.
     public var directoryURL: URL? {
         URL(string: url.hasSuffix("/") ? url : url + "/")
@@ -30,13 +33,34 @@ public struct RemoteImage: Equatable, Sendable {
     public var version: String?
     /// Build date from `index.json` or the server's `Last-Modified`, used to find the newest build.
     public var date: Date?
+    /// Display name from an image list, e.g. `Raspberry Pi OS Lite (64-bit)`.
+    public var title: String?
+    public var category: String?
+    /// Raspberry Pi Imager device tags, e.g. `pi5-64bit`. Empty when the image does not say.
+    public var devices: [String]
+    /// SHA-256 of the unpacked image, checked after unpacking.
+    public var imageSHA256: String?
 
-    public init(fileName: String, url: URL, family: String, version: String?, date: Date?) {
+    public init(
+        fileName: String,
+        url: URL,
+        family: String,
+        version: String?,
+        date: Date?,
+        title: String? = nil,
+        category: String? = nil,
+        devices: [String] = [],
+        imageSHA256: String? = nil
+    ) {
         self.fileName = fileName
         self.url = url
         self.family = family
         self.version = version
         self.date = date
+        self.title = title
+        self.category = category
+        self.devices = devices
+        self.imageSHA256 = imageSHA256
     }
 }
 
@@ -91,13 +115,17 @@ public enum RemoteImageNaming {
         return (name, nil)
     }
 
-    /// Groups images into families, each sorted newest first (by date, then by file name).
+    /// Groups images into families, each sorted newest first (by date, then by file name). Families are sorted
+    /// by name, except for curated lists with titles (Raspberry Pi Imager), which keep their order.
     public static func families(from images: [RemoteImage]) -> [RemoteImageFamily] {
-        Dictionary(grouping: images, by: \.family)
-            .map { name, builds in
-                RemoteImageFamily(name: name, builds: builds.sorted(by: isNewer))
-            }
-            .sorted { $0.name < $1.name }
+        let families = Dictionary(grouping: images, by: \.family).map { name, builds in
+            RemoteImageFamily(name: name, builds: builds.sorted(by: isNewer))
+        }
+        guard !images.isEmpty, images.allSatisfy({ $0.title != nil }) else {
+            return families.sorted { $0.name < $1.name }
+        }
+        let order = Dictionary(images.enumerated().map { ($1.family, $0) }, uniquingKeysWith: min)
+        return families.sorted { order[$0.name, default: 0] < order[$1.name, default: 0] }
     }
 
     static func isNewer(_ lhs: RemoteImage, _ rhs: RemoteImage) -> Bool {
@@ -138,7 +166,21 @@ public enum RemoteImageNaming {
 public final class ImageSourceBrowser: Sendable {
     public init() {}
 
+    /// The Raspberry Pi Imager list behind a source, or nil for a directory source.
+    public func raspberryPiList(in source: ImageSource) async throws -> RaspberryPiImageList? {
+        guard RaspberryPiImageList.isListURL(source.url), let url = URL(string: source.url) else {
+            return nil
+        }
+        guard let data = try await fetch(url), let list = RaspberryPiImageList.parse(data) else {
+            throw FlashError.ioFailed("Could not read the image list at \(source.url)")
+        }
+        return list
+    }
+
     public func images(in source: ImageSource) async throws -> [RemoteImage] {
+        if let list = try await raspberryPiList(in: source) {
+            return list.images
+        }
         guard let directory = source.directoryURL else {
             throw FlashError.usage("Invalid source URL: \(source.url)")
         }

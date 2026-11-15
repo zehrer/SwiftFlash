@@ -81,10 +81,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var verifyConsole: VerifyMode
     /// Verification after a flash started in the interactive shell.
     public var verifyInteractive: VerifyMode
+    /// Raspberry Pi board (`pi5`, `pi4`, …) used to filter the `rpi` image list; nil shows all images.
+    public var rpiModel: String?
 
-    public init(verifyConsole: VerifyMode = .never, verifyInteractive: VerifyMode = .ask) {
+    public init(verifyConsole: VerifyMode = .never, verifyInteractive: VerifyMode = .ask, rpiModel: String? = nil) {
         self.verifyConsole = verifyConsole
         self.verifyInteractive = verifyInteractive
+        self.rpiModel = rpiModel
     }
 
     public init(from decoder: Decoder) throws {
@@ -94,11 +97,19 @@ public struct AppSettings: Codable, Equatable, Sendable {
         verifyConsole = (try? container.decodeIfPresent(VerifyMode.self, forKey: .verifyConsole)) ?? defaults.verifyConsole
         verifyInteractive = (try? container.decodeIfPresent(VerifyMode.self, forKey: .verifyInteractive))
             ?? defaults.verifyInteractive
+        rpiModel = try? container.decodeIfPresent(String.self, forKey: .rpiModel)
     }
 
     private enum CodingKeys: String, CodingKey {
         case verifyConsole
         case verifyInteractive
+        case rpiModel
+    }
+
+    /// The Raspberry Pi model to filter by: `--model` wins over the setting, and `any` means no filter.
+    public func rpiModel(flag: String?) -> String? {
+        let model = flag ?? rpiModel
+        return model == "any" ? nil : model
     }
 
     /// The mode for one flash: an explicit `-v` / `--no-verify` wins over the stored setting, and `--yes`
@@ -116,6 +127,24 @@ public struct AppSettings: Codable, Equatable, Sendable {
 public enum SettingKey: String, CaseIterable, Sendable {
     case verify
     case verifyConsole = "verify-console"
+    case rpiModel = "rpi-model"
+
+    /// Checks and normalizes a value typed for this key; nil means "unset" (`rpi-model any`).
+    public func parseValue(_ text: String) throws -> String? {
+        let value = text.lowercased()
+        switch self {
+        case .verify, .verifyConsole:
+            guard VerifyMode(rawValue: value) != nil else {
+                throw FlashError.usage("Usage: settings \(rawValue) <ask|always|never>")
+            }
+            return value
+        case .rpiModel:
+            guard !value.isEmpty, value.allSatisfy({ $0.isLetter || $0.isNumber }) else {
+                throw FlashError.usage("Usage: settings rpi-model <pi5|pi4|pi3|pi2|pi1|zero2w|zero|any>")
+            }
+            return value == "any" ? nil : value
+        }
+    }
 }
 
 public struct MediaTypeDefinition: Codable, Equatable, Sendable {
@@ -723,7 +752,8 @@ public enum PartitionScheme: String, Equatable, Sendable {
 public enum FlashCommand: Equatable, Sendable {
     case repl
     /// `verify`: true for `-v` / `--verify`, false for `--no-verify`, nil to use the stored setting.
-    case flash(imagePath: String?, devicePath: String?, skipConfirmation: Bool, verify: Bool? = nil)
+    /// `model`: Raspberry Pi board for the `rpi` list (`--model`), nil to use the stored setting.
+    case flash(imagePath: String?, devicePath: String?, skipConfirmation: Bool, verify: Bool? = nil, model: String? = nil)
     case verify(imagePath: String?, devicePath: String?)
     case images
     case imagesClear
@@ -745,9 +775,10 @@ public enum FlashCommand: Equatable, Sendable {
     case sourceList
     case sourceAdd(name: String, url: String)
     case sourceRemove(name: String)
-    case sourceBrowse(name: String, family: String?)
+    case sourceBrowse(name: String, family: String?, model: String? = nil)
     case settings
-    case settingsSet(key: SettingKey, mode: VerifyMode)
+    /// `value` nil clears the setting.
+    case settingsSet(key: SettingKey, value: String?)
     case help
 }
 

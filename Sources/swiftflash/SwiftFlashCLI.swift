@@ -40,12 +40,12 @@ struct SwiftFlashCLI {
             case .repl:
                 try await runREPL(services: services)
 
-            case .flash(let imagePath, let devicePath, let skipConfirmation, let verifyFlag):
+            case .flash(let imagePath, let devicePath, let skipConfirmation, let verifyFlag, let modelFlag):
                 guard geteuid() == 0 else {
                     throw FlashError.requiresRoot
                 }
 
-                let prepared = try await resolveImage(path: imagePath, services: services)
+                let prepared = try await resolveImage(path: imagePath, modelFlag: modelFlag, services: services)
                 defer { cleanup(prepared, services: services) }
                 let image = prepared.image
                 let device = try resolveDevice(path: devicePath, services: services)
@@ -103,7 +103,7 @@ struct SwiftFlashCLI {
                     throw FlashError.requiresRoot
                 }
 
-                let prepared = try await resolveImage(path: imagePath, services: services)
+                let prepared = try await resolveImage(path: imagePath, modelFlag: nil, services: services)
                 defer { cleanup(prepared, services: services) }
                 let image = prepared.image
                 let device = try resolveDevice(path: devicePath, services: services)
@@ -234,7 +234,8 @@ struct SwiftFlashCLI {
                     print("No image sources. Add one with: swiftflash source add <name> <url>")
                 } else {
                     for source in sources {
-                        print("\(source.name)\t\(source.url)")
+                        let builtIn = services.sourceStore.isBuiltIn(source) ? "  (built-in)" : ""
+                        print("\(source.name)\t\(source.url)\(builtIn)")
                     }
                 }
 
@@ -244,25 +245,46 @@ struct SwiftFlashCLI {
 
             case .sourceRemove(let name):
                 guard try services.sourceStore.remove(named: name) else {
+                    if let source = services.sourceStore.source(named: name), services.sourceStore.isBuiltIn(source) {
+                        throw FlashError.usage("\(name) is built in and cannot be removed")
+                    }
                     throw FlashError.usage("No source named \(name)")
                 }
                 print("Removed source \(name)")
 
-            case .sourceBrowse(let name, let familyQuery):
+            case .sourceBrowse(let name, let familyQuery, let modelFlag):
                 guard let source = services.sourceStore.source(named: name) else {
                     throw FlashError.usage("No source named \(name)")
                 }
-                let families = try await services.sourceBrowser.families(in: source)
+                let listing = try await sourceListing(source, modelFlag: modelFlag, services: services)
                 if let familyQuery {
-                    let family = try RemoteImageNaming.family(matching: familyQuery, in: families)
+                    let family = try listing.family(matching: familyQuery)
                     print("\(family.name):")
                     for build in family.builds {
                         print("  \(PromptRenderer.buildLine(build))")
                     }
-                } else if families.isEmpty {
+                } else if listing.families.isEmpty {
                     print("No images found at \(source.url)")
+                } else if let list = listing.list {
+                    var category: String?
+                    for family in listing.families {
+                        if let next = family.newest.category, next != category {
+                            category = next
+                            print("\n\(next):")
+                        }
+                        print("  " + PromptRenderer.familyLine(family, boards: list.modelSlugs(for: family.newest)))
+                    }
+                    print("")
+                    if let model = listing.model {
+                        print("Showing images for \(model.name) (\(model.slug)). Change with `settings rpi-model` or --model.")
+                    } else {
+                        print("All models. Filter with `settings rpi-model pi5` (interactive shell) or --model pi5.")
+                    }
+                    if list.unsupportedCount > 0 {
+                        print("\(list.unsupportedCount) images in other formats (.zip, .gz, …) are not listed.")
+                    }
                 } else {
-                    for family in families {
+                    for family in listing.families {
                         print(PromptRenderer.familyLine(family))
                     }
                 }
@@ -271,10 +293,11 @@ struct SwiftFlashCLI {
                 let settings = services.settingsStore.settings
                 print("verify          \(settings.verifyInteractive.rawValue)\t(flash in the interactive shell)")
                 print("verify-console  \(settings.verifyConsole.rawValue)\t(swiftflash … without -v / --no-verify)")
+                print("rpi-model       \(settings.rpiModel ?? "any")\t(Raspberry Pi board for the rpi image list)")
 
-            case .settingsSet(let key, let mode):
-                try services.settingsStore.set(key, to: mode)
-                print("\(key.rawValue) = \(mode.rawValue)")
+            case .settingsSet(let key, let value):
+                try services.settingsStore.set(key, value: value)
+                print("\(key.rawValue) = \(value ?? "any")")
 
             case .help:
                 print(HelpRenderer.text)
@@ -309,19 +332,25 @@ struct SwiftFlashCLI {
         }
     }
 
-    private static func resolveImage(path: String?, services: Services) async throws -> PreparedImage {
+    private static func resolveImage(path: String?, modelFlag: String?, services: Services) async throws -> PreparedImage {
         let selected = try path ?? services.prompt.selectImage(
             from: services.imageStore.allImages(),
             sources: services.sourceStore.allSources()
         )
-        let resolvedPath = try await resolveSourceReference(selected, services: services)
+        let (resolvedPath, remote) = try await resolveSourceReference(selected, modelFlag: modelFlag, services: services)
         let progress = PreparationProgress()
-        let prepared = try await services.imagePreparer.prepare(source: resolvedPath) { update in
+        let prepared = try await services.imagePreparer.prepare(
+            source: resolvedPath,
+            expectedImageSHA256: remote?.imageSHA256
+        ) { update in
             progress.update(update)
         }
         progress.finish()
         if prepared.checksumVerified {
             print("Checksum verified (SHA-256 from .sha256)")
+        }
+        if prepared.imageChecksumVerified {
+            print("Unpacked image verified (SHA-256 from the image list)")
         }
         if let reuse = prepared.trashReuse {
             let downloadedAt = reuse.download.downloadedAt.formatted(date: .abbreviated, time: .shortened)
@@ -336,29 +365,69 @@ struct SwiftFlashCLI {
 
     /// Turns `source:family` into the URL of the newest build, or lets the user browse for `source:`.
     /// Anything that is not a source reference is returned unchanged.
-    private static func resolveSourceReference(_ text: String, services: Services) async throws -> String {
+    private static func resolveSourceReference(
+        _ text: String,
+        modelFlag: String?,
+        services: Services
+    ) async throws -> (String, RemoteImage?) {
         guard let reference = ImageSourceReference.parse(text, sources: services.sourceStore.allSources()),
               let source = services.sourceStore.source(named: reference.sourceName)
         else {
-            return text
+            return (text, nil)
         }
         print("Reading images from \(source.url)…")
-        let families = try await services.sourceBrowser.families(in: source)
-        guard !families.isEmpty else {
+        let listing = try await sourceListing(source, modelFlag: modelFlag, services: services)
+        guard !listing.families.isEmpty else {
             throw FlashError.usage("No images found at \(source.url)")
         }
 
         let image: RemoteImage
         if reference.family.isEmpty {
-            let family = try services.prompt.selectFamily(families, source: source)
+            let family = try services.prompt.selectFamily(listing.families, source: source) { image in
+                listing.list?.modelSlugs(for: image) ?? []
+            }
             image = try services.prompt.selectBuild(of: family)
-        } else if let exact = families.flatMap(\.builds).first(where: { $0.fileName == reference.family }) {
+        } else if let exact = listing.families.flatMap(\.builds).first(where: { $0.fileName == reference.family }) {
             image = exact
         } else {
-            image = try RemoteImageNaming.family(matching: reference.family, in: families).newest
+            image = try listing.family(matching: reference.family).newest
         }
         print("\(text) → \(PromptRenderer.buildLine(image))")
-        return image.url.absoluteString
+        return (image.url.absoluteString, image)
+    }
+
+    /// The families of a source; for a Raspberry Pi Imager list only those for the chosen model.
+    private struct SourceListing {
+        var families: [RemoteImageFamily]
+        var list: RaspberryPiImageList?
+        var model: RaspberryPiModel?
+        /// All families before filtering by model, to explain why a query does not match.
+        var unfiltered: [RemoteImageFamily]
+
+        func family(matching query: String) throws -> RemoteImageFamily {
+            do {
+                return try RemoteImageNaming.family(matching: query, in: families)
+            } catch {
+                if let model, (try? RemoteImageNaming.family(matching: query, in: unfiltered)) != nil {
+                    throw FlashError.usage("'\(query)' is not listed for \(model.name); use --model any to flash it anyway")
+                }
+                throw error
+            }
+        }
+    }
+
+    private static func sourceListing(_ source: ImageSource, modelFlag: String?, services: Services) async throws -> SourceListing {
+        guard let list = try await services.sourceBrowser.raspberryPiList(in: source) else {
+            let families = try await services.sourceBrowser.families(in: source)
+            return SourceListing(families: families, unfiltered: families)
+        }
+        let all = RemoteImageNaming.families(from: list.images)
+        guard let slug = services.settingsStore.settings.rpiModel(flag: modelFlag) else {
+            return SourceListing(families: all, list: list, unfiltered: all)
+        }
+        let model = try list.model(named: slug)
+        let families = RemoteImageNaming.families(from: list.images.filter(model.supports))
+        return SourceListing(families: families, list: list, model: model, unfiltered: all)
     }
 
     /// Unmounts all partitions so the medium can be pulled out safely. A failure only produces a warning.

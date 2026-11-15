@@ -108,7 +108,7 @@ struct ImageSourcesTests {
 
         try store.add(ImageSource(name: "redox", url: "http://old/"))
         try store.add(ImageSource(name: "redox", url: "http://homenodellm:8080/sdcard/"))
-        #expect(store.allSources() == [ImageSource(name: "redox", url: "http://homenodellm:8080/sdcard/")])
+        #expect(store.allSources() == [ImageSource(name: "redox", url: "http://homenodellm:8080/sdcard/")] + ImageSource.builtIn)
         #expect(throws: FlashError.self) { try store.add(ImageSource(name: "bad name", url: "http://x/")) }
         #expect(throws: FlashError.self) { try store.add(ImageSource(name: "local", url: "/tmp/images")) }
         #expect(try store.remove(named: "redox"))

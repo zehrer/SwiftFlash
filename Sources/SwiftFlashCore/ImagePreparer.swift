@@ -1,4 +1,5 @@
 import Compression
+import CryptoKit
 import Foundation
 
 public enum ImagePreparationStep: Equatable, Sendable {
@@ -52,19 +53,23 @@ public struct PreparedImage: Equatable, Sendable {
     public var trashReuse: TrashReuse?
     /// True if the image file (as downloaded or found, before unpacking) matched a published `.sha256`.
     public var checksumVerified: Bool
+    /// True if the unpacked image matched the SHA-256 from an image list (Raspberry Pi Imager `extract_sha256`).
+    public var imageChecksumVerified: Bool
 
     public init(
         image: ImageDescriptor,
         temporaryDirectory: URL?,
         keptDownload: KeptDownload? = nil,
         trashReuse: TrashReuse? = nil,
-        checksumVerified: Bool = false
+        checksumVerified: Bool = false,
+        imageChecksumVerified: Bool = false
     ) {
         self.image = image
         self.temporaryDirectory = temporaryDirectory
         self.keptDownload = keptDownload
         self.trashReuse = trashReuse
         self.checksumVerified = checksumVerified
+        self.imageChecksumVerified = imageChecksumVerified
     }
 
     public var hasTemporaryFiles: Bool {
@@ -98,14 +103,18 @@ public final class ImagePreparer {
         return lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://")
     }
 
+    /// `expectedImageSHA256` is the SHA-256 of the unpacked image (e.g. from the Raspberry Pi Imager list);
+    /// it is computed while unpacking and the preparation fails on a mismatch.
     public func prepare(
         source: String,
+        expectedImageSHA256: String? = nil,
         progress: @escaping @Sendable (ImagePreparationProgress) -> Void
     ) async throws -> PreparedImage {
         var temporaryDirectory: URL?
         var keptDownload: KeptDownload?
         var trashReuse: TrashReuse?
         var checksumVerified = false
+        var imageSHA256: String?
         do {
             var localURL: URL
             let sourceLocation: String
@@ -178,13 +187,24 @@ public final class ImagePreparer {
                 let directory = try temporaryDirectory ?? Self.makeTemporaryDirectory()
                 temporaryDirectory = directory
                 let decompressedURL = directory.appendingPathComponent(localURL.deletingPathExtension().lastPathComponent)
-                try Self.decompressXZ(from: localURL, to: decompressedURL) { consumed, total, produced in
+                imageSHA256 = try Self.decompressXZ(from: localURL, to: decompressedURL) { consumed, total, produced in
                     progress(ImagePreparationProgress(step: .decompress, fraction: Double(consumed) / Double(total), processedBytes: produced))
                 }
                 if Self.isRemote(source) && keptDownload == nil {
                     try? FileManager.default.removeItem(at: localURL)
                 }
                 localURL = decompressedURL
+            }
+
+            var imageChecksumVerified = false
+            if let expected = expectedImageSHA256?.lowercased() {
+                let actual = try imageSHA256 ?? ImageSupport.calculateSHA256(for: localURL)
+                guard actual == expected else {
+                    throw FlashError.invalidImage(
+                        "Checksum mismatch for the unpacked image \(localURL.lastPathComponent): expected \(expected), got \(actual)"
+                    )
+                }
+                imageChecksumVerified = true
             }
 
             var image = try ImageSupport.validateImage(at: localURL.path)
@@ -196,7 +216,8 @@ public final class ImagePreparer {
                 temporaryDirectory: temporaryDirectory,
                 keptDownload: keptDownload,
                 trashReuse: trashReuse,
-                checksumVerified: checksumVerified
+                checksumVerified: checksumVerified,
+                imageChecksumVerified: imageChecksumVerified
             )
         } catch {
             if let temporaryDirectory {
@@ -255,11 +276,13 @@ public final class ImagePreparer {
         return directory
     }
 
+    /// Unpacks an `.xz` file and returns the SHA-256 (hex) of the unpacked data.
+    @discardableResult
     static func decompressXZ(
         from source: URL,
         to destination: URL,
         progress: (_ consumedBytes: Int64, _ totalBytes: Int64, _ producedBytes: Int64) -> Void
-    ) throws {
+    ) throws -> String {
         let input = try FileHandle(forReadingFrom: source)
         defer { try? input.close() }
         guard FileManager.default.createFile(atPath: destination.path, contents: nil) else {
@@ -289,6 +312,7 @@ public final class ImagePreparer {
         var consumed: Int64 = 0
         var produced: Int64 = 0
         var reachedEndOfInput = false
+        var hasher = SHA256()
 
         while true {
             if stream.pointee.src_size == 0 && !reachedEndOfInput {
@@ -311,14 +335,16 @@ public final class ImagePreparer {
 
             let chunkSize = bufferSize - stream.pointee.dst_size
             if chunkSize > 0 {
-                try output.write(contentsOf: Data(bytes: destinationBuffer, count: chunkSize))
+                let chunk = Data(bytes: destinationBuffer, count: chunkSize)
+                hasher.update(data: chunk)
+                try output.write(contentsOf: chunk)
                 produced += Int64(chunkSize)
             }
 
             switch status {
             case COMPRESSION_STATUS_END:
                 progress(totalSize, totalSize, produced)
-                return
+                return hasher.finalize().map { String(format: "%02x", $0) }.joined()
             case COMPRESSION_STATUS_OK:
                 if reachedEndOfInput && chunkSize == 0 {
                     throw FlashError.invalidImage("xz image is truncated: \(source.lastPathComponent)")

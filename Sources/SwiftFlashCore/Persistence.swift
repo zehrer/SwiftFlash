@@ -170,12 +170,19 @@ public final class ImageSourceStore {
         self.configStore = configStore
     }
 
+    /// User-defined sources plus the built-in ones (`rpi`), sorted by name.
     public func allSources() -> [ImageSource] {
-        configStore.currentConfig().imageSources.sorted { $0.name < $1.name }
+        let own = configStore.currentConfig().imageSources
+        let builtIn = ImageSource.builtIn.filter { source in !own.contains { $0.name == source.name } }
+        return (own + builtIn).sorted { $0.name < $1.name }
     }
 
     public func source(named name: String) -> ImageSource? {
-        configStore.currentConfig().imageSources.first { $0.name == name }
+        allSources().first { $0.name == name }
+    }
+
+    public func isBuiltIn(_ source: ImageSource) -> Bool {
+        ImageSource.builtIn.contains(source)
     }
 
     /// Adds a source or replaces the URL of an existing one with the same name.
@@ -184,7 +191,7 @@ public final class ImageSourceStore {
             throw FlashError.usage("Source names may only contain letters, digits, '-' and '_': \(source.name)")
         }
         guard ImagePreparer.isRemote(source.url), source.directoryURL != nil else {
-            throw FlashError.usage("Source URL must be an http(s) directory URL: \(source.url)")
+            throw FlashError.usage("Source URL must be an http(s) directory or image list (.json) URL: \(source.url)")
         }
         try configStore.update { config in
             config.imageSources.removeAll { $0.name == source.name }
@@ -377,12 +384,19 @@ public final class SettingsStore {
     }
 
     public func set(_ key: SettingKey, to mode: VerifyMode) throws {
+        try set(key, value: mode.rawValue)
+    }
+
+    /// Stores a value already checked with `SettingKey.parseValue`; nil clears it.
+    public func set(_ key: SettingKey, value: String?) throws {
         try configStore.update { config in
             switch key {
             case .verify:
-                config.settings.verifyInteractive = mode
+                config.settings.verifyInteractive = value.flatMap(VerifyMode.init(rawValue:)) ?? AppSettings().verifyInteractive
             case .verifyConsole:
-                config.settings.verifyConsole = mode
+                config.settings.verifyConsole = value.flatMap(VerifyMode.init(rawValue:)) ?? AppSettings().verifyConsole
+            case .rpiModel:
+                config.settings.rpiModel = value
             }
         }
     }
