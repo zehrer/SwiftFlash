@@ -71,6 +71,12 @@ Known gaps:
 - `.gz` images are not supported yet
 - release builds are arm64 only
 
+## Unreleased
+
+Included requirements:
+- no verify question after flashing by default: `-v` / `--verify` verifies and `--no-verify` skips, both without asking
+- `settings` in the interactive shell: `verify` and `verify-console` (`ask`, `always`, `never`), stored in the config
+
 ## Later Releases
 Planned requirements:
 - Homebrew tap `zehrer/homebrew-tap` with automated formula updates

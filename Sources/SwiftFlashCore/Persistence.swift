@@ -364,3 +364,26 @@ public final class FlashHistoryStore {
         }
     }
 }
+
+public final class SettingsStore {
+    private let configStore: AppConfigStore
+
+    public init(configStore: AppConfigStore) {
+        self.configStore = configStore
+    }
+
+    public var settings: AppSettings {
+        configStore.currentConfig().settings
+    }
+
+    public func set(_ key: SettingKey, to mode: VerifyMode) throws {
+        try configStore.update { config in
+            switch key {
+            case .verify:
+                config.settings.verifyInteractive = mode
+            case .verifyConsole:
+                config.settings.verifyConsole = mode
+            }
+        }
+    }
+}

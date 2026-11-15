@@ -9,6 +9,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var flashHistory: [FlashHistoryEntry]
     public var trashedDownloads: [TrashedDownload]
     public var imageSources: [ImageSource]
+    public var settings: AppSettings
 
     public init(
         mediaTypes: [MediaTypeDefinition] = MediaTypeDefinition.preconfiguredDefaults(),
@@ -17,7 +18,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         knownFlashMedia: [KnownFlashMedia] = [],
         flashHistory: [FlashHistoryEntry] = [],
         trashedDownloads: [TrashedDownload] = [],
-        imageSources: [ImageSource] = []
+        imageSources: [ImageSource] = [],
+        settings: AppSettings = AppSettings()
     ) {
         self.mediaTypes = mediaTypes
         self.rememberedImages = rememberedImages
@@ -26,6 +28,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.flashHistory = flashHistory
         self.trashedDownloads = trashedDownloads
         self.imageSources = imageSources
+        self.settings = settings
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -36,6 +39,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         case flashHistory
         case trashedDownloads
         case imageSources
+        case settings
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +52,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         flashHistory = try container.decodeIfPresent([FlashHistoryEntry].self, forKey: .flashHistory) ?? []
         trashedDownloads = try container.decodeIfPresent([TrashedDownload].self, forKey: .trashedDownloads) ?? []
         imageSources = try container.decodeIfPresent([ImageSource].self, forKey: .imageSources) ?? []
+        settings = try container.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -59,7 +64,58 @@ public struct AppConfig: Codable, Equatable, Sendable {
         try container.encode(flashHistory, forKey: .flashHistory)
         try container.encode(trashedDownloads, forKey: .trashedDownloads)
         try container.encode(imageSources, forKey: .imageSources)
+        try container.encode(settings, forKey: .settings)
     }
+}
+
+/// Whether to verify the medium after writing.
+public enum VerifyMode: String, Codable, CaseIterable, Sendable {
+    case ask
+    case always
+    case never
+}
+
+/// User settings, kept separately for direct commands (`swiftflash …`) and the interactive shell.
+public struct AppSettings: Codable, Equatable, Sendable {
+    /// Verification after a direct `swiftflash …` flash when neither `-v` nor `--no-verify` is given.
+    public var verifyConsole: VerifyMode
+    /// Verification after a flash started in the interactive shell.
+    public var verifyInteractive: VerifyMode
+
+    public init(verifyConsole: VerifyMode = .never, verifyInteractive: VerifyMode = .ask) {
+        self.verifyConsole = verifyConsole
+        self.verifyInteractive = verifyInteractive
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = AppSettings()
+        // Unknown values (e.g. from a newer version) fall back to the default instead of failing.
+        verifyConsole = (try? container.decodeIfPresent(VerifyMode.self, forKey: .verifyConsole)) ?? defaults.verifyConsole
+        verifyInteractive = (try? container.decodeIfPresent(VerifyMode.self, forKey: .verifyInteractive))
+            ?? defaults.verifyInteractive
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case verifyConsole
+        case verifyInteractive
+    }
+
+    /// The mode for one flash: an explicit `-v` / `--no-verify` wins over the stored setting, and `--yes`
+    /// (no questions) turns `ask` into `never`.
+    public func verifyMode(interactive: Bool, flag: Bool?, skipConfirmation: Bool) -> VerifyMode {
+        if let flag {
+            return flag ? .always : .never
+        }
+        let mode = interactive ? verifyInteractive : verifyConsole
+        return mode == .ask && skipConfirmation ? .never : mode
+    }
+}
+
+/// Settings that can be changed with `settings <key> <value>` in the interactive shell.
+public enum SettingKey: String, CaseIterable, Sendable {
+    case verify
+    case verifyConsole = "verify-console"
 }
 
 public struct MediaTypeDefinition: Codable, Equatable, Sendable {
@@ -666,7 +722,8 @@ public enum PartitionScheme: String, Equatable, Sendable {
 
 public enum FlashCommand: Equatable, Sendable {
     case repl
-    case flash(imagePath: String?, devicePath: String?, skipConfirmation: Bool)
+    /// `verify`: true for `-v` / `--verify`, false for `--no-verify`, nil to use the stored setting.
+    case flash(imagePath: String?, devicePath: String?, skipConfirmation: Bool, verify: Bool? = nil)
     case verify(imagePath: String?, devicePath: String?)
     case images
     case imagesClear
@@ -689,6 +746,8 @@ public enum FlashCommand: Equatable, Sendable {
     case sourceAdd(name: String, url: String)
     case sourceRemove(name: String)
     case sourceBrowse(name: String, family: String?)
+    case settings
+    case settingsSet(key: SettingKey, mode: VerifyMode)
     case help
 }
 

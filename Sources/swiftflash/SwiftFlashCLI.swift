@@ -17,7 +17,8 @@ struct SwiftFlashCLI {
                 uuidService: UUIDMetadataService(),
                 imagePreparer: ImagePreparer(trashStore: TrashedDownloadStore(configStore: configStore)),
                 sourceStore: ImageSourceStore(configStore: configStore),
-                sourceBrowser: ImageSourceBrowser()
+                sourceBrowser: ImageSourceBrowser(),
+                settingsStore: SettingsStore(configStore: configStore)
             )
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)
@@ -26,19 +27,20 @@ struct SwiftFlashCLI {
 
         do {
             let command = try CLIParser.parse(arguments: CommandLine.arguments)
-            try await execute(command: command, services: services)
+            try await execute(command: command, services: services, interactive: false)
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)
             exit(1)
         }
     }
 
-    private static func execute(command: FlashCommand, services: Services) async throws {
+    /// `interactive` is true for commands typed in the interactive shell.
+    private static func execute(command: FlashCommand, services: Services, interactive: Bool) async throws {
         switch command {
             case .repl:
                 try await runREPL(services: services)
 
-            case .flash(let imagePath, let devicePath, let skipConfirmation):
+            case .flash(let imagePath, let devicePath, let skipConfirmation, let verifyFlag):
                 guard geteuid() == 0 else {
                     throw FlashError.requiresRoot
                 }
@@ -56,6 +58,11 @@ struct SwiftFlashCLI {
                 let writeProgress = ConsoleProgressRenderer(label: "Flash", totalBytes: image.size)
                 let verifyProgress = ConsoleProgressRenderer(label: "Verify", totalBytes: image.size)
                 let prompt = services.prompt
+                let verifyMode = services.settingsStore.settings.verifyMode(
+                    interactive: interactive,
+                    flag: verifyFlag,
+                    skipConfirmation: skipConfirmation
+                )
                 let completion = try await services.flashService.flash(
                     image: image,
                     device: device,
@@ -64,7 +71,11 @@ struct SwiftFlashCLI {
                     },
                     promptForVerification: {
                         writeProgress.finish(status: "Flash write complete")
-                        return prompt.confirmVerifyAfterFlash()
+                        switch verifyMode {
+                        case .ask: return prompt.confirmVerifyAfterFlash()
+                        case .always: return true
+                        case .never: return false
+                        }
                     },
                     verifyProgress: { progress in
                         verifyProgress.update(progress: progress)
@@ -72,6 +83,9 @@ struct SwiftFlashCLI {
                 )
                 writeProgress.finish(status: "Flash write complete")
                 verifyProgress.finishIfStarted(status: "Verification complete")
+                if verifyMode == .never {
+                    print("Not verified (add -v to verify)")
+                }
                 let deviceUUIDAction = completion.previousIdentity == nil ? "created and written" : "reused and written"
                 print("Device UUID \(deviceUUIDAction): \(completion.metadata.deviceUUID)")
                 if let flashUUID = completion.metadata.flashUUID {
@@ -253,6 +267,15 @@ struct SwiftFlashCLI {
                     }
                 }
 
+            case .settings:
+                let settings = services.settingsStore.settings
+                print("verify          \(settings.verifyInteractive.rawValue)\t(flash in the interactive shell)")
+                print("verify-console  \(settings.verifyConsole.rawValue)\t(swiftflash … without -v / --no-verify)")
+
+            case .settingsSet(let key, let mode):
+                try services.settingsStore.set(key, to: mode)
+                print("\(key.rawValue) = \(mode.rawValue)")
+
             case .help:
                 print(HelpRenderer.text)
         }
@@ -278,7 +301,7 @@ struct SwiftFlashCLI {
                 case .exit:
                     return
                 case .command(let command):
-                    try await execute(command: command, services: services)
+                    try await execute(command: command, services: services, interactive: true)
                 }
             } catch {
                 fputs("\(error.localizedDescription)\n", stderr)
@@ -594,6 +617,7 @@ struct SwiftFlashCLI {
         let imagePreparer: ImagePreparer
         let sourceStore: ImageSourceStore
         let sourceBrowser: ImageSourceBrowser
+        let settingsStore: SettingsStore
 
         var flashService: FlashService {
             FlashService(

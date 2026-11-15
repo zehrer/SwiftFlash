@@ -50,7 +50,7 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 - Flash `.img` / `.iso`, also `.xz` compressed, from a local path or an `http(s)` URL
 - Image sources: register a build server directory once, then flash the newest build with `redox:<family>`
 - Downloads are checked against a published `<image>.sha256` and kept in the Trash for reuse
-- Optional verification of the written medium against the image
+- Optional verification of the written medium against the image (`-v`, default configurable)
 - `swiftflash id` shows which image is on a card before downloading or writing anything
 - Device selection and erase confirmation show the known name, media type and the image currently on the medium
 - Identification of media and flashed images via a small `/.uuid` file ([format](docs/uuid-file.md)), with a raw
@@ -65,9 +65,14 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 
 ```bash
 sudo swiftflash [image] [/dev/diskX]
-sudo swiftflash flash [image] [/dev/diskX] [--yes]
+sudo swiftflash flash [image] [/dev/diskX] [-v|--no-verify] [--yes]
 sudo swiftflash verify [image] [/dev/diskX]
 ```
+
+- `-v` / `--verify` reads the medium back after writing and compares it with the image; `--no-verify` skips that.
+  Neither option asks a question. Without them, a direct `swiftflash …` does not verify (configurable, see
+  [Settings](#settings)).
+- `--yes` skips the erase confirmation.
 
 `image` can be a local path, an `http(s)` URL, or `<source>:<family>` (see [Image sources](#image-sources)).
 Without arguments, `swiftflash` starts an interactive shell; type commands like `flash`, `media list` or
@@ -158,6 +163,21 @@ sudo swiftflash redox:                      # choose family and build interactiv
 - SwiftFlash reads `index.json` if the server has one, otherwise the directory listing plus `Last-Modified`.
 - What a build server should provide is described in [docs/build-server.md](docs/build-server.md).
 
+### Settings
+
+Settings are changed in the interactive shell (`swiftflash` without arguments) and stored in the config file.
+Direct commands and the interactive shell have separate values:
+
+```text
+swiftflash> settings
+verify          ask     (flash in the interactive shell)
+verify-console  never   (swiftflash … without -v / --no-verify)
+swiftflash> settings verify always
+swiftflash> settings verify-console ask
+```
+
+Values are `ask`, `always` and `never`. `-v` and `--no-verify` always win; with `--yes`, `ask` counts as `never`.
+
 ### Interactive behavior
 
 - Without an image, SwiftFlash lists remembered images and configured sources, and accepts a new path or URL.
@@ -165,7 +185,7 @@ sudo swiftflash redox:                      # choose family and build interactiv
 - For each device it shows whether the medium is known (name, media type, `device-uuid`) and what is on it
   (image version, file and flash date), or the volume names of an unknown medium.
 - Unless `--yes` is used, the flash flow asks for a final confirmation and says what will be replaced.
-- After writing, it asks whether to verify the medium before metadata is written.
+- After writing, it verifies the medium, asks, or skips it, as set with `settings verify` (default: ask).
 
 ## Persistence
 
@@ -186,6 +206,7 @@ The file contains:
 - `flashHistory`
 - `trashedDownloads` — downloads kept in the Trash for reuse
 - `imageSources`
+- `settings` — `verifyConsole` and `verifyInteractive` (`ask`, `always` or `never`)
 
 The layout is intended to stay compatible with a future SwiftFlash GUI.
 
@@ -197,7 +218,7 @@ The layout is intended to stay compatible with a future SwiftFlash GUI.
 3. Read an existing `/.uuid` from mounted partitions (or the trailer) to reuse the `device-uuid`.
 4. Unmount the whole disk through Disk Arbitration.
 5. Write the image to the raw device node with POSIX I/O, showing progress and speed.
-6. Optionally verify the raw device contents against the image.
+6. Verify the raw device contents against the image if `-v` or the settings ask for it.
 7. Flush data with `fsync` and `F_FULLFSYNC`.
 8. Remount the partitions.
 9. Write `/.uuid` on a writable partition, keeping an `image` block the image may ship in its own `/.uuid`.

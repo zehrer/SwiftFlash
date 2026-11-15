@@ -1,7 +1,8 @@
 import Foundation
 
 public enum CLIParser {
-    public static func parse(arguments: [String]) throws -> FlashCommand {
+    /// `interactive` is true for lines typed in the interactive shell, where `settings` is available.
+    public static func parse(arguments: [String], interactive: Bool = false) throws -> FlashCommand {
         let args = Array(arguments.dropFirst())
         guard let first = args.first else {
             return .repl
@@ -28,6 +29,11 @@ public enum CLIParser {
             return .version
         case "source", "sources":
             return try parseSourceArguments(Array(args.dropFirst()))
+        case "settings":
+            guard interactive else {
+                throw FlashError.usage("Settings are changed in the interactive shell: run `swiftflash`, then `settings`")
+            }
+            return try parseSettingsArguments(Array(args.dropFirst()))
         case "help", "--help", "-h":
             return .help
         default:
@@ -50,7 +56,7 @@ public enum CLIParser {
             return .exit
         }
 
-        return .command(try parse(arguments: ["swiftflash"] + tokens))
+        return .command(try parse(arguments: ["swiftflash"] + tokens, interactive: true))
     }
 
     private static func parseMediaArguments(_ args: [String]) throws -> FlashCommand {
@@ -135,14 +141,39 @@ public enum CLIParser {
     }
 
     private static func parseFlashArguments(_ args: [String]) throws -> FlashCommand {
+        let flags: Set<String> = ["--yes", "-v", "--verify", "--no-verify"]
         let skipConfirmation = args.contains("--yes")
-        let positional = args.filter { $0 != "--yes" }
+        let verifyOn = args.contains("-v") || args.contains("--verify")
+        let verifyOff = args.contains("--no-verify")
+        guard !(verifyOn && verifyOff) else {
+            throw FlashError.usage("Use either -v/--verify or --no-verify")
+        }
+        let positional = args.filter { !flags.contains($0) }
+        if let unknown = positional.first(where: { $0.hasPrefix("-") }) {
+            throw FlashError.usage("Unknown option: \(unknown)")
+        }
         guard positional.count <= 2 else {
-            throw FlashError.usage("Usage: swiftflash [image_file] [/dev/diskX]")
+            throw FlashError.usage("Usage: swiftflash [image_file] [/dev/diskX] [-v|--no-verify] [--yes]")
         }
 
         let (imagePath, devicePath) = parseImageAndDeviceArguments(positional)
-        return .flash(imagePath: imagePath, devicePath: devicePath, skipConfirmation: skipConfirmation)
+        return .flash(
+            imagePath: imagePath,
+            devicePath: devicePath,
+            skipConfirmation: skipConfirmation,
+            verify: verifyOn ? true : (verifyOff ? false : nil)
+        )
+    }
+
+    private static func parseSettingsArguments(_ args: [String]) throws -> FlashCommand {
+        if args.isEmpty {
+            return .settings
+        }
+        let usage = "Usage: settings [verify|verify-console] [ask|always|never]"
+        guard args.count == 2, let key = SettingKey(rawValue: args[0]), let mode = VerifyMode(rawValue: args[1]) else {
+            throw FlashError.usage(usage)
+        }
+        return .settingsSet(key: key, mode: mode)
     }
 
     private static func parseSourceArguments(_ args: [String]) throws -> FlashCommand {
@@ -318,7 +349,11 @@ public struct HelpRenderer {
 
     Flash an image to an external physical drive:
       sudo swiftflash [image_file] [/dev/diskX]
-      sudo swiftflash flash [image_file] [/dev/diskX] [--yes]
+      sudo swiftflash flash [image_file] [/dev/diskX] [-v|--no-verify] [--yes]
+
+      -v, --verify   verify the medium after writing, without asking
+      --no-verify    do not verify, without asking
+      --yes          no confirmation; a verify setting of `ask` then counts as `never`
 
     Verify a flashed image against a raw device:
       sudo swiftflash verify [image_file] [/dev/diskX]
@@ -367,6 +402,11 @@ public struct HelpRenderer {
       swiftflash version
       swiftflash --version
 
+    Settings (only in the interactive shell, stored in ~/.swiftflash/config.json):
+      settings                                   show the current settings
+      settings verify <ask|always|never>         verify after flashing in the interactive shell (default: ask)
+      settings verify-console <ask|always|never> verify after `swiftflash …` without -v / --no-verify (default: never)
+
     Show flash history:
       swiftflash history
       swiftflash history clear
@@ -375,7 +415,7 @@ public struct HelpRenderer {
       1. Run `swiftflash media list` to see connected target media.
       2. Run `sudo swiftflash /path/to/image.iso /dev/diskX` to flash directly.
       3. Or run `sudo swiftflash` and select the image and device interactively.
-      4. At the end of the write phase, choose whether to verify before metadata is written.
+      4. Add `-v` to verify the medium after writing (see `settings` for the default).
 
     Notes:
       - Flashing requires root privileges.
