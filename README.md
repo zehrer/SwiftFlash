@@ -220,15 +220,15 @@ xcrun swift test
 1. Bump `Sources/SwiftFlashCore/Version.swift`, update [RELEASE.md](RELEASE.md), commit and push.
 2. Build the archive and the formula:
    ```bash
-   scripts/release.sh 0.2.0
+   scripts/release.sh 0.3.0
    ```
    The script checks the version and a clean working tree, runs the tests, builds an arm64 release binary, and
    writes `dist/swiftflash-<version>-macos-arm64.tar.gz` plus `dist/swiftflash.rb`
    (from `packaging/homebrew/swiftflash.rb.template`).
 3. Tag and publish (the script prints these commands):
    ```bash
-   git tag v0.2.0 && git push origin v0.2.0
-   gh release create v0.2.0 dist/swiftflash-0.2.0-macos-arm64.tar.gz --title v0.2.0
+   git tag v0.3.0 && git push origin v0.3.0
+   gh release create v0.3.0 dist/swiftflash-0.3.0-macos-arm64.tar.gz --title v0.3.0
    ```
 4. Copy `dist/swiftflash.rb` to `Formula/swiftflash.rb` in [zehrer/homebrew-tap](https://github.com/zehrer/homebrew-tap)
    and push it; `brew upgrade` then offers the new version.

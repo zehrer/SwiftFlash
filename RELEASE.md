@@ -33,7 +33,7 @@ Known gaps:
 
 ## Release 0.2.0
 
-status: ready to tag (first Homebrew release)
+status: released (first Homebrew release)
 
 Included requirements:
 - `.xz` compressed images (unpacked via the `Compression` framework)
@@ -49,6 +49,22 @@ Included requirements:
 - `scripts/release.sh` builds the release archive and the Homebrew formula
 - image sources: `swiftflash source add/list/browse/remove`, short form `<source>:<family>` for the newest build, browsing in the interactive selection (reads `index.json` or the directory listing)
 - `docs/build-server.md`: what a build server should provide for SwiftFlash
+
+Known gaps:
+- real hardware validation is still limited
+- `.gz` images are not supported yet
+- release builds are arm64 only
+
+## Release 0.3.0
+
+status: ready to tag
+
+Included requirements:
+- `swiftflash id [/dev/diskX]` (also `media id`): shows what is on a medium without downloading or writing,
+  including the image from `/.uuid` and this Mac's flash history for the medium; no `sudo` needed for `/.uuid`
+- Raspberry Pi OS and other `pi-gen` images are recognised from `issue.txt` when there is no `image` block
+- `media list` shows the remembered name of a medium
+- README: install size and memory footprint
 
 Known gaps:
 - real hardware validation is still limited
