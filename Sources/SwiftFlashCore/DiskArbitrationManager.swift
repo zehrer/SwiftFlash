@@ -7,7 +7,7 @@ public protocol DeviceManaging {
 }
 
 public final class DiskArbitrationManager: DeviceManaging, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "SwiftFlashCLI.DiskArbitration")
+    private let queue = DispatchQueue(label: "SwiftFlash.DiskArbitration")
 
     public init() {}
 

@@ -259,7 +259,7 @@ struct SwiftFlashCLI {
     }
 
     private static func runREPL(services: Services) async throws {
-        print("SwiftFlashCLI interactive shell")
+        print("SwiftFlash interactive shell")
         print("Type `help` for commands. Type `exit`, `quit`, or `quite` to leave.")
 
         while true {

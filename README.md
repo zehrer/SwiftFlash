@@ -1,4 +1,4 @@
-# SwiftFlashCLI
+# SwiftFlash
 
 `swiftflash` is a macOS command-line tool for flashing `.img` and `.iso` images to SD cards and USB sticks.
 Images can be local files, `.xz` compressed, or loaded from an `http(s)` URL or a registered build server.
@@ -59,6 +59,7 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 - The medium is unmounted after flashing, so it can be removed right away
 - Interactive shell when started without arguments
 - Reusable `SwiftFlashCore` library target for a future GUI
+  (the earlier SwiftUI app is archived as [SwiftFlash-GUI](https://github.com/zehrer/SwiftFlash-GUI))
 
 ## Usage
 

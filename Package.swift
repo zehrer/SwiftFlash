@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftFlashCLI",
+    name: "SwiftFlash",
     platforms: [
         .macOS(.v13)
     ],

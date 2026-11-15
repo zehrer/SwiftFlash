@@ -311,7 +311,7 @@ public enum CLIParser {
 
 public struct HelpRenderer {
     public static let text = """
-    SwiftFlashCLI
+    SwiftFlash
 
     Run without arguments to start the interactive shell.
     Type `exit`, `quit`, or `quite` to leave it.
