@@ -14,6 +14,8 @@ public enum CLIParser {
             return try parseVerifyArguments(Array(args.dropFirst()))
         case "identify":
             return .mediaIdentify
+        case "id":
+            return try parseMediaShowArguments(Array(args.dropFirst()), usage: "swiftflash id [/dev/diskX]")
         case "images":
             return try parseImagesArguments(Array(args.dropFirst()))
         case "media":
@@ -67,6 +69,8 @@ public enum CLIParser {
             return .mediaInfo(query: args[1...].joined(separator: " "))
         case "identify":
             return .mediaIdentify
+        case "id", "show":
+            return try parseMediaShowArguments(Array(args.dropFirst()), usage: "swiftflash media id [/dev/diskX]")
         case "types":
             return .mediaTypes
         case "type-add":
@@ -97,6 +101,13 @@ public enum CLIParser {
         default:
             throw FlashError.usage("Unknown media subcommand: \(subcommand)")
         }
+    }
+
+    private static func parseMediaShowArguments(_ args: [String], usage: String) throws -> FlashCommand {
+        guard args.count <= 1, args.allSatisfy({ $0.hasPrefix("/dev/") }) else {
+            throw FlashError.usage("Usage: \(usage)")
+        }
+        return .mediaShow(devicePath: args.first)
     }
 
     private static func parseLegacyDevicesArguments(_ args: [String]) throws -> FlashCommand {
@@ -320,13 +331,17 @@ public struct HelpRenderer {
     List currently connected eligible flash media:
       swiftflash media list
 
+    Show which image is on a connected medium (read-only, no download, sudo only needed for trailer metadata):
+      swiftflash id [/dev/diskX]
+      swiftflash media id [/dev/diskX]
+
     Show remembered media inventory:
       swiftflash media known
 
     Show one remembered medium by name or device UUID:
       swiftflash media info <name-or-device-uuid>
 
-    Create device UUIDs for writable connected media if needed:
+    Create device UUIDs for writable connected media if needed (writes to the medium):
       swiftflash media identify
       swiftflash identify
 

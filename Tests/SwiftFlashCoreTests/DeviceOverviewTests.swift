@@ -43,6 +43,78 @@ struct DeviceOverviewTests {
     }
 
     @Test
+    func imageDetailsListIdentityFileSourceAndFlash() {
+        let flashUUID = UUID()
+        let metadata = FlashUUIDMetadata(
+            flashUUID: flashUUID,
+            deviceUUID: "0F9A6091",
+            deviceName: nil,
+            imagePath: "http://host/redox-rpi-t18-direct-v0.4.0.img.xz",
+            imageName: "redox-rpi-t18-direct-v0.4.0.img",
+            imageSHA256: "abc",
+            flashedAt: flashedAt,
+            image: ImageIdentity(
+                id: "redox-rpi-t18-direct",
+                name: "Redox OS",
+                version: "v0.4.0",
+                build: "2026-11-02T20:50:32Z",
+                additionalFields: ["commit": .string("1107e5f7"), "board": .object([:])]
+            )
+        )
+
+        let lines = DeviceOverview.imageDetails(metadata: metadata, imageIdentity: nil, formatDate: { _ in "2 Nov 2026" })
+
+        #expect(lines == [
+            "Image:        Redox OS v0.4.0",
+            "Image id:     redox-rpi-t18-direct",
+            "Image build:  2026-11-02T20:50:32Z",
+            "commit:       1107e5f7",
+            "Image file:   redox-rpi-t18-direct-v0.4.0.img",
+            "Source:       http://host/redox-rpi-t18-direct-v0.4.0.img.xz",
+            "SHA-256:      abc",
+            "Flashed:      2 Nov 2026",
+            "Flash UUID:   \(flashUUID.uuidString)",
+        ])
+    }
+
+    @Test
+    func historyLinesShowEarlierFlashesOfThisMediumOnly() {
+        func entry(_ name: String, _ device: String, _ offset: TimeInterval, result: String = "success_metadata_file_only") -> FlashHistoryEntry {
+            FlashHistoryEntry(
+                startedAt: flashedAt.addingTimeInterval(offset),
+                finishedAt: flashedAt.addingTimeInterval(offset),
+                imagePath: name,
+                imageName: name,
+                deviceUUID: device,
+                previousFlashUUID: nil,
+                newFlashUUID: nil,
+                uuidWriteSucceeded: true,
+                result: result,
+                image: name == "b.img" ? ImageIdentity(name: "Redox OS", version: "0.9.1") : nil
+            )
+        }
+        let history = [entry("a.img", "card", 0), entry("other.img", "other", 50), entry("b.img", "card", 100),
+                       entry("c.img", "card", 200, result: "failed: write error")]
+
+        let lines = DeviceOverview.historyLines(history, deviceUUID: "card", limit: 2, formatDate: { _ in "d" })
+
+        #expect(lines == [
+            "History on this Mac (3 flashes):",
+            "  d  c.img  [failed]",
+            "  d  Redox OS 0.9.1 (b.img)",
+            "  … 1 more, see `swiftflash history`",
+        ])
+        #expect(DeviceOverview.historyLines(history, deviceUUID: "unknown").isEmpty)
+    }
+
+    @Test
+    func imageDetailsForImageShippedFileOnly() {
+        let lines = DeviceOverview.imageDetails(metadata: nil, imageIdentity: ImageIdentity(id: "sdcard-redox", version: "0.9.0"))
+        #expect(lines == ["Image:        sdcard-redox 0.9.0"])
+        #expect(DeviceOverview.imageDetails(metadata: nil, imageIdentity: nil).isEmpty)
+    }
+
+    @Test
     func knownMediumWithoutCustomNameKeepsDeviceName() {
         let metadata = FlashUUIDMetadata(
             flashUUID: nil,

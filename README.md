@@ -36,6 +36,7 @@ that bundle a browser runtime (Electron) usually need well over 100 MB of disk s
 
 ```bash
 swiftflash media list                                      # connected SD cards / USB sticks
+swiftflash id                                              # which image is on the card (read-only)
 sudo swiftflash ~/Downloads/image.img.xz /dev/disk6        # flash a local (compressed) image
 sudo swiftflash https://example.com/images/os.img.xz       # flash a remote image
 sudo swiftflash                                            # choose image and device interactively
@@ -50,6 +51,7 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 - Image sources: register a build server directory once, then flash the newest build with `redox:<family>`
 - Downloads are checked against a published `<image>.sha256` and kept in the Trash for reuse
 - Optional verification of the written medium against the image
+- `swiftflash id` shows which image is on a card before downloading or writing anything
 - Device selection and erase confirmation show the known name, media type and the image currently on the medium
 - Identification of media and flashed images via a small `/.uuid` file ([format](docs/uuid-file.md)), with a raw
   trailer copy at the end of the device when there is room
@@ -83,9 +85,10 @@ swiftflash source browse <name> [family]
 swiftflash source remove <name>
 
 swiftflash media list                             # connected eligible media
+swiftflash id [/dev/diskX]                        # what is on the medium (also: media id)
 swiftflash media known                            # remembered media
 swiftflash media info <name-or-device-uuid>
-swiftflash media identify                         # create a device-uuid on new writable media
+swiftflash media identify                         # create a device-uuid on new writable media (writes!)
 swiftflash media types
 swiftflash media type-add <type-name>
 swiftflash media set-type <device-uuid> <type-name>
@@ -99,6 +102,22 @@ swiftflash version
 ```
 
 Legacy `swiftflash devices …` commands are still accepted as aliases.
+
+### What is on a card: `swiftflash id`
+
+```bash
+swiftflash id              # all connected media
+swiftflash id /dev/disk6   # one medium
+```
+
+Shows, without downloading or writing anything, the remembered name and media type, the image on the medium
+(name, version, build, file, source, SHA-256, flash date and flash UUID from `/.uuid`), and the earlier flashes of
+this medium recorded on this Mac. The history is keyed by the medium's `device-uuid`, so it is only found when the
+medium itself can be read.
+
+- No `sudo` needed for `/.uuid` on a FAT partition. Use `sudo swiftflash id` for media that only carry the trailer copy.
+- A medium that is not mounted (for example right after flashing) is mounted for reading and unmounted again.
+- `swiftflash identify` is different: it writes a new `device-uuid` to unidentified media.
 
 ### Compressed and remote images
 

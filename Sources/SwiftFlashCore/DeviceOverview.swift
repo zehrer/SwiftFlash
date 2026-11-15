@@ -20,6 +20,70 @@ public struct DeviceOverview: Equatable, Sendable {
 
     static let contentPrefix = "Currently on it: "
 
+    /// Earlier flashes of this medium from the local history (newest first), for `swiftflash id`.
+    public static func historyLines(
+        _ history: [FlashHistoryEntry],
+        deviceUUID: String,
+        limit: Int = 5,
+        formatDate: (Date) -> String = { $0.formatted(date: .abbreviated, time: .shortened) }
+    ) -> [String] {
+        let entries = history
+            .filter { $0.deviceUUID == deviceUUID }
+            .sorted { $0.finishedAt > $1.finishedAt }
+        guard !entries.isEmpty else {
+            return []
+        }
+        var lines = ["History on this Mac (\(entries.count) flash\(entries.count == 1 ? "" : "es")):"]
+        for entry in entries.prefix(limit) {
+            let label = entry.image?.displayLabel.map { "\($0) (\(entry.imageName))" } ?? entry.imageName
+            let failed = entry.result.hasPrefix("failed") ? "  [failed]" : ""
+            lines.append("  \(formatDate(entry.finishedAt))  \(label)\(failed)")
+        }
+        if entries.count > limit {
+            lines.append("  … \(entries.count - limit) more, see `swiftflash history`")
+        }
+        return lines
+    }
+
+    /// Detailed lines about the flashed image for `swiftflash id`: identity, file, source, checksum and flash.
+    public static func imageDetails(
+        metadata: FlashUUIDMetadata?,
+        imageIdentity: ImageIdentity?,
+        formatDate: (Date) -> String = { $0.formatted(date: .abbreviated, time: .shortened) }
+    ) -> [String] {
+        var lines: [String] = []
+        if let image = metadata?.image ?? imageIdentity {
+            if let label = image.displayLabel {
+                lines.append("Image:        \(label)")
+            }
+            if let id = image.id, image.name != nil {
+                lines.append("Image id:     \(id)")
+            }
+            if let build = image.build {
+                lines.append("Image build:  \(build)")
+            }
+            for key in image.additionalFields.keys.sorted() {
+                if case .string(let value)? = image.additionalFields[key] {
+                    lines.append("\(String("\(key):".padding(toLength: 14, withPad: " ", startingAt: 0)))\(value)")
+                }
+            }
+        }
+        if let metadata, metadata.flashUUID != nil, !metadata.imageName.isEmpty {
+            lines.append("Image file:   \(metadata.imageName)")
+            if metadata.imagePath != metadata.imageName {
+                lines.append("Source:       \(metadata.imagePath)")
+            }
+            if let sha256 = metadata.imageSHA256 {
+                lines.append("SHA-256:      \(sha256)")
+            }
+            lines.append("Flashed:      \(formatDate(metadata.flashedAt))")
+            if let flashUUID = metadata.flashUUID {
+                lines.append("Flash UUID:   \(flashUUID.uuidString)")
+            }
+        }
+        return lines
+    }
+
     public static func make(
         device: DiskCandidate,
         identityStatus: DeviceIdentityStatus,

@@ -675,6 +675,7 @@ public enum FlashCommand: Equatable, Sendable {
     case mediaKnown
     case mediaInfo(query: String)
     case mediaIdentify
+    case mediaShow(devicePath: String?)
     case mediaTypes
     case mediaTypeAdd(name: String)
     case mediaSetType(id: String, typeName: String)

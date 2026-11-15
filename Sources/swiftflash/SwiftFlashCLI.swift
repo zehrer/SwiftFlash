@@ -162,6 +162,9 @@ struct SwiftFlashCLI {
                     identifyNewMedia: true
                 )
 
+            case .mediaShow(let devicePath):
+                try await showMedia(devicePath: devicePath, services: services)
+
             case .mediaTypes:
                 let mediaTypes = services.deviceStore.allMediaTypes()
                 if mediaTypes.isEmpty {
@@ -408,6 +411,72 @@ struct SwiftFlashCLI {
         }
     }
 
+    /// `swiftflash id`: shows what is on the connected media without downloading or writing anything.
+    /// Media that are not mounted (e.g. right after flashing) are mounted for reading and unmounted again.
+    private static func showMedia(devicePath: String?, services: Services) async throws {
+        let devices: [DiskCandidate]
+        if let devicePath {
+            guard let device = try services.scanner.findEligibleDevice(at: devicePath) else {
+                throw FlashError.deviceNotFound(devicePath)
+            }
+            devices = [device]
+        } else {
+            devices = try services.scanner.scanEligibleDevices()
+        }
+        guard !devices.isEmpty else {
+            print("No connected eligible flash media")
+            return
+        }
+
+        for (index, scanned) in devices.enumerated() {
+            if index > 0 {
+                print("")
+            }
+            let (device, mountedForReading) = await mountForReading(scanned, services: services)
+            let info = overview(of: device, services: services)
+            print("\(info.title) (\(device.devicePath), \(device.formattedSize))")
+            for line in info.details {
+                print("  \(line)")
+            }
+            let status = services.uuidService.resolveIdentityStatus(for: device)
+            let imageIdentity = services.uuidService.readImageIdentity(from: device.partitions)
+            for line in DeviceOverview.imageDetails(metadata: status.resolvedIdentity?.metadata, imageIdentity: imageIdentity) {
+                print("  \(line)")
+            }
+            if let deviceUUID = status.resolvedIdentity?.metadata.deviceUUID {
+                for line in DeviceOverview.historyLines(services.historyStore.allHistory(), deviceUUID: deviceUUID) {
+                    print("  \(line)")
+                }
+            }
+            if !device.partitions.contains(where: { $0.mountPoint != nil }) {
+                print("  No mountable filesystem, so /.uuid could not be read")
+            }
+            if mountedForReading {
+                try? await services.deviceManager.unmountWholeDisk(device)
+            }
+        }
+    }
+
+    /// Mounts the partitions of a fully unmounted medium so `/.uuid` can be read. Returns the rescanned
+    /// device and whether it was mounted here (and should be unmounted again afterwards).
+    private static func mountForReading(_ device: DiskCandidate, services: Services) async -> (DiskCandidate, Bool) {
+        let mountable = device.partitions.filter(\.isMountable)
+        guard !mountable.isEmpty, !device.partitions.contains(where: { $0.mountPoint != nil }) else {
+            return (device, false)
+        }
+        for partition in mountable {
+            try? await services.deviceManager.mountPartition(partition.bsdName)
+        }
+        for _ in 0..<5 {
+            if let rescanned = try? services.scanner.findEligibleDevice(at: device.devicePath),
+               rescanned.partitions.contains(where: { $0.mountPoint != nil }) {
+                return (rescanned, true)
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        return (device, true)
+    }
+
     /// Describes a target medium: remembered name and type, and the image currently on it.
     private static func overview(of device: DiskCandidate, services: Services) -> DeviceOverview {
         let status = services.uuidService.resolveIdentityStatus(for: device)
@@ -442,7 +511,7 @@ struct SwiftFlashCLI {
                 : uuidService.resolveIdentityStatus(for: device)
             let metadata = identityStatus.resolvedIdentity?.metadata
             let known = metadata.flatMap { knownByID[$0.deviceUUID] }
-            let displayName = known?.displayName ?? device.displayName
+            let displayName = known?.customName ?? device.displayName
             let deviceIdentifier = identityStatus.deviceUUIDDisplay
             let mediaType = known?.mediaTypeName ?? "-"
             let rememberedSuffix = known == nil ? "" : " [remembered]"

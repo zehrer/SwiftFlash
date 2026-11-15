@@ -182,6 +182,15 @@ struct SwiftFlashCoreTests {
     }
 
     @Test
+    func parsesIdCommand() throws {
+        #expect(try CLIParser.parse(arguments: ["swiftflash", "id"]) == .mediaShow(devicePath: nil))
+        #expect(try CLIParser.parse(arguments: ["swiftflash", "id", "/dev/disk6"]) == .mediaShow(devicePath: "/dev/disk6"))
+        #expect(try CLIParser.parse(arguments: ["swiftflash", "media", "id"]) == .mediaShow(devicePath: nil))
+        #expect(try CLIParser.parse(arguments: ["swiftflash", "identify"]) == .mediaIdentify)
+        #expect(throws: FlashError.self) { try CLIParser.parse(arguments: ["swiftflash", "id", "disk6"]) }
+    }
+
+    @Test
     func parsesVersionCommand() throws {
         #expect(try CLIParser.parse(arguments: ["swiftflash", "version"]) == .version)
         #expect(try CLIParser.parse(arguments: ["swiftflash", "--version"]) == .version)
