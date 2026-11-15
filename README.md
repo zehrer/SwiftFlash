@@ -116,6 +116,7 @@ this medium recorded on this Mac. The history is keyed by the medium's `device-u
 medium itself can be read.
 
 - No `sudo` needed for `/.uuid` on a FAT partition. Use `sudo swiftflash id` for media that only carry the trailer copy.
+- Without an `image` block in `/.uuid`, a `pi-gen` `issue.txt` is used, so Raspberry Pi OS cards show e.g. `Raspberry Pi OS Lite 2026-10-06`.
 - A medium that is not mounted (for example right after flashing) is mounted for reading and unmounted again.
 - `swiftflash identify` is different: it writes a new `device-uuid` to unidentified media.
 

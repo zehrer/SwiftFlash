@@ -72,6 +72,14 @@ put the current content on it*.
 All fields in the `image` block are optional. SwiftFlash shows `name` (or `id`) plus
 `version` as the image label, e.g. `Redox OS 0.9.1`.
 
+### Fallback: `issue.txt`
+
+If an image has no `.uuid` with an `image` block, SwiftFlash looks for a `pi-gen` style `issue.txt` on the boot
+partition (Raspberry Pi OS and images derived from it) and derives an `image` block from it, e.g.
+`Raspberry Pi OS Lite 2026-10-06` with the pi-gen commit as `build`. Such a block carries
+`"detectedFrom": "issue.txt"` and is stored in the `.uuid` after flashing like a shipped one. A shipped `image`
+block always takes precedence.
+
 ## For image builders
 
 To make an image identifiable, put a `.uuid` with **only** `schemaVersion` and an `image`

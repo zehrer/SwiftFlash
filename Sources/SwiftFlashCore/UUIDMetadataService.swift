@@ -29,6 +29,7 @@ public final class UUIDMetadataService {
 
     /// Reads the image-provided `image` block from the first mounted `/.uuid` that has one.
     /// Works for files shipped by an image build (without device or flash UUIDs) and for files written by SwiftFlash.
+    /// Falls back to a pi-gen `issue.txt` (Raspberry Pi OS) on the boot partition.
     public func readImageIdentity(from partitions: [PartitionVolume]) -> ImageIdentity? {
         for partition in partitions {
             guard let mountPoint = partition.mountPoint else { continue }
@@ -41,7 +42,7 @@ public final class UUIDMetadataService {
             }
             return image
         }
-        return nil
+        return IssueFile.read(from: partitions)
     }
 
     public func readExistingMetadata(from device: DiskCandidate) -> FlashUUIDMetadata? {
