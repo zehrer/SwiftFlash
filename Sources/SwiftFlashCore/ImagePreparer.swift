@@ -1,5 +1,3 @@
-import Compression
-import CryptoKit
 import Foundation
 
 public enum ImagePreparationStep: Equatable, Sendable {
@@ -186,10 +184,11 @@ public final class ImagePreparer {
             if ImageSupport.isCompressed(localURL) {
                 let directory = try temporaryDirectory ?? Self.makeTemporaryDirectory()
                 temporaryDirectory = directory
-                let decompressedURL = directory.appendingPathComponent(localURL.deletingPathExtension().lastPathComponent)
-                imageSHA256 = try Self.decompressXZ(from: localURL, to: decompressedURL) { consumed, total, produced in
+                let unpacked = try ImageUnpacker.unpack(localURL, into: directory) { consumed, total, produced in
                     progress(ImagePreparationProgress(step: .decompress, fraction: Double(consumed) / Double(total), processedBytes: produced))
                 }
+                imageSHA256 = unpacked.sha256
+                let decompressedURL = unpacked.url
                 if Self.isRemote(source) && keptDownload == nil {
                     try? FileManager.default.removeItem(at: localURL)
                 }
@@ -274,85 +273,6 @@ public final class ImagePreparer {
             .appendingPathComponent("swiftflash-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
-    }
-
-    /// Unpacks an `.xz` file and returns the SHA-256 (hex) of the unpacked data.
-    @discardableResult
-    static func decompressXZ(
-        from source: URL,
-        to destination: URL,
-        progress: (_ consumedBytes: Int64, _ totalBytes: Int64, _ producedBytes: Int64) -> Void
-    ) throws -> String {
-        let input = try FileHandle(forReadingFrom: source)
-        defer { try? input.close() }
-        guard FileManager.default.createFile(atPath: destination.path, contents: nil) else {
-            throw FlashError.ioFailed("Could not create \(destination.path)")
-        }
-        let output = try FileHandle(forWritingTo: destination)
-        defer { try? output.close() }
-
-        let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
-        let totalSize = max((attributes[.size] as? NSNumber)?.int64Value ?? 0, 1)
-
-        let bufferSize = 4 * 1024 * 1024
-        let sourceBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-        defer { sourceBuffer.deallocate() }
-        let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-        defer { destinationBuffer.deallocate() }
-
-        let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
-        defer { stream.deallocate() }
-        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_LZMA) == COMPRESSION_STATUS_OK else {
-            throw FlashError.invalidImage("Could not initialize xz decoder")
-        }
-        defer { compression_stream_destroy(stream) }
-
-        stream.pointee.src_ptr = UnsafePointer(sourceBuffer)
-        stream.pointee.src_size = 0
-        var consumed: Int64 = 0
-        var produced: Int64 = 0
-        var reachedEndOfInput = false
-        var hasher = SHA256()
-
-        while true {
-            if stream.pointee.src_size == 0 && !reachedEndOfInput {
-                let chunk = try input.read(upToCount: bufferSize) ?? Data()
-                if chunk.isEmpty {
-                    reachedEndOfInput = true
-                } else {
-                    chunk.copyBytes(to: sourceBuffer, count: chunk.count)
-                    stream.pointee.src_ptr = UnsafePointer(sourceBuffer)
-                    stream.pointee.src_size = chunk.count
-                    consumed += Int64(chunk.count)
-                    progress(consumed, totalSize, produced)
-                }
-            }
-
-            stream.pointee.dst_ptr = destinationBuffer
-            stream.pointee.dst_size = bufferSize
-            let flags = reachedEndOfInput ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0
-            let status = compression_stream_process(stream, flags)
-
-            let chunkSize = bufferSize - stream.pointee.dst_size
-            if chunkSize > 0 {
-                let chunk = Data(bytes: destinationBuffer, count: chunkSize)
-                hasher.update(data: chunk)
-                try output.write(contentsOf: chunk)
-                produced += Int64(chunkSize)
-            }
-
-            switch status {
-            case COMPRESSION_STATUS_END:
-                progress(totalSize, totalSize, produced)
-                return hasher.finalize().map { String(format: "%02x", $0) }.joined()
-            case COMPRESSION_STATUS_OK:
-                if reachedEndOfInput && chunkSize == 0 {
-                    throw FlashError.invalidImage("xz image is truncated: \(source.lastPathComponent)")
-                }
-            default:
-                throw FlashError.invalidImage("Could not decompress xz image: \(source.lastPathComponent)")
-            }
-        }
     }
 }
 

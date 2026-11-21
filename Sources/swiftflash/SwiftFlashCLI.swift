@@ -281,7 +281,7 @@ struct SwiftFlashCLI {
                         print("All models. Filter with `settings rpi-model pi5` (interactive shell) or --model pi5.")
                     }
                     if list.unsupportedCount > 0 {
-                        print("\(list.unsupportedCount) images in other formats (.zip, .gz, …) are not listed.")
+                        print("\(list.unsupportedCount) images in other formats (.bz2, .zst) are not listed.")
                     }
                 } else {
                     for family in listing.families {

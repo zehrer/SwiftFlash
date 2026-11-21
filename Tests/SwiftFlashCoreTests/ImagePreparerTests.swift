@@ -56,7 +56,10 @@ struct ImagePreparerTests {
 
     @Test
     func unsupportedImageNameIsRejected() {
-        #expect(throws: FlashError.self) { try ImageSupport.validateImageName("image.zip") }
+        #expect(throws: FlashError.self) { try ImageSupport.validateImageName("image.tar") }
+        #expect(throws: FlashError.self) { try ImageSupport.validateImageName("notes.txt.gz") }
+        #expect(throws: Never.self) { try ImageSupport.validateImageName("image.zip") }
+        #expect(throws: Never.self) { try ImageSupport.validateImageName("os.img.gz") }
         #expect(throws: FlashError.self) { try ImageSupport.validateImageName("notes.txt.xz") }
         #expect(throws: Never.self) { try ImageSupport.validateImageName("sdcard-redox.img.xz") }
         #expect(throws: Never.self) { try ImageSupport.validateImageName("installer.ISO") }

@@ -3,7 +3,8 @@ import Foundation
 
 public enum ImageSupport {
     public static let supportedExtensions: Set<String> = ["iso", "img"]
-    public static let compressedExtensions: Set<String> = ["xz"]
+    /// `.xz` and `.gz` wrap one image (`disk.img.xz`); a `.zip` holds the image as an entry.
+    public static let compressedExtensions: Set<String> = ["xz", "gz", "zip"]
 
     public static func isCompressed(_ url: URL) -> Bool {
         compressedExtensions.contains(url.pathExtension.lowercased())
@@ -12,6 +13,9 @@ public enum ImageSupport {
     /// Checks that a file name is a supported image, optionally wrapped in a supported compression (e.g. `.img.xz`).
     public static func validateImageName(_ fileName: String) throws {
         var url = URL(fileURLWithPath: fileName)
+        if url.pathExtension.lowercased() == "zip" {
+            return // the image inside is checked when unpacking
+        }
         if isCompressed(url) {
             url = url.deletingPathExtension()
         }
@@ -19,6 +23,18 @@ public enum ImageSupport {
         guard supportedExtensions.contains(ext) else {
             throw FlashError.invalidImage("Unsupported image format: \(fileName)")
         }
+    }
+
+    /// The name without compression and image extension: `os-v1.0.img.xz` and `os-v1.0.zip` → `os-v1.0`.
+    public static func baseName(of fileName: String) -> String {
+        var url = URL(fileURLWithPath: fileName)
+        if isCompressed(url) {
+            url = url.deletingPathExtension()
+        }
+        if supportedExtensions.contains(url.pathExtension.lowercased()) {
+            url = url.deletingPathExtension()
+        }
+        return url.lastPathComponent
     }
 
     public static func validateImage(at path: String) throws -> ImageDescriptor {

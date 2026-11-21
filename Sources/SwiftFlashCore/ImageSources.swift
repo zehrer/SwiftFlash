@@ -102,11 +102,7 @@ public enum RemoteImageNaming {
 
     /// Splits `redox-rpi-t18-direct-v0.4.0-dev-36-g1107e5f7+x95e1.img.xz` into family and version.
     public static func split(fileName: String) -> (family: String, version: String?) {
-        var base = URL(fileURLWithPath: fileName)
-        if ImageSupport.isCompressed(base) {
-            base = base.deletingPathExtension()
-        }
-        let name = base.deletingPathExtension().lastPathComponent
+        let name = ImageSupport.baseName(of: fileName)
         for pattern in versionPatterns {
             if let range = name.range(of: pattern, options: .regularExpression), range.lowerBound > name.startIndex {
                 return (String(name[..<range.lowerBound]), String(name[range].dropFirst()))

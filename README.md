@@ -1,11 +1,11 @@
 # SwiftFlash
 
 `swiftflash` is a macOS command-line tool for flashing `.img` and `.iso` images to SD cards and USB sticks.
-Images can be local files, `.xz` compressed, or loaded from an `http(s)` URL or a registered build server.
+Images can be local files, compressed (`.xz`, `.gz`, `.zip`), or loaded from an `http(s)` URL or a registered build server.
 
 It is implemented 100% in Swift and uses only system frameworks:
 `Foundation`, `DiskArbitration`, `IOKit`, `Darwin` / POSIX I/O, `CryptoKit` and `Compression`.
-No external tools such as `diskutil`, `dd`, `xz` or `curl` are used for scanning, mounting, downloading,
+No external tools such as `diskutil`, `dd`, `xz`, `gzip`, `unzip` or `curl` are used for scanning, mounting, downloading,
 unpacking or writing.
 
 ## Install
@@ -29,7 +29,7 @@ SwiftFlash is a single native binary without bundled runtimes or dependencies (m
 | Memory, browsing a build server | ~13 MB (peak footprint) |
 
 Flashing and verifying use fixed 4 MiB buffers, so memory use does not grow with the image size. Unpacking
-`.xz` additionally needs the archive's dictionary (up to 64 MiB for `xz -9`). For comparison, GUI flashing tools
+Unpacking `.xz` additionally needs the archive's dictionary (up to 64 MiB for `xz -9`). For comparison, GUI flashing tools
 that bundle a browser runtime (Electron) usually need well over 100 MB of disk space.
 
 ## Quick start
@@ -47,7 +47,7 @@ Flashing and verifying need `sudo`. Only external physical whole disks are offer
 
 ## Features
 
-- Flash `.img` / `.iso`, also `.xz` compressed, from a local path or an `http(s)` URL
+- Flash `.img` / `.iso`, also compressed as `.xz`, `.gz` or `.zip`, from a local path or an `http(s)` URL
 - Image sources: register a build server directory once, then flash the newest build with `redox:<family>`
 - Built-in Raspberry Pi image list (the one the Raspberry Pi Imager uses): `sudo swiftflash rpi:lite-64`, filtered by board
 - Downloads are checked against a published `<image>.sha256` and kept in the Trash for reuse
@@ -134,8 +134,10 @@ sudo swiftflash /path/to/sdcard.img.xz /dev/diskX
 sudo swiftflash https://example.com/images/sdcard.img.xz /dev/diskX
 ```
 
-- `.xz` images are unpacked into a temporary directory; the original `.xz` file is kept. The temporary directory
-  needs enough free space for the unpacked image.
+- `.xz`, `.gz` and `.zip` images are unpacked into a temporary directory; the original file is kept. The temporary
+  directory needs enough free space for the unpacked image.
+- A `.zip` must contain exactly one `.img` / `.iso` (or a single file of any name). Zip64 archives for images over
+  4 GB work. `.gz` and `.zip` are checked against their built-in CRC-32 while unpacking.
 - Remote images are downloaded into a temporary directory. After flashing or verifying (also when it fails),
   the downloaded file is moved to the Trash of the user who ran `sudo`, and the unpacked image is deleted.
 - The next time the same URL is used, SwiftFlash asks the server whether the file is unchanged (`ETag`, or
@@ -144,7 +146,7 @@ sudo swiftflash https://example.com/images/sdcard.img.xz /dev/diskX
 - If a `<image>.sha256` file (`sha256sum` format) lies next to the image, the download is checked against it and
   SwiftFlash stops on a mismatch. A copy from the Trash is checked too and downloaded again if it does not match;
   offline, it is checked against the SHA-256 recorded at download time. Local files are checked the same way.
-- The remembered image list stores the original location (URL or `.xz` path), not the temporary file.
+- The remembered image list stores the original location (URL or path of the compressed file), not the temporary file.
 
 ### Image sources
 
@@ -181,7 +183,7 @@ sudo swiftflash rpi:ubuntu-server-24 --model pi5
 - The board is set with `settings rpi-model pi5` in the interactive shell (`any` shows everything) or per command
   with `--model`. Models: `pi5`, `pi4`, `pi3`, `pi2`, `pi1`, `zero2w`, `zero`.
 - After unpacking, the image is checked against the SHA-256 published in the list.
-- Images packed as `.zip`, `.gz`, `.bz2` or `.zst` are not listed yet.
+- Images packed as `.bz2` or `.zst` are not listed (the `Compression` framework cannot unpack them).
 - First-boot settings of the Imager (Wi-Fi, SSH, user) are not supported.
 
 ### Settings
@@ -236,7 +238,7 @@ The layout is intended to stay compatible with a future SwiftFlash GUI.
 
 ## Flash flow
 
-1. Resolve `<source>:<family>`, download remote images, check them against `.sha256`, and unpack `.xz` into a
+1. Resolve `<source>:<family>`, download remote images, check them against `.sha256`, and unpack `.xz` / `.gz` / `.zip` into a
    temporary directory; validate the image file and size.
 2. Scan only eligible external physical whole-disk devices and show what is on them.
 3. Read an existing `/.uuid` from mounted partitions (or the trailer) to reuse the `device-uuid`.
@@ -303,7 +305,7 @@ packaging/homebrew/   formula template
 
 - macOS only; the Homebrew build is arm64 only.
 - Flashing and verifying require root, typically via `sudo`.
-- `.gz` images are not supported yet.
+- `.bz2` and `.zst` images are not supported, and `.gz` files with several members (e.g. concatenated) are rejected.
 - Tested mainly with SD cards in USB card readers; more hardware coverage is welcome.
 
 ## License

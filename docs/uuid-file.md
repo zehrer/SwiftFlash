@@ -53,7 +53,7 @@ SwiftFlash writes these fields. Images must not contain them.
 | `flashUUID` | string (UUID) | Identifies one flash operation. New on every flash. Missing if the medium was only identified, never flashed. |
 | `flashedAt` | string (ISO 8601) | Time the metadata was written. |
 | `imageName` | string | File name of the flashed image (after unpacking). |
-| `imagePath` | string | Original image location: local path, `.xz` path, or `http(s)` URL. |
+| `imagePath` | string | Original image location: local path, path of the compressed file, or `http(s)` URL. |
 | `imageSHA256` | string | SHA-256 of the flashed (uncompressed) image. |
 
 In short: `deviceUUID` answers *which medium is this*, `flashUUID` answers *which flash

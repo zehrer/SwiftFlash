@@ -68,7 +68,7 @@ Included requirements:
 
 Known gaps:
 - real hardware validation is still limited
-- `.gz` images are not supported yet
+- `.gz` images are not supported yet (added after 0.3.0)
 - release builds are arm64 only
 
 ## Unreleased
@@ -78,11 +78,11 @@ Included requirements:
 - `settings` in the interactive shell: `verify` and `verify-console` (`ask`, `always`, `never`), stored in the config
 - built-in source `rpi`: the Raspberry Pi Imager OS list, filtered by board (`settings rpi-model`, `--model`);
   unpacked images are checked against the list's SHA-256
+- `.gz` and `.zip` images (zip with one image, Zip64 for images over 4 GB), checked against their CRC-32
 
 ## Later Releases
 Planned requirements:
 - Homebrew tap `zehrer/homebrew-tap` with automated formula updates
-- `.gz` image support
 
 
 Potenial requirements:

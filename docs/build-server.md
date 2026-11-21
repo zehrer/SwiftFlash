@@ -26,7 +26,7 @@ For that, SwiftFlash:
 2. Groups the image files into **families** by file name and finds the **newest build** of each
    (by the date in `index.json`, else by the server's `Last-Modified` header, else by file name).
 3. Downloads the chosen image and checks it against `<image>.sha256` if present.
-4. Unpacks `.xz`, writes the image, and reads the image's identity from `/.uuid` on the card.
+4. Unpacks `.xz` / `.gz` / `.zip`, writes the image, and reads the image's identity from `/.uuid` on the card.
 5. Moves the download to the user's Trash and reuses it next time if the server still serves
    the same file (`ETag`, or `Last-Modified` plus size).
 
@@ -47,7 +47,7 @@ SwiftFlash derives family and version from the file name when there is no `index
 | --- | --- | --- |
 | family | stable name of the image variant, never contains the version | `redox-rpi-t18-direct` |
 | version | starts with `v<major>.<minor>` (e.g. `git describe`) **or** with a date `YYYYMMDD` | `v0.4.0-dev-36-g1107e5f7+x95e1`, `20261107b` |
-| extension | `.img`, `.iso`, optionally compressed as `.xz` | `.img.xz` |
+| extension | `.img`, `.iso`, optionally compressed as `.xz` (preferred), `.gz` or `.zip` | `.img.xz` |
 
 Good:
 
@@ -85,8 +85,9 @@ The server must answer `HEAD` requests and send:
 
 ### 5. Compression
 
-- Use `.xz` (e.g. `xz -9`).
-- `.gz` is **not supported yet**.
+- Prefer `.xz` (e.g. `xz -9`): smallest files.
+- `.gz` (single member, as written by `gzip`) and `.zip` (one image inside) work too.
+- `.bz2` and `.zst` are **not supported**.
 
 ## Recommended
 
@@ -153,7 +154,7 @@ uses it automatically when present.
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `file` | yes | File name (or path relative to the directory). Must end in `.img`, `.iso`, `.img.xz` or `.iso.xz`. |
+| `file` | yes | File name (or path relative to the directory). Must end in `.img` or `.iso`, optionally followed by `.xz` or `.gz`, or in `.zip`. |
 | `family` | no | Image family. Defaults to the family derived from the file name. |
 | `version` | no | Version shown to the user. Defaults to the version derived from the file name. |
 | `date` | no | Build time, ISO 8601 with time zone. Used to find the newest build. |
@@ -200,6 +201,6 @@ gets an HTTP 404; a copy in their Trash is then only used if the server is unrea
 - [ ] File names follow `<family>-<version>.img.xz` (version starts with `v1.2` or `YYYYMMDD`), or `index.json` provides family and version
 - [ ] A published file is never overwritten under the same name
 - [ ] Server answers `HEAD` with `Content-Length` and `Last-Modified`
-- [ ] Compression is `.xz` (not `.gz`)
+- [ ] Compression is `.xz` (or `.gz` / `.zip`, not `.bz2` / `.zst`)
 - [ ] Every image has a `<image>.sha256` in `sha256sum` format
 - [ ] The image contains `/.uuid` with only `schemaVersion` and an `image` block on the FAT boot partition

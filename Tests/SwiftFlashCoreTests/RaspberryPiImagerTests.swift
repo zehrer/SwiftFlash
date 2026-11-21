@@ -23,8 +23,8 @@ struct RaspberryPiImagerTests {
         ]},
         {"name": "Media", "subitems": [
           {"name": "Untagged OS", "url": "https://x/c/untagged.img.xz"},
-          {"name": "Zipped OS", "url": "https://x/d/zipped.zip"},
-          {"name": "Gzipped OS", "url": "https://x/e/gz.img.gz"}
+          {"name": "Zipped OS", "url": "https://x/d/zipped.wic.bz2"},
+          {"name": "Gzipped OS", "url": "https://x/e/zstd.img.zst"}
         ]}
       ]
     }
@@ -127,6 +127,26 @@ struct RaspberryPiImagerTests {
         #expect(list.images.count > 20)
         let image = try #require(list.images.first { $0.title?.contains("Yellow") == true && $0.imageSHA256 != nil })
 
+        let prepared = try await ImagePreparer().prepare(
+            source: image.url.absoluteString,
+            expectedImageSHA256: image.imageSHA256
+        ) { _ in }
+        defer { prepared.cleanup() }
+        #expect(prepared.imageChecksumVerified)
+    }
+
+    /// Real .gz and .zip images from the list: set SWIFTFLASH_TEST_RPI=1 (downloads ~120 MB).
+    @Test(
+        .enabled(if: ProcessInfo.processInfo.environment["SWIFTFLASH_TEST_RPI"] != nil),
+        arguments: ["alpine-rpi-3.24.4-armv7.img.gz", "pinn-lite.img.zip"]
+    )
+    func realCompressedImagesMatchTheirExtractSHA256(fileName: String) async throws {
+        let source = try #require(ImageSource.builtIn.first { $0.name == "rpi" })
+        let list = try #require(try await ImageSourceBrowser().raspberryPiList(in: source))
+        guard let image = list.images.first(where: { $0.fileName == fileName && $0.imageSHA256 != nil }) else {
+            Issue.record("\(fileName) is no longer in the list")
+            return
+        }
         let prepared = try await ImagePreparer().prepare(
             source: image.url.absoluteString,
             expectedImageSHA256: image.imageSHA256
