@@ -87,7 +87,7 @@ public struct PreparedImage: Equatable, Sendable {
 ///
 /// With a `TrashedDownloadStore`, downloaded remote images are moved to the user's Trash after use
 /// and taken from there next time, as long as the server still serves the same file.
-public final class ImagePreparer {
+public final class ImagePreparer: Sendable {
     private let trashStore: TrashedDownloadStore?
     private let trash: DownloadTrash
 
@@ -296,9 +296,15 @@ private final class ImageDownloader: NSObject, URLSessionDownloadDelegate, @unch
         let downloader = ImageDownloader(destination: destination, progress: progress)
         let session = URLSession(configuration: .ephemeral, delegate: downloader, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RemoteFileInfo, Error>) in
-            downloader.continuation = continuation
-            session.downloadTask(with: url).resume()
+        let task = session.downloadTask(with: url)
+        // Cancelling the surrounding Swift task (e.g. the flash was not confirmed) stops the download.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RemoteFileInfo, Error>) in
+                downloader.continuation = continuation
+                task.resume()
+            }
+        } onCancel: {
+            task.cancel()
         }
     }
 
@@ -333,7 +339,11 @@ private final class ImageDownloader: NSObject, URLSessionDownloadDelegate, @unch
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        let result = error.map { FlashError.ioFailed("Download failed: \($0.localizedDescription)") } ?? finishError
+        let result = error.map { error in
+            (error as? URLError)?.code == .cancelled
+                ? FlashError.cancelled
+                : FlashError.ioFailed("Download failed: \(error.localizedDescription)")
+        } ?? finishError
         if let result {
             continuation?.resume(throwing: result)
         } else {

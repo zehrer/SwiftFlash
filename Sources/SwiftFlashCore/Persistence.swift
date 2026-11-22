@@ -1,10 +1,12 @@
 import Darwin
 import Foundation
 
-public final class AppConfigStore {
+/// Thread-safe: the image can be prepared in the background while prompts read the config.
+public final class AppConfigStore: @unchecked Sendable {
     public let configURL: URL
     /// Owner to give the config directory and file after saving, e.g. the user who ran `sudo`.
     private let owner: ConfigFileOwner?
+    private let lock = NSRecursiveLock()
     private var config: AppConfig
 
     public init(configURL: URL? = nil, owner: ConfigFileOwner? = ConfigFileOwner.sudoInvoker()) throws {
@@ -14,15 +16,21 @@ public final class AppConfigStore {
     }
 
     public func currentConfig() -> AppConfig {
-        config
+        lock.lock()
+        defer { lock.unlock() }
+        return config
     }
 
     public func update(_ mutate: (inout AppConfig) -> Void) throws {
+        lock.lock()
+        defer { lock.unlock() }
         mutate(&config)
         try save()
     }
 
     public func save() throws {
+        lock.lock()
+        defer { lock.unlock() }
         let directory = configURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let data = try JSONCoding.encoder.encode(config)
@@ -212,7 +220,7 @@ public final class ImageSourceStore {
 }
 
 /// Remembers which downloaded remote images were moved to the Trash, so they can be reused.
-public final class TrashedDownloadStore {
+public final class TrashedDownloadStore: Sendable {
     private let configStore: AppConfigStore
 
     public init(configStore: AppConfigStore) {

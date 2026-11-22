@@ -141,6 +141,9 @@ enum ImageUnpacker {
         } else {
             var remaining = Int64(entry.compressedSize)
             while remaining > 0 {
+                if Task.isCancelled {
+                    throw FlashError.cancelled
+                }
                 let chunk = try reader.read(upTo: Int(min(remaining, Int64(chunkSize))))
                 guard !chunk.isEmpty else {
                     throw FlashError.invalidImage("zip file is truncated: \(name)")
@@ -296,6 +299,9 @@ enum ImageUnpacker {
         var endOfInput = false
 
         while true {
+            if Task.isCancelled {
+                throw FlashError.cancelled
+            }
             if inputOffset == input.count && !endOfInput {
                 let wanted = remaining.map { Int(min($0, Int64(chunkSize))) } ?? chunkSize
                 input = wanted > 0 ? try reader.read(upTo: wanted) : Data()

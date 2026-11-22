@@ -79,6 +79,8 @@ Included requirements:
 - built-in source `rpi`: the Raspberry Pi Imager OS list, filtered by board (`settings rpi-model`, `--model`);
   unpacked images are checked against the list's SHA-256
 - `.gz` and `.zip` images (zip with one image, Zip64 for images over 4 GB), checked against their CRC-32
+- the medium is checked before downloading (asks to insert one); the image is prepared in the background while the
+  device is chosen and the erase is confirmed, and a declined flash stops the download
 
 ## Later Releases
 Planned requirements:

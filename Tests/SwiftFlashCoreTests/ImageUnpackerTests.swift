@@ -114,6 +114,29 @@ struct ImageUnpackerTests {
     }
 
     @Test
+    func cancelledPreparationStopsAndRemovesTemporaryFiles() async throws {
+        let directory = try ImagePreparer.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let image = directory.appendingPathComponent("big.img")
+        try Data(count: 64 * 1024 * 1024).write(to: image)
+        try run("/usr/bin/gzip", "-1", image.path)
+        let gz = directory.appendingPathComponent("big.img.gz")
+
+        let started = AsyncStream<URL?>.makeStream()
+        let task = Task {
+            try await ImagePreparer().prepare(source: gz.path) { _ in started.continuation.yield(nil) }
+        }
+        for await _ in started.stream { break } // unpacking has begun
+        task.cancel()
+        await #expect(throws: FlashError.cancelled) { _ = try await task.value }
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path)
+            .filter { $0.hasPrefix("swiftflash-") }
+            .map { FileManager.default.temporaryDirectory.appendingPathComponent($0) }
+            .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("big.img").path) }
+        #expect(leftovers.isEmpty)
+    }
+
+    @Test
     func baseNamesAndFamilies() {
         #expect(ImageSupport.baseName(of: "os-v1.0.img.xz") == "os-v1.0")
         #expect(ImageSupport.baseName(of: "os-v1.0.zip") == "os-v1.0")

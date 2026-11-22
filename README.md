@@ -208,6 +208,9 @@ with `--yes`, `ask` counts as `never`. `rpi-model` filters the [Raspberry Pi ima
 
 - Without an image, SwiftFlash lists remembered images and configured sources, and accepts a new path or URL.
 - Without a device, it scans for external physical whole disks; a single eligible device is proposed directly.
+  If none is connected, it asks you to insert one before downloading the image.
+- A remote or compressed image is prepared in the background while you choose the device and confirm; its
+  progress is shown afterwards.
 - For each device it shows whether the medium is known (name, media type, `device-uuid`) and what is on it
   (image version, file and flash date), or the volume names of an unknown medium.
 - Unless `--yes` is used, the flash flow asks for a final confirmation and says what will be replaced.
@@ -238,9 +241,11 @@ The layout is intended to stay compatible with a future SwiftFlash GUI.
 
 ## Flash flow
 
-1. Resolve `<source>:<family>`, download remote images, check them against `.sha256`, and unpack `.xz` / `.gz` / `.zip` into a
-   temporary directory; validate the image file and size.
-2. Scan only eligible external physical whole-disk devices and show what is on them.
+1. Resolve `<source>:<family>` and check that an eligible medium is connected. Without one, SwiftFlash asks you to
+   insert it (or stops with `--yes`), so nothing is downloaded in vain.
+2. In the background: download remote images, check them against `.sha256`, and unpack `.xz` / `.gz` / `.zip` into
+   a temporary directory. Meanwhile, scan only eligible external physical whole-disk devices, show what is on them
+   and ask for the device and the confirmation. Answering "no" stops the download and removes its files.
 3. Read an existing `/.uuid` from mounted partitions (or the trailer) to reuse the `device-uuid`.
 4. Unmount the whole disk through Disk Arbitration.
 5. Write the image to the raw device node with POSIX I/O, showing progress and speed.

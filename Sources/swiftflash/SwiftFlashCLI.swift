@@ -45,14 +45,41 @@ struct SwiftFlashCLI {
                     throw FlashError.requiresRoot
                 }
 
-                let prepared = try await resolveImage(path: imagePath, modelFlag: modelFlag, services: services)
-                defer { cleanup(prepared, services: services) }
-                let image = prepared.image
-                let device = try resolveDevice(path: devicePath, services: services)
-                if !skipConfirmation
-                    && !services.prompt.confirmFlash(image: image, device: device, overview: overview(of: device, services: services)) {
-                    throw FlashError.cancelled
+                // Check for a medium before downloading anything, then prepare the image (download, unpack)
+                // in the background while the device is chosen and the erase is confirmed.
+                let location = try await selectImage(path: imagePath, modelFlag: modelFlag, services: services)
+                try waitForMedium(devicePath: devicePath, mayWait: !skipConfirmation, services: services)
+                let progress = PreparationProgress(muted: true)
+                if location.needsPreparation {
+                    print("Preparing the image in the background…")
                 }
+                let preparer = services.imagePreparer
+                let preparation = Task {
+                    try await prepare(location, progress: progress, preparer: preparer)
+                }
+                let device: DiskCandidate
+                do {
+                    device = try resolveDevice(path: devicePath, services: services)
+                    if !skipConfirmation && !services.prompt.confirmFlash(
+                        imageLabel: location.label,
+                        imageSize: location.knownSize,
+                        device: device,
+                        overview: overview(of: device, services: services)
+                    ) {
+                        throw FlashError.cancelled
+                    }
+                } catch {
+                    preparation.cancel()
+                    if let prepared = try? await preparation.value {
+                        cleanup(prepared, services: services)
+                    }
+                    throw error
+                }
+                progress.unmute()
+                let prepared = try await preparation.value
+                defer { cleanup(prepared, services: services) }
+                reportPreparation(prepared, progress: progress)
+                let image = prepared.image
 
                 print("Flashing \(image.name) to \(device.displayName) (\(device.devicePath))")
                 let writeProgress = ConsoleProgressRenderer(label: "Flash", totalBytes: image.size)
@@ -103,7 +130,11 @@ struct SwiftFlashCLI {
                     throw FlashError.requiresRoot
                 }
 
-                let prepared = try await resolveImage(path: imagePath, modelFlag: nil, services: services)
+                try waitForMedium(devicePath: devicePath, mayWait: true, services: services)
+                let location = try await selectImage(path: imagePath, modelFlag: nil, services: services)
+                let progress = PreparationProgress(muted: false)
+                let prepared = try await prepare(location, progress: progress, preparer: services.imagePreparer)
+                reportPreparation(prepared, progress: progress)
                 defer { cleanup(prepared, services: services) }
                 let image = prepared.image
                 let device = try resolveDevice(path: devicePath, services: services)
@@ -332,19 +363,71 @@ struct SwiftFlashCLI {
         }
     }
 
-    private static func resolveImage(path: String?, modelFlag: String?, services: Services) async throws -> PreparedImage {
+    /// The chosen image before it is prepared: a local path or URL, plus the list entry for `source:` references.
+    private struct ImageLocation: Sendable {
+        var source: String
+        var remote: RemoteImage?
+
+        var label: String {
+            remote.map(PromptRenderer.buildLine) ?? source
+        }
+
+        /// True if the image must be downloaded or unpacked first.
+        var needsPreparation: Bool {
+            ImagePreparer.isRemote(source) || ImageSupport.isCompressed(URL(fileURLWithPath: source))
+        }
+
+        /// The size of a local, uncompressed image; nil while it is still unknown.
+        var knownSize: Int64? {
+            guard !needsPreparation,
+                  let size = try? FileManager.default.attributesOfItem(atPath: source)[.size] as? NSNumber
+            else {
+                return nil
+            }
+            return size.int64Value
+        }
+    }
+
+    private static func selectImage(path: String?, modelFlag: String?, services: Services) async throws -> ImageLocation {
         let selected = try path ?? services.prompt.selectImage(
             from: services.imageStore.allImages(),
             sources: services.sourceStore.allSources()
         )
         let (resolvedPath, remote) = try await resolveSourceReference(selected, modelFlag: modelFlag, services: services)
-        let progress = PreparationProgress()
-        let prepared = try await services.imagePreparer.prepare(
-            source: resolvedPath,
-            expectedImageSHA256: remote?.imageSHA256
+        return ImageLocation(source: resolvedPath, remote: remote)
+    }
+
+    /// Fails fast (or waits for the user to insert one) when no eligible medium is connected, so nothing is
+    /// downloaded for nothing.
+    private static func waitForMedium(devicePath: String?, mayWait: Bool, services: Services) throws {
+        let canWait = mayWait && isatty(STDIN_FILENO) == 1
+        while true {
+            let found = try devicePath.map { try services.scanner.findEligibleDevice(at: $0) != nil }
+                ?? !services.scanner.scanEligibleDevices().isEmpty
+            if found {
+                return
+            }
+            let message = devicePath.map { "\($0) is not an eligible medium" } ?? "No SD card or USB stick found"
+            guard canWait, services.prompt.waitForMedium(message) else {
+                throw devicePath.map { FlashError.deviceNotFound($0) } ?? FlashError.noEligibleDevices
+            }
+        }
+    }
+
+    private static func prepare(
+        _ location: ImageLocation,
+        progress: PreparationProgress,
+        preparer: ImagePreparer
+    ) async throws -> PreparedImage {
+        try await preparer.prepare(
+            source: location.source,
+            expectedImageSHA256: location.remote?.imageSHA256
         ) { update in
             progress.update(update)
         }
+    }
+
+    private static func reportPreparation(_ prepared: PreparedImage, progress: PreparationProgress) {
         progress.finish()
         if prepared.checksumVerified {
             print("Checksum verified (SHA-256 from .sha256)")
@@ -360,7 +443,6 @@ struct SwiftFlashCLI {
                 print("Server not reachable, using download from Trash (downloaded \(downloadedAt))")
             }
         }
-        return prepared
     }
 
     /// Turns `source:family` into the URL of the newest build, or lets the user browse for `source:`.
@@ -454,14 +536,39 @@ struct SwiftFlashCLI {
     }
 
     /// Shows one progress bar per preparation step (download, unpack) with the bytes downloaded or unpacked so far.
+    /// Download / unpack progress. While muted (prompts are shown), updates are only remembered and the
+    /// latest one is drawn on `unmute()`.
     private final class PreparationProgress: @unchecked Sendable {
         private let lock = NSLock()
         private var step: ImagePreparationStep?
         private var renderer: ConsoleProgressRenderer?
+        private var muted: Bool
+        private var latest: ImagePreparationProgress?
+        private var finished = false
+
+        init(muted: Bool) {
+            self.muted = muted
+        }
+
+        func unmute() {
+            lock.lock()
+            defer { lock.unlock() }
+            muted = false
+            if let latest, !finished {
+                renderLocked(latest)
+            }
+        }
 
         func update(_ update: ImagePreparationProgress) {
             lock.lock()
             defer { lock.unlock() }
+            latest = update
+            if !muted && !finished {
+                renderLocked(update)
+            }
+        }
+
+        private func renderLocked(_ update: ImagePreparationProgress) {
             if update.step != step {
                 finishLocked()
                 step = update.step
@@ -475,6 +582,7 @@ struct SwiftFlashCLI {
             lock.lock()
             defer { lock.unlock() }
             finishLocked()
+            finished = true
         }
 
         private func finishLocked() {

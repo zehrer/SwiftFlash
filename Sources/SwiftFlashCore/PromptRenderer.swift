@@ -143,12 +143,19 @@ public final class PromptRenderer: @unchecked Sendable {
         return devices[index]
     }
 
-    public func confirmFlash(image: ImageDescriptor, device: DiskCandidate, overview: DeviceOverview? = nil) -> Bool {
+    /// Asked while the image may still be downloading, so its size is only shown when already known.
+    public func confirmFlash(
+        imageLabel: String,
+        imageSize: Int64? = nil,
+        device: DiskCandidate,
+        overview: DeviceOverview? = nil
+    ) -> Bool {
         print("About to erase \(overview?.title ?? device.displayName) (\(device.devicePath), \(device.formattedSize))")
         if let currentContent = overview?.currentContent {
             print("Replaces: \(currentContent)")
         }
-        print("Image: \(image.sourcePath) (\(ByteCountFormatter.string(fromByteCount: image.size, countStyle: .file)))")
+        let size = imageSize.map { " (\(ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)))" } ?? ""
+        print("Image: \(imageLabel)\(size)")
         print("Continue? [y/N]")
         let answer = readLine(strippingNewline: true)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return answer == "y" || answer == "yes"
@@ -158,6 +165,12 @@ public final class PromptRenderer: @unchecked Sendable {
         for line in overview?.details ?? [] {
             print("\(indent)\(line)")
         }
+    }
+
+    /// Waits until the user inserted a medium; false when stdin is closed.
+    public func waitForMedium(_ message: String) -> Bool {
+        print("\(message). Insert an SD card or USB stick and press Enter (Ctrl-C to cancel).")
+        return readLine(strippingNewline: true) != nil
     }
 
     public func confirmVerifyAfterFlash() -> Bool {
