@@ -57,7 +57,7 @@ Known gaps:
 
 ## Release 0.3.0
 
-status: ready to tag
+status: released
 
 Included requirements:
 - `swiftflash id [/dev/diskX]` (also `media id`): shows what is on a medium without downloading or writing,
@@ -71,7 +71,9 @@ Known gaps:
 - `.gz` images are not supported yet (added after 0.3.0)
 - release builds are arm64 only
 
-## Unreleased
+## Release 0.4.0
+
+status: ready to tag
 
 Included requirements:
 - no verify question after flashing by default: `-v` / `--verify` verifies and `--no-verify` skips, both without asking
@@ -81,6 +83,13 @@ Included requirements:
 - `.gz` and `.zip` images (zip with one image, Zip64 for images over 4 GB), checked against their CRC-32
 - the medium is checked before downloading (asks to insert one); the image is prepared in the background while the
   device is chosen and the erase is confirmed, and a declined flash stops the download
+- project and repository renamed to SwiftFlash (`zehrer/SwiftFlash`)
+
+Known gaps:
+- real hardware validation is still limited
+- `.bz2` / `.zst` images and multi-member `.gz` files are not supported
+- first-boot settings of the Raspberry Pi Imager (Wi-Fi, SSH, user) are not supported
+- release builds are arm64 only
 
 ## Later Releases
 Planned requirements:
