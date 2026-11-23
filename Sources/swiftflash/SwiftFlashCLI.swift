@@ -45,40 +45,71 @@ struct SwiftFlashCLI {
                     throw FlashError.requiresRoot
                 }
 
-                // Check for a medium before downloading anything, then prepare the image (download, unpack)
-                // in the background while the device is chosen and the erase is confirmed.
+                // The image is prepared (downloaded, unpacked) right away, also when no medium is connected yet:
+                // the user wants to flash. Without a medium, SwiftFlash says so, prepares the image, then waits for
+                // one. Ctrl-C stops; a complete download is always kept in the Trash for next time.
                 let location = try await selectImage(path: imagePath, modelFlag: modelFlag, services: services)
-                try waitForMedium(devicePath: devicePath, mayWait: !skipConfirmation, services: services)
-                let progress = PreparationProgress(muted: true)
-                if location.needsPreparation {
+                let mediumPresent = try isMediumPresent(devicePath: devicePath, services: services)
+                if !mediumPresent {
+                    print(noMediumMessage(devicePath) + ". Insert one now; the image is prepared meanwhile.")
+                } else if location.needsPreparation {
                     print("Preparing the image in the background…")
                 }
+                let interrupt = InterruptMonitor()
+                let progress = PreparationProgress(muted: mediumPresent)
+                let stopAfterDownload = StopFlag()
                 let preparer = services.imagePreparer
                 let preparation = Task {
-                    try await prepare(location, progress: progress, preparer: preparer)
+                    try await prepare(location, progress: progress, preparer: preparer, stopAfterDownload: stopAfterDownload)
                 }
+                interrupt.activate { preparation.cancel() }
+
+                var ready: PreparedImage?
                 let device: DiskCandidate
                 do {
+                    if !mediumPresent {
+                        ready = try await preparation.value
+                        reportPreparation(ready!, progress: progress)
+                        try await waitForMedium(devicePath: devicePath, interrupt: interrupt, services: services)
+                    }
+                    // Ctrl-C works normally at the prompts.
+                    interrupt.suspend()
                     device = try resolveDevice(path: devicePath, services: services)
                     if !skipConfirmation && !services.prompt.confirmFlash(
                         imageLabel: location.label,
-                        imageSize: location.knownSize,
+                        imageSize: ready?.image.size ?? location.knownSize,
                         device: device,
                         overview: overview(of: device, services: services)
                     ) {
                         throw FlashError.cancelled
                     }
+                    interrupt.activate { preparation.cancel() }
+                    if ready == nil {
+                        progress.unmute()
+                        ready = try await preparation.value
+                        reportPreparation(ready!, progress: progress)
+                    }
                 } catch {
-                    preparation.cancel()
-                    if let prepared = try? await preparation.value {
-                        cleanup(prepared, services: services)
+                    if let ready {
+                        cleanup(ready, services: services)
+                    } else {
+                        await keepDownload(
+                            of: preparation,
+                            progress: progress,
+                            stopAfterDownload: stopAfterDownload,
+                            interrupt: interrupt,
+                            services: services
+                        )
+                    }
+                    interrupt.stop()
+                    if let kept = error as? DownloadKeptError, kept.wasCancelled {
+                        throw FlashError.cancelled
                     }
                     throw error
                 }
-                progress.unmute()
-                let prepared = try await preparation.value
+                interrupt.stop()
+                let prepared = ready!
                 defer { cleanup(prepared, services: services) }
-                reportPreparation(prepared, progress: progress)
                 let image = prepared.image
 
                 print("Flashing \(image.name) to \(device.displayName) (\(device.devicePath))")
@@ -130,7 +161,9 @@ struct SwiftFlashCLI {
                     throw FlashError.requiresRoot
                 }
 
-                try waitForMedium(devicePath: devicePath, mayWait: true, services: services)
+                guard try isMediumPresent(devicePath: devicePath, services: services) else {
+                    throw devicePath.map { FlashError.deviceNotFound($0) } ?? FlashError.noEligibleDevices
+                }
                 let location = try await selectImage(path: imagePath, modelFlag: nil, services: services)
                 let progress = PreparationProgress(muted: false)
                 let prepared = try await prepare(location, progress: progress, preparer: services.imagePreparer)
@@ -397,31 +430,71 @@ struct SwiftFlashCLI {
         return ImageLocation(source: resolvedPath, remote: remote)
     }
 
-    /// Fails fast (or waits for the user to insert one) when no eligible medium is connected, so nothing is
-    /// downloaded for nothing.
-    private static func waitForMedium(devicePath: String?, mayWait: Bool, services: Services) throws {
-        let canWait = mayWait && isatty(STDIN_FILENO) == 1
+    private static func isMediumPresent(devicePath: String?, services: Services) throws -> Bool {
+        try devicePath.map { try services.scanner.findEligibleDevice(at: $0) != nil }
+            ?? !services.scanner.scanEligibleDevices().isEmpty
+    }
+
+    private static func noMediumMessage(_ devicePath: String?) -> String {
+        devicePath.map { "\($0) is not connected or not an eligible medium" } ?? "No SD card or USB stick found"
+    }
+
+    /// Polls until a medium is connected; Ctrl-C cancels.
+    private static func waitForMedium(devicePath: String?, interrupt: InterruptMonitor, services: Services) async throws {
+        guard try !isMediumPresent(devicePath: devicePath, services: services) else {
+            return
+        }
+        print("Image ready. \(noMediumMessage(devicePath)); waiting for one… (Ctrl-C to cancel)")
         while true {
-            let found = try devicePath.map { try services.scanner.findEligibleDevice(at: $0) != nil }
-                ?? !services.scanner.scanEligibleDevices().isEmpty
-            if found {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            if interrupt.wasTriggered {
+                throw FlashError.cancelled
+            }
+            if try isMediumPresent(devicePath: devicePath, services: services) {
                 return
             }
-            let message = devicePath.map { "\($0) is not an eligible medium" } ?? "No SD card or USB stick found"
-            guard canWait, services.prompt.waitForMedium(message) else {
-                throw devicePath.map { FlashError.deviceNotFound($0) } ?? FlashError.noEligibleDevices
-            }
+        }
+    }
+
+    /// The flash was cancelled before the image was ready: a running download is finished and kept in the
+    /// Trash for next time (Ctrl-C stops it), but nothing is unpacked.
+    private static func keepDownload(
+        of preparation: Task<PreparedImage, Error>,
+        progress: PreparationProgress,
+        stopAfterDownload: StopFlag,
+        interrupt: InterruptMonitor,
+        services: Services
+    ) async {
+        stopAfterDownload.set()
+        if progress.isDownloading && !interrupt.wasTriggered {
+            print("Not flashing. Finishing the download so the image is ready next time (Ctrl-C to stop)…")
+            interrupt.activate { preparation.cancel() }
+            progress.unmute()
+        } else {
+            preparation.cancel()
+        }
+        do {
+            let prepared = try await preparation.value
+            progress.finish()
+            cleanup(prepared, services: services)
+        } catch let kept as DownloadKeptError {
+            progress.finish()
+            print("Download kept in the Trash for reuse: \(kept.trashURL.path)")
+        } catch {
+            progress.finish()
         }
     }
 
     private static func prepare(
         _ location: ImageLocation,
         progress: PreparationProgress,
-        preparer: ImagePreparer
+        preparer: ImagePreparer,
+        stopAfterDownload: StopFlag = StopFlag()
     ) async throws -> PreparedImage {
         try await preparer.prepare(
             source: location.source,
-            expectedImageSHA256: location.remote?.imageSHA256
+            expectedImageSHA256: location.remote?.imageSHA256,
+            continueAfterDownload: { !stopAfterDownload.isSet }
         ) { update in
             progress.update(update)
         }
@@ -536,6 +609,69 @@ struct SwiftFlashCLI {
     }
 
     /// Shows one progress bar per preparation step (download, unpack) with the bytes downloaded or unpacked so far.
+    /// A thread-safe one-way switch.
+    private final class StopFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+
+        var isSet: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+
+        func set() {
+            lock.lock()
+            value = true
+            lock.unlock()
+        }
+    }
+
+    /// Turns Ctrl-C into a cancellation while SwiftFlash downloads or waits, instead of killing the process,
+    /// so a complete download can still be kept. Suspended at prompts, where Ctrl-C quits as usual.
+    private final class InterruptMonitor: @unchecked Sendable {
+        private let lock = NSLock()
+        private var source: DispatchSourceSignal?
+        private var triggered = false
+
+        var wasTriggered: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return triggered
+        }
+
+        func activate(onInterrupt: @escaping @Sendable () -> Void) {
+            suspend()
+            signal(SIGINT, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+            source.setEventHandler { [weak self] in
+                guard let self else { return }
+                self.lock.lock()
+                self.triggered = true
+                self.lock.unlock()
+                print("")
+                onInterrupt()
+            }
+            source.resume()
+            lock.lock()
+            self.source = source
+            lock.unlock()
+        }
+
+        func suspend() {
+            lock.lock()
+            let source = self.source
+            self.source = nil
+            lock.unlock()
+            source?.cancel()
+            signal(SIGINT, SIG_DFL)
+        }
+
+        func stop() {
+            suspend()
+        }
+    }
+
     /// Download / unpack progress. While muted (prompts are shown), updates are only remembered and the
     /// latest one is drawn on `unmute()`.
     private final class PreparationProgress: @unchecked Sendable {
@@ -548,6 +684,13 @@ struct SwiftFlashCLI {
 
         init(muted: Bool) {
             self.muted = muted
+        }
+
+        var isDownloading: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !finished, let latest else { return false }
+            return latest.step == .download && latest.fraction < 1
         }
 
         func unmute() {

@@ -43,6 +43,16 @@ public enum ImageCleanupResult: Equatable, Sendable {
     case trashFailed(String)
 }
 
+/// Preparation stopped (cancelled, or unpacking failed) after the download had completed. The download was moved
+/// to the Trash and is reused next time.
+public struct DownloadKeptError: LocalizedError, Sendable {
+    public var trashURL: URL
+    public var wasCancelled: Bool
+    public var reason: String
+
+    public var errorDescription: String? { reason }
+}
+
 /// A flashable image plus the temporary files that were created to get it.
 public struct PreparedImage: Equatable, Sendable {
     public var image: ImageDescriptor
@@ -103,9 +113,12 @@ public final class ImagePreparer: Sendable {
 
     /// `expectedImageSHA256` is the SHA-256 of the unpacked image (e.g. from the Raspberry Pi Imager list);
     /// it is computed while unpacking and the preparation fails on a mismatch.
+    /// `continueAfterDownload` is asked once the download is complete; returning false stops before unpacking
+    /// and keeps the download in the Trash (`DownloadKeptError`).
     public func prepare(
         source: String,
         expectedImageSHA256: String? = nil,
+        continueAfterDownload: @escaping @Sendable () -> Bool = { true },
         progress: @escaping @Sendable (ImagePreparationProgress) -> Void
     ) async throws -> PreparedImage {
         var temporaryDirectory: URL?
@@ -181,6 +194,10 @@ public final class ImagePreparer: Sendable {
                 sourceLocation = localURL.path
             }
 
+            if keptDownload != nil && (Task.isCancelled || !continueAfterDownload()) {
+                throw FlashError.cancelled
+            }
+
             if ImageSupport.isCompressed(localURL) {
                 let directory = try temporaryDirectory ?? Self.makeTemporaryDirectory()
                 temporaryDirectory = directory
@@ -219,8 +236,17 @@ public final class ImagePreparer: Sendable {
                 imageChecksumVerified: imageChecksumVerified
             )
         } catch {
+            // A complete download is kept for next time, whatever went wrong afterwards.
+            let trashed = keptDownload.flatMap { try? keepInTrash($0) }
             if let temporaryDirectory {
                 try? FileManager.default.removeItem(at: temporaryDirectory)
+            }
+            if let trashed {
+                throw DownloadKeptError(
+                    trashURL: trashed,
+                    wasCancelled: (error as? FlashError) == .cancelled,
+                    reason: error.localizedDescription
+                )
             }
             throw error
         }
@@ -234,26 +260,34 @@ public final class ImagePreparer: Sendable {
         }
         defer { prepared.cleanup() }
 
-        guard let kept = prepared.keptDownload, let trashStore else {
+        guard let kept = prepared.keptDownload, trashStore != nil else {
             return .removedTemporaryFiles
         }
         do {
-            let size = (try FileManager.default.attributesOfItem(atPath: kept.file.path)[.size] as? NSNumber)?.int64Value ?? 0
-            let trashed = try trash.moveToTrash(kept.file)
-            try trashStore.record(
-                TrashedDownload(
-                    sourceURL: kept.sourceURL,
-                    trashPath: trashed.path,
-                    size: size,
-                    remote: kept.remote,
-                    downloadedAt: Date(),
-                    sha256: kept.sha256
-                )
-            )
-            return .movedDownloadToTrash(trashed)
+            return .movedDownloadToTrash(try keepInTrash(kept))
         } catch {
             return .trashFailed(error.localizedDescription)
         }
+    }
+
+    /// Moves a complete download to the Trash and remembers it for reuse.
+    private func keepInTrash(_ kept: KeptDownload) throws -> URL {
+        guard let trashStore else {
+            throw FlashError.ioFailed("Downloads are not kept")
+        }
+        let size = (try FileManager.default.attributesOfItem(atPath: kept.file.path)[.size] as? NSNumber)?.int64Value ?? 0
+        let trashed = try trash.moveToTrash(kept.file)
+        try trashStore.record(
+            TrashedDownload(
+                sourceURL: kept.sourceURL,
+                trashPath: trashed.path,
+                size: size,
+                remote: kept.remote,
+                downloadedAt: Date(),
+                sha256: kept.sha256
+            )
+        )
+        return trashed
     }
 
     /// The earlier download in the Trash, if it is still there and the server still serves the same file.

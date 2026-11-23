@@ -91,6 +91,14 @@ Known gaps:
 - first-boot settings of the Raspberry Pi Imager (Wi-Fi, SSH, user) are not supported
 - release builds are arm64 only
 
+## Unreleased
+
+Included requirements:
+- the image is downloaded right away, also without a medium; SwiftFlash says a medium is missing, prepares the image
+  and then waits for one (Ctrl-C cancels)
+- a complete download is kept in the Trash when flashing is cancelled or unpacking fails; answering "no" during the
+  download finishes it for next time
+
 ## Later Releases
 Planned requirements:
 - Homebrew tap `zehrer/homebrew-tap` with automated formula updates

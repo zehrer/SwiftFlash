@@ -123,6 +123,58 @@ struct DownloadTrashTests {
         #expect(FileManager.default.fileExists(atPath: trashed.path))
     }
 
+    /// A download that completed before the flash was cancelled is kept and reused (local HTTP server).
+    @Test
+    func completedDownloadIsKeptWhenStoppedBeforeUnpacking() async throws {
+        let directory = try ImagePreparer.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let served = directory.appendingPathComponent("www", isDirectory: true)
+        let fakeTrash = directory.appendingPathComponent("Trash", isDirectory: true)
+        try FileManager.default.createDirectory(at: served, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: fakeTrash, withIntermediateDirectories: true)
+        let image = served.appendingPathComponent("os.img")
+        try Data(count: 2 * 1024 * 1024).write(to: image)
+        let gzip = Process()
+        gzip.executableURL = URL(fileURLWithPath: "/usr/bin/gzip")
+        gzip.arguments = [image.path]
+        try gzip.run()
+        gzip.waitUntilExit()
+
+        let port = Int.random(in: 20_000...40_000)
+        let server = Process()
+        server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        server.arguments = ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", served.path]
+        server.standardOutput = FileHandle.nullDevice
+        server.standardError = FileHandle.nullDevice
+        try server.run()
+        defer { server.terminate() }
+        let source = "http://127.0.0.1:\(port)/os.img.gz"
+        for _ in 0..<50 where await RemoteFileInfo.fetch(from: URL(string: source)!) == nil {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        let store = TrashedDownloadStore(configStore: try AppConfigStore(configURL: directory.appendingPathComponent("config.json")))
+        let preparer = ImagePreparer(trashStore: store, trash: DownloadTrash { url in
+            let destination = UserTrash.uniqueDestination(for: url.lastPathComponent, in: fakeTrash)
+            try FileManager.default.moveItem(at: url, to: destination)
+            return destination
+        })
+
+        do {
+            _ = try await preparer.prepare(source: source, continueAfterDownload: { false }) { _ in }
+            Issue.record("Preparation should have stopped after the download")
+        } catch let kept as DownloadKeptError {
+            #expect(kept.wasCancelled)
+            #expect(FileManager.default.fileExists(atPath: kept.trashURL.path))
+            #expect(store.entry(for: source)?.trashPath == kept.trashURL.path)
+        }
+
+        let second = try await preparer.prepare(source: source) { _ in }
+        defer { second.cleanup() }
+        #expect(second.trashReuse?.verifiedWithServer == true)
+        #expect(second.image.size == 2 * 1024 * 1024)
+    }
+
     private func trashedDownload(
         trashPath: String = "/trash/a.img.xz",
         remote: RemoteFileInfo = RemoteFileInfo(size: 100, lastModified: "Mon")
